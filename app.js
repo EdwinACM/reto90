@@ -9,10 +9,10 @@ const KEY = "reto90.v1";
 const todayISO = (d = new Date()) => { const z = new Date(d.getTime() - d.getTimezoneOffset() * 6e4); return z.toISOString().slice(0, 10); };
 const addDays = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return todayISO(d); };
 const diffDays = (a, b) => Math.round((new Date(a + "T12:00:00") - new Date(b + "T12:00:00")) / 864e5);
-const defaults = () => ({ accent: "naranja", profile: null, cardio: {}, intro: false, start: null, weekend: "sab", mode: "gym", weights: {}, waists: {}, checks: {}, hist: {}, picks: {}, eaten: {}, reviews: {} });
+const defaults = () => ({ swaps: {}, accent: "naranja", profile: null, cardio: {}, intro: false, start: null, weekend: "sab", mode: "gym", weights: {}, waists: {}, checks: {}, hist: {}, picks: {}, eaten: {}, reviews: {} });
 let S;
 try { S = Object.assign(defaults(), JSON.parse(localStorage.getItem(KEY) || "{}")); } catch { S = defaults(); }
-Object.values(D.ARCH).forEach(s => ["gym", "home"].forEach(m => s[m].forEach((b, i) => { b.key = s.id + "-" + m + "-" + i; b.sid = s.id; b.idx = i; })));
+Object.values(D.ARCH).forEach(s => ["gym", "db", "home"].forEach(m => s[m].forEach((b, i) => { b.key = s.id + "-" + m + "-" + i; b.sid = s.id; b.idx = i; })));
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
 
 /* ───────── Utilidades ───────── */
@@ -27,7 +27,8 @@ const vibrate = p => { try { navigator.vibrate && navigator.vibrate(p); } catch 
 const fmtRest = s => s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")} min` : `${s} s`;
 const nums = r => (String(r).match(/\d+/g) || []).map(Number);
 const topReps = r => { const n = nums(r); return n.length ? n[n.length - 1] : 10; };
-const lowReps = r => { const n = nums(r); return n.length ? n[0] : 10; };
+const lowReps = r => /fallo|máximo/.test(r) ? null : (nums(r)[0] ?? 10);
+const repsLabel = r => /[a-záéíóú]/i.test(String(r)) ? String(r) : `${r} reps`;
 
 const I = {
   chev: `<svg class="chev" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l6 6-6 6"/></svg>`,
@@ -52,21 +53,31 @@ let _plan = { k: "", v: null };
 function adaptSession(a, wd, goal, lv, days, sex) {
   const s = JSON.parse(JSON.stringify(a)); s.wd = wd; s.day = WD_NAME[wd];
   // Selección por sexo: más énfasis de glúteo en mujeres; sin abductor (poco valor) en hombres
-  ["gym", "home"].forEach(m => { s[m].forEach(b => {
+  ["gym", "db", "home"].forEach(m => { s[m].forEach(b => {
     if (sex === "f" && b.items.some(it => it.k === "hip_thrust" || it.k === "glute_br")) b.rounds = Math.min(5, b.rounds + 1);
     if (sex !== "f" && b.items.some(it => it.k === "abductor")) { b.items = b.items.filter(it => it.k !== "abductor"); b.t = b.items.length > 1 ? b.t : "uni"; b.rounds = Math.min(5, b.rounds + 1); }
   }); });
-  ["gym", "home"].forEach(m => s[m].forEach((b, i) => {
+  ["gym", "db", "home"].forEach(m => s[m].forEach((b, i) => {
     if (b.t === "cardio") { b.min = Math.max(10, Math.round(b.min * (goal === "muscle" ? 0.5 : 1) / 5) * 5) + (goal === "fat" && days <= 4 ? 10 : 0); return; }
     const abs = b.items.every(it => ABS.has(it.k));
     if (goal === "muscle" && i > 0 && !abs && b.rounds === 3) b.rounds += 1;
     if (lv === "nuevo" && i > 0 && b.rounds >= 3 && !abs) b.rounds -= 1;
     if (lv === "alto" && i === 0) b.rounds = Math.min(5, b.rounds + 1);
   }));
+  s.db = applyEquip(s.db, "db"); s.home = applyEquip(s.home, "home");
   return s;
 }
+const equip = () => ({ bench: true, bar: false, dbMax: 20, ...(S.profile.equip || {}) });
+function resolveItem(k) { const a = D.ALT_DEF[k] || { reps: "10–12", w: null, note: "" }; return { k, reps: a.reps, w: a.w ? { ...a.w } : null, note: a.note || "" }; }
+/* Sin banca: sustituciones lógicas; con barra: el tirón vertical real reemplaza a los sustitutos débiles */
+function applyEquip(blocks, mode) {
+  const eq = equip(), has = k => blocks.some(b => b.items.some(i => i.k === k));
+  if (mode === "db" && !eq.bench) blocks.forEach(b => { b.items = b.items.map(it => { const list = D.NOBENCH[it.k]; if (!list) return it; const c = list.find(x => !has(x)); return c ? resolveItem(c) : null; }).filter(Boolean); });
+  if (eq.bar) blocks.forEach(b => { b.items = b.items.map(it => { const t = D.BARSWAP[it.k]; return t && !has(t) ? resolveItem(t) : it; }); });
+  return blocks.filter(b => b.t === "cardio" || b.items.length).map(b => (b.t !== "cardio" && b.items.length === 1 && b.t !== "uni") ? { ...b, t: "uni" } : b);
+}
 function SESSIONS() {
-  const p = S.profile, k = [p.goal, p.days, p.level, S.weekend, p.sex].join("|");
+  const p = S.profile, k = [p.goal, p.days, p.level, S.weekend, p.sex, JSON.stringify(p.equip || {})].join("|");
   if (_plan.k === k) return _plan.v;
   const d = SPLITS[p.days] ? p.days : 6, wds = d === 3 ? [1, 3, 5] : d === 4 ? [1, 2, 4, 5] : d === 5 ? [1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, S.weekend === "sab" ? 6 : 0];
   _plan = { k, v: SPLITS[d].map((id, i) => adaptSession(D.ARCH[id], wds[i], p.goal || "recomp", p.level || "medio", d, p.sex)) };
@@ -74,7 +85,22 @@ function SESSIONS() {
 }
 const sessMin = s => Math.round((8 + blocksOf(s).reduce((a, b) => a + (b.t === "cardio" ? b.min : b.rounds * (b.items.length * 0.75 + b.rest / 60)), 0)) / 5) * 5;
 const sessionFor = (iso = todayISO()) => { const wd = new Date(iso + "T12:00:00").getDay(); return SESSIONS().find(s => s.wd === wd) || null; };
-const blocksOf = s => S.mode === "home" ? s.home : s.gym;
+const modeBlocks = s => S.mode === "home" ? s.home : S.mode === "db" ? s.db : s.gym;
+function blocksOf(s) {
+  const base = modeBlocks(s), sw = S.swaps || {}, pre = `${s.id}|${S.mode}|`;
+  if (!Object.keys(sw).some(k => k.startsWith(pre))) return base;
+  return base.map((b, bi) => b.items.some((_, ii) => sw[pre + bi + "|" + ii]) ? { ...b, items: b.items.map((it, ii) => sw[pre + bi + "|" + ii] ? resolveItem(sw[pre + bi + "|" + ii]) : it) } : b);
+}
+/* Alternativas: misma familia (mismo músculo y patrón), disponibles en tu modalidad y con tu equipo */
+function altsFor(s, bi, ii) {
+  const bl = blocksOf(s), cur = bl[bi]?.items[ii]?.k; if (!cur) return [];
+  const present = new Set(bl.flatMap(b => b.items.map(i => i.k))), mch = S.mode === "gym" ? "g" : S.mode === "db" ? "d" : "h", eq = equip(), out = [];
+  Object.values(D.FAMILIES).filter(f => f.items.some(i => i.k === cur)).forEach(f => f.items.forEach(i => {
+    const ok = !i.n || S.mode === "gym" || (i.n === "bench" ? eq.bench : eq.bar);
+    if (i.k !== cur && !present.has(i.k) && i.m.includes(mch) && ok && !out.some(o => o.k === i.k)) out.push({ k: i.k, fam: f.name });
+  }));
+  return out;
+}
 const totalRounds = s => blocksOf(s).reduce((a, b) => a + b.rounds, 0);
 const weekDates = (iso = todayISO()) => { const wd = (new Date(iso + "T12:00:00").getDay() + 6) % 7; return Array.from({ length: 7 }, (_, i) => addDays(iso, i - wd)); };
 const checksOf = iso => (S.checks[iso] = S.checks[iso] || {});
@@ -136,16 +162,17 @@ function optView(o) {
   return { name: o.name, tip: o.tip, m, items: items.map(([k, q]) => { const f = D.FOODS[k]; return f.unit === "pza" ? `${q} ${f.name}` : `${q} g de ${f.name}`; }) };
 }
 /* Pesos sugeridos: referencia (≈ 75 kg, hombre, nivel intermedio) escalada por peso, sexo y nivel */
-const LOWER = new Set(["smith_sq", "leg_press", "split_db", "leg_ext", "hack", "rdl", "leg_curl", "hip_thrust", "abductor", "calf_st", "calf_se"]);
+const LOWER = new Set(["smith_sq", "leg_press", "split_db", "leg_ext", "hack", "rdl", "leg_curl", "hip_thrust", "abductor", "calf_st", "calf_se", "goblet", "db_squat", "db_lunge", "db_rear_lunge", "step_up", "db_rdl", "glute_br", "calf_home", "calf_one"]);
+const dbCap = u => (S.mode === "db" && (u === "c/mano" || u === "total")) ? equip().dbMax : Infinity;
 function scaleW(item) {
   const p = S.profile, f = (p.sex === "f" ? (LOWER.has(item.k) ? 0.8 : 0.65) : 1) * (currentKg() / 75) * C.levels[p.level].k, u = item.w.u, x = item.w.n * f;
-  if (u === "c/mano") return Math.max(2, x < 12 ? Math.round(x) : Math.round(x / 2) * 2);
+  if (u === "c/mano") return Math.min(dbCap(u), Math.max(2, x < 12 ? Math.round(x) : Math.round(x / 2) * 2));
   if (u === "stack") return Math.max(5, Math.round(x / 2.5) * 2.5);
-  return Math.max(10, LOWER.has(item.k) ? Math.round(x / 5) * 5 : Math.round(x / 2.5) * 2.5);
+  return Math.min(dbCap(u), Math.max(S.mode === "db" ? 4 : 10, LOWER.has(item.k) ? Math.round(x / 5) * 5 : Math.round(x / 2.5) * 2.5));
 }
 
 /* Peso sugerido: estimado la primera vez; luego según lo registrado */
-const incFor = (k, u) => u === "c/mano" ? 2 : u === "stack" ? 5 : (["smith_sq", "leg_press", "hack", "rdl", "hip_thrust"].includes(k) ? 10 : 2.5);
+const incFor = (k, u) => u === "c/mano" ? 2 : u === "stack" ? 5 : (["smith_sq", "leg_press", "hack", "rdl", "hip_thrust"].includes(k) ? 10 : S.mode === "db" ? 2 : 2.5);
 function suggest(item) {
   if (!item.w || S.mode === "home") return { text: S.mode === "home" ? "Sin peso (mochila opcional)" : "Peso corporal", n: null, src: "" };
   const iso = todayISO();
@@ -154,12 +181,14 @@ function suggest(item) {
   if (!prev) { const n0 = scaleW(item); return { n: n0, u, text: `${fmt(n0, n0 % 1 ? 1 : 0)} kg ${u}`, src: "Estimado con tu peso y tu nivel: ajusta a 1–2 repeticiones en reserva." }; }
   const done = prev.sets.filter(s => s.done && s.w), top = Math.max(...done.map(s => s.w));
   const hit = done.length && done.every(s => (s.r || 0) >= topReps(item.reps));
-  const n = hit ? top + incFor(item.k, u) : top;
-  return { n, u, text: `${fmt(n, n % 1 ? 1 : 0)} kg ${u}`, src: hit ? `Completaste el rango alto con ${top} kg: sube.` : `Tu última vez: ${top} kg. Busca una repetición más.` };
+  const cap = dbCap(u), n = Math.min(cap, hit ? top + incFor(item.k, u) : top), capped = hit && top >= cap;
+  return { n, u, text: `${fmt(n, n % 1 ? 1 : 0)} kg ${u}`, src: capped ? "Ya llegaste al máximo de tus mancuernas: sube repeticiones (hasta 20–25), baja en 3 s o pasa a una pierna o un brazo." : hit ? `Completaste el rango alto con ${top} kg: sube.` : `Tu última vez: ${top} kg. Busca una repetición más.` };
 }
+const MODES = [["gym", "Gimnasio"], ["db", "Mancuernas"], ["home", "Sin equipo"]];
+const modeSeg = () => `<div class="seg" role="group" aria-label="Dónde entrenas">${MODES.map(([k, v]) => `<button data-mode="${k}" aria-pressed="${S.mode === k}">${v}</button>`).join("")}</div>`;
 const typeLabel = t => ({ uni: "Uniserie", bi: "Biserie", tri: "Triserie", cardio: "Cardio" }[t]);
 const cardioMin = b => b.min + (phaseOf(weekNum()).cardioAdd || 0);
-const cardioKinds = () => S.mode === "home" ? C.cardioKinds.home : C.cardioKinds.gym;
+const cardioKinds = () => S.mode === "gym" ? C.cardioKinds.gym : C.cardioKinds.home;
 const cardioKind = () => { const ks = cardioKinds(); return ks.find(k => k.id === S.cardioKind) || ks[0]; };
 const letters = "ABC";
 
@@ -196,7 +225,7 @@ const cta = html => `<div class="cta-bar"><div class="inner">${html}</div></div>
 function renderTabs(tab) {
   tabsEl.innerHTML = `<div class="inner">${TABS.map(([k, l, ic]) => `<a href="#/${k}" ${k === tab ? 'aria-current="page"' : ""}>${ic}<span>${l}</span></a>`).join("")}</div>`;
 }
-const TABOF = { hoy: "hoy", entreno: "entreno", bloque: "entreno", ej: "entreno", comida: "comida", progreso: "progreso", plan: "plan" };
+const TABOF = { hoy: "hoy", entreno: "entreno", bloque: "entreno", ej: "entreno", cambiar: "entreno", comida: "comida", progreso: "progreso", plan: "plan" };
 
 function render(o) {
   const keep = !!(o && o.keep), y0 = scrollY;
@@ -207,9 +236,10 @@ function render(o) {
   switch (r[0]) {
     case "inicio": html = vSetup(); break;
     case "hoy": html = vToday(); break;
-    case "entreno": html = r[1] === "guia" ? vGuide() : r[1] === "abdomen" ? vAbs() : r[1] === "cardio" ? vCardioGuide() : r[1] === "porque" ? vWhy("train") : r[1] ? vSession(r[1]) : vTrain(); hasCta = !!r[1] && !["guia", "abdomen", "cardio", "porque"].includes(r[1]); break;
+    case "entreno": html = r[1] === "guia" ? vGuide() : r[1] === "abdomen" ? vAbs() : r[1] === "cardio" ? vCardioGuide() : r[1] === "limitadas" ? vLimited() : r[1] === "porque" ? vWhy("train") : r[1] ? vSession(r[1]) : vTrain(); hasCta = !!r[1] && !["guia", "abdomen", "cardio", "porque", "limitadas"].includes(r[1]); break;
     case "bloque": html = vBlock(r[1], +r[2]); hasCta = true; break;
     case "ej": html = vExercise(r[1], r[2]); break;
+    case "cambiar": html = vSwap(r[1], +r[2], +r[3]); break;
     case "comida": html = r[1] === "guia" ? vFoodGuide(r[2]) : r[1] === "menu" ? vMenu() : r[1] === "compras" ? vShop() : r[1] === "snacks" ? vSnacks() : r[1] === "reglas" ? vFoodRules() : r[1] === "porque" ? vWhy("diet") : r[1] === "slot" ? vSlot(r[2]) : vFood(); break;
     case "progreso": html = r[1] === "revision" ? vReview() : r[1] === "peso" ? vLogWeight() : r[1] === "fuerza" ? vStrength() : r[1] === "guia" ? vMeasureGuide() : vProgress(); break;
     case "plan": html = r[1] === "semana" ? vWeek(+r[2]) : r[1] === "habitos" ? vHabits() : r[1] === "fuentes" ? vSources() : r[1] === "ajustes" ? vSettings() : r[1] === "reglas" ? vAdjust() : vPlan(); break;
@@ -247,9 +277,9 @@ function readProfile(ids) {
   if (!(age >= 14 && age <= 90)) return "Escribe tu edad (14 a 90)";
   if (!(h >= 120 && h <= 220)) return "Escribe tu estatura en cm";
   if (!(kg >= 30 && kg <= 250)) return "Escribe tu peso en kg";
-  return { sex, age, h, kg, level: g("lv"), goal: g("goal"), pct: +g("pct"), days: +g("days"), diet: g("diet"), adj: S.profile?.adj || 0 };
+  return { sex, age, h, kg, level: g("lv"), goal: g("goal"), pct: +g("pct"), days: +g("days"), diet: g("diet"), adj: S.profile?.adj || 0, equip: S.profile?.equip };
 }
-const ONB = () => ({ step: 0, d: { goal: null, sex: null, age: "", h: "", kg: "", level: null, days: null, mode: "gym", diet: "omni", pct: null, weekend: "sab", date: todayISO() } });
+const ONB = () => ({ step: 0, d: { goal: null, sex: null, age: "", h: "", kg: "", level: null, days: null, mode: "gym", bench: "si", dbMax: 20, bar: "no", diet: "omni", pct: null, weekend: "sab", date: todayISO() } });
 let onb = ONB();
 const ONB_STEPS = 5;
 function radioRows(name, options, cur) {
@@ -262,7 +292,7 @@ function onbValid(step, d) {
   if (step === 2) { if (!d.level) return "Elige tu experiencia"; if (!d.days) return "Elige cuántos días puedes entrenar"; }
   return "";
 }
-function withDraft(fn) { const prev = S.profile, pw = S.weights, pwe = S.weekend, pm = S.mode; const d = onb.d; S.profile = { sex: d.sex, age: +d.age, h: +d.h, kg: parseFloat(d.kg), level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, adj: 0 }; S.weights = {}; S.weekend = d.weekend; S.mode = d.mode; _plan = { k: "", v: null }; try { return fn(); } finally { S.profile = prev; S.weights = pw; S.weekend = pwe; S.mode = pm; _plan = { k: "", v: null }; } }
+function withDraft(fn) { const prev = S.profile, pw = S.weights, pwe = S.weekend, pm = S.mode; const d = onb.d; S.profile = { sex: d.sex, age: +d.age, h: +d.h, kg: parseFloat(d.kg), level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, adj: 0, equip: { bench: d.bench !== "no", bar: d.bar === "si", dbMax: +d.dbMax } }; S.weights = {}; S.weekend = d.weekend; S.mode = d.mode; _plan = { k: "", v: null }; try { return fn(); } finally { S.profile = prev; S.weights = pw; S.weekend = pwe; S.mode = pm; _plan = { k: "", v: null }; } }
 function vSetup() {
   const { step, d } = onb;
   const heads = ["¿Qué quieres lograr?", "Sobre ti", "Tu entrenamiento", "Tu comida y tu ritmo", "Tu plan"];
@@ -276,7 +306,9 @@ function vSetup() {
     <div class="field"><label for="ob-kg">Peso actual (kg)</label><input id="ob-kg" type="number" inputmode="decimal" step="0.1" min="30" max="250" placeholder="Peso" value="${esc(d.kg)}"></div></div>`;
   if (step === 2) body = `<h2 class="sec">Tu experiencia con pesas</h2>${radioRows("level", Object.entries(C.levels).map(([k, v]) => [k, v.name, v.sub]), d.level)}
     <h2 class="sec">Días de pesas por semana</h2>${radioRows("days", C.daysOptions, d.days)}
-    <h2 class="sec">¿Dónde entrenas?</h2>${segRow("mode", [["gym", "Gimnasio"], ["home", "En casa, sin equipo"]], d.mode)}`;
+    <h2 class="sec">¿Dónde entrenas?</h2>${radioRows("mode", [["gym", "Gimnasio", "Máquinas, poleas, barras y mancuernas"], ["db", "En casa con mancuernas", "Tus mancuernas, con o sin banca"], ["home", "En casa, sin equipo", "Solo tu cuerpo, una mesa o silla y una mochila"]], d.mode)}
+    ${d.mode === "db" ? `<h2 class="sec">Tus mancuernas pesan hasta…</h2>${radioRows("dbMax", [[10, "10 kg cada una o menos"], [20, "Hasta 20 kg cada una"], [30, "Hasta 30 kg cada una"], [40, "40 kg o más cada una"]], d.dbMax)}<h2 class="sec">¿Tienes banca?</h2>${segRow("bench", [["si", "Sí"], ["no", "No"]], d.bench)}` : ""}
+    ${d.mode !== "gym" ? `<h2 class="sec">¿Tienes barra de dominadas?</h2>${segRow("bar", [["si", "Sí"], ["no", "No"]], d.bar)}<p class="note">Con barra, el tirón vertical (dominadas) entra en tu plan.</p>` : ""}`;
   if (step === 3) { const g = C.goals[d.goal]; body = `<h2 class="sec">Cómo comes</h2>${radioRows("diet", Object.entries(C.diets), d.diet)}
     <h2 class="sec">Ritmo</h2>${radioRows("pct", g.paces, d.pct ?? g.pace)}
     ${+d.days === 6 ? `<h2 class="sec">Tu día de pesas del fin de semana</h2>${segRow("weekend", [["sab", "Sábado"], ["dom", "Domingo"]], d.weekend)}` : ""}
@@ -288,7 +320,8 @@ function vSetup() {
       <div class="row top"><div class="main"><div class="title">Calorías</div><div class="meta">${num(c.train.kcal)} kcal en día de entreno · ${num(c.rest.kcal)} en descanso</div></div></div>
       <div class="row top"><div class="main"><div class="title">Proteína, carbohidratos y grasas</div><div class="meta">${c.train.p} g · ${c.train.c} g · ${c.train.g} g en día de entreno</div></div></div>
       <div class="row top"><div class="main"><div class="title">Tu semana</div><div class="meta">${ss.map(x => `${x.day} ${x.name}`).join(" · ")}</div></div></div>
-      <div class="row top"><div class="main"><div class="title">Cardio</div><div class="meta">${d.goal === "muscle" ? "Poco: solo para tu salud y recuperación" : "Zona 2 en caminadora o elíptica al final de las pesas"}${d.mode === "home" ? " (en casa: caminata rápida o trote)" : ""}</div></div></div>
+      <div class="row top"><div class="main"><div class="title">Equipo</div><div class="meta">${d.mode === "gym" ? "Gimnasio completo" : d.mode === "db" ? `Mancuernas hasta ${d.dbMax} kg · banca: ${d.bench === "no" ? "no" : "sí"} · barra de dominadas: ${d.bar === "si" ? "sí" : "no"}` : `Sin equipo · barra de dominadas: ${d.bar === "si" ? "sí" : "no"}`}</div></div></div>
+      <div class="row top"><div class="main"><div class="title">Cardio</div><div class="meta">${d.goal === "muscle" ? "Poco: solo para tu salud y recuperación" : d.mode === "gym" ? "Zona 2 en caminadora o elíptica al final de las pesas" : "Zona 2: caminata rápida, trote suave o bici al final de las pesas"}</div></div></div>
       <div class="row top"><div class="main"><div class="title">Ritmo esperado</div><div class="meta">${d.goal === "muscle" ? "Subir" : "Bajar"} ≈ ${c.rate} por semana</div></div></div>
     </div>${c.floorHit ? `<p class="note"><strong>Aviso:</strong> tu meta quedaría por debajo de un mínimo razonable, así que se subió. Con un peso bajo conviene un ritmo suave.</p>` : ""}
     <p class="note">Son estimaciones con rango: cada semana la app te propone ajustes con tus datos. No sustituye a un médico ni a un nutriólogo.</p>`; });
@@ -361,7 +394,7 @@ function trendText(d) {
 function vTrain() {
   const iso = todayISO(), todayId = sessionFor(iso)?.id, doneN = SESSIONS().filter(s => sessionDoneThisWeek(s.id)).length;
   return `${nav("Entreno", { sub: `Esta semana: ${doneN} de ${SESSIONS().length} sesiones.` })}
-  <div class="seg" role="group" aria-label="Lugar de entreno"><button data-mode="gym" aria-pressed="${S.mode === "gym"}">Gimnasio</button><button data-mode="home" aria-pressed="${S.mode === "home"}">En casa</button></div>
+  ${modeSeg()}
   <h2 class="sec">Semana</h2>
   <div class="group">${SESSIONS().map(s => {
     const done = sessionDoneThisWeek(s.id), isT = s.id === todayId;
@@ -373,6 +406,7 @@ function vTrain() {
     <button class="row" data-go="#/entreno/guia"><div class="main"><div class="title">Cómo leer el entrenamiento</div><div class="meta">Uniserie, biserie, triserie y pesos sugeridos</div></div>${I.chev}</button>
     <button class="row" data-go="#/entreno/abdomen"><div class="main"><div class="title">Cómo marcar el abdomen</div><div class="meta">Qué funciona y qué no</div></div>${I.chev}</button>
     <button class="row" data-go="#/entreno/cardio"><div class="main"><div class="title">Guía de cardio</div><div class="meta">Caminadora, elíptica y zona 2</div></div>${I.chev}</button>
+    <button class="row" data-go="#/entreno/limitadas"><div class="main"><div class="title">Progresar con mancuernas limitadas</div><div class="meta">Cuando tu peso máximo ya no es suficiente</div></div>${I.chev}</button>
     <button class="row" data-go="#/entreno/porque"><div class="main"><div class="title">Por qué este plan</div><div class="meta">Series por músculo y la evidencia detrás</div></div>${I.chev}</button>
   </div>
   <div class="group" style="margin-top:14px"><div class="prose"><p><strong>Progresión:</strong> trabaja dentro del rango de repeticiones. Al completar todas las vueltas en el máximo, sube el peso.</p><p><strong>Esfuerzo:</strong> termina cada serie con ${phaseOf(weekNum()).rir} repeticiones en reserva en esta fase.</p><p><strong>Calentamiento (8 min):</strong> 5 min de caminadora o bici, movilidad de hombros y cadera, y 2 series de aproximación del primer ejercicio.</p><p><strong>Cardio:</strong> ${phaseOf(weekNum()).cardio}, en zona 2 (caminadora o elíptica).</p></div></div>`;
@@ -384,17 +418,17 @@ function vSession(id) {
   const s = SESSIONS().find(x => x.id === id); if (!s) return vTrain();
   const iso = todayISO(), bl = blocksOf(s), pr = sessionProgress(s), done = sessionDoneOn(iso, id);
   const first = bl.findIndex(b => blockProgress(b) < b.rounds);
-  const noHist = Object.keys(S.hist).length === 0 && S.mode === "gym";
+  const noHist = Object.keys(S.hist).length === 0 && S.mode !== "home";
   const todays = sessionFor(iso);
   const otherDay = todays && todays.id !== id ? `<p class="note" style="margin:10px 16px 0">Hoy toca ${esc(todays.name)}. Si entrenas esta sesión ahora, queda registrada con la fecha de hoy.</p>` : "";
   const intro = S.intro ? "" : `<h2 class="sec">Antes de empezar</h2><div class="group"><div class="prose"><p><strong>Cada sesión son bloques.</strong> Uniserie: un ejercicio. Biserie: dos ejercicios seguidos (A y B) sin descanso entre ellos. Triserie: tres.</p><p>Una <strong>vuelta</strong> es hacer todos los ejercicios del bloque una vez. Al terminarla, descansas y repites.</p><p>Los pesos son de partida: ajusta a 1–2 repeticiones en reserva.</p></div><div style="padding:0 16px 14px"><button class="btn secondary" data-act="intro">Entendido</button></div></div>`;
   return `${nav(s.name, { back: "Entreno", sub: `${esc(s.focus)} · ${sessMin(s)} min` })}
-  <div class="seg" role="group" aria-label="Lugar de entreno"><button data-mode="gym" aria-pressed="${S.mode === "gym"}">Gimnasio</button><button data-mode="home" aria-pressed="${S.mode === "home"}">En casa</button></div>
+  ${modeSeg()}
   ${otherDay}${intro}<h2 class="sec">${bl.length} bloques · ${pr.done} de ${pr.total} vueltas</h2>
   ${bl.map((b, bi) => {
     const p = blockProgress(b), cd = b.t === "cardio";
     return `<a class="blk" href="#/bloque/${id}/${bi}" aria-label="Bloque ${bi + 1}: ${typeLabel(b.t)}"><div class="blk-head"><span class="chip ${b.t}">${bi + 1} · ${typeLabel(b.t)}</span><span class="info">${cd ? cardioMin(b) + " min · zona 2" : b.rounds + " vueltas · " + fmtRest(b.rest)}</span><span class="prog ${p === b.rounds ? "done" : ""}">${p === b.rounds ? "Hecho" : cd ? "" : p + "/" + b.rounds}</span></div>
-      ${cd ? `<div class="row"><img class="thumb" loading="lazy" decoding="async" alt="" src="gifs/${cardioKind().gif}.gif" width="56" height="56"><div class="main"><div class="title">${esc(S.mode === "home" ? "Caminata rápida o trote suave" : "Caminadora o elíptica")}</div><div class="meta">${esc(b.note || "Ritmo en el que puedes hablar frases cortas")}</div></div></div>` : b.items.map((it, ii) => { const ex = D.EX[it.k], sg = suggest(it); return `<div class="row">${b.items.length > 1 ? `<span class="letter">${letters[ii]}</span>` : ""}<img class="thumb" loading="lazy" decoding="async" alt="" src="gifs/${ex.id}.gif" width="56" height="56"><div class="main"><div class="title">${esc(ex.name)}</div><div class="meta">${esc(it.reps)} reps · ${esc(sg.text)}</div></div></div>`; }).join("")}</a><div class="blk-gap"></div>`;
+      ${cd ? `<div class="row"><img class="thumb" loading="lazy" decoding="async" alt="" src="gifs/${cardioKind().gif}.gif" width="56" height="56"><div class="main"><div class="title">${esc(S.mode !== "gym" ? "Caminata rápida, trote suave o bici" : "Caminadora o elíptica")}</div><div class="meta">${esc(b.note || "Ritmo en el que puedes hablar frases cortas")}</div></div></div>` : b.items.map((it, ii) => { const ex = D.EX[it.k], sg = suggest(it); return `<div class="row">${b.items.length > 1 ? `<span class="letter">${letters[ii]}</span>` : ""}<img class="thumb" loading="lazy" decoding="async" alt="" src="gifs/${ex.id}.gif" width="56" height="56"><div class="main"><div class="title">${esc(ex.name)}</div><div class="meta">${esc(repsLabel(it.reps))} · ${esc(sg.text)}</div></div></div>`; }).join("")}</a><div class="blk-gap"></div>`;
   }).join("")}
   ${noHist ? `<p class="note">Primera vez: los pesos están calculados con tu peso, sexo y nivel, y son conservadores. Ajusta a 1–2 repeticiones en reserva; desde la segunda sesión la app te sugiere según lo que anotes.</p>` : ""}
   ${cta(first >= 0 ? `<button class="btn" data-go="#/bloque/${id}/${first}">${pr.done ? "Continuar" : "Empezar"} · bloque ${first + 1}</button>` : `<button class="btn ${done ? "secondary" : ""}" data-act="finish" data-id="${id}">${done ? "Entrenamiento completado" : "Terminar entrenamiento"}</button>`)}`;
@@ -402,22 +436,22 @@ function vSession(id) {
 
 function warmup(b, bi) {
   const it = b.items[0], sg = it && suggest(it);
-  if (bi !== 0 || S.mode !== "gym" || !sg || !sg.n) return "";
+  if (bi !== 0 || S.mode === "home" || !sg || !sg.n) return "";
   const w = x => { const v = sg.n * x, r = it.w.u === "c/mano" ? Math.round(v) : Math.round(v / 2.5) * 2.5; return fmt(Math.max(r, 2), r % 1 ? 1 : 0); };
-  return `<h2 class="sec">Calentamiento</h2><div class="group"><div class="row top"><div class="main"><div class="title">5 min de caminadora o bici y 3 series de aproximación</div><div class="meta">${w(0.5)} kg × 8 · ${w(0.7)} kg × 5 · ${w(0.85)} kg × 2 (${esc(D.EX[it.k].name)}). Sin llegar al cansancio.</div></div></div></div>`;
+  return `<h2 class="sec">Calentamiento</h2><div class="group"><div class="row top"><div class="main"><div class="title">${S.mode === "gym" ? "5 min de caminadora o bici" : "5 min de movimiento suave (caminata, saltos ligeros o bici)"} y 3 series de aproximación</div><div class="meta">${w(0.5)} kg × 8 · ${w(0.7)} kg × 5 · ${w(0.85)} kg × 2 (${esc(D.EX[it.k].name)}). Sin llegar al cansancio.</div></div></div></div>`;
 }
 function vBlock(id, bi) {
   const s = SESSIONS().find(x => x.id === id), b = s && blocksOf(s)[bi]; if (!b) return vTrain();
   if (b.t === "cardio") return vCardio(s, b, bi);
   const bl = blocksOf(s), next = bi + 1 < bl.length;
-  const strip = `<div class="strip" role="list">${b.items.map((it, ii) => { const ex = D.EX[it.k], sg = suggest(it); return `<a role="listitem" href="#/ej/${it.k}/${id}-${bi}-${ii}" aria-label="Ver técnica de ${esc(ex.name)}"><div class="gif"><img src="gifs/${ex.id}.gif" alt="Demostración de ${esc(ex.name)}" width="320" height="213"></div><div class="cap">${b.items.length > 1 ? letters[ii] + " · " : ""}${esc(ex.name)}<small>${esc(it.reps)} reps · ${esc(sg.text)}</small></div></a>`; }).join("")}</div>`;
+  const strip = `<div class="strip" role="list">${b.items.map((it, ii) => { const ex = D.EX[it.k], sg = suggest(it), swapped = !!(S.swaps || {})[`${id}|${S.mode}|${bi}|${ii}`]; return `<div role="listitem" class="si"><a href="#/ej/${it.k}/${id}-${bi}-${ii}" aria-label="Ver técnica de ${esc(ex.name)}"><div class="gif"><img src="gifs/${ex.id}.gif" alt="Demostración de ${esc(ex.name)}" width="320" height="213"></div><div class="cap">${b.items.length > 1 ? letters[ii] + " · " : ""}${esc(ex.name)}${swapped ? ' <span class="badge">Cambiado</span>' : ""}<small>${esc(repsLabel(it.reps))} · ${esc(sg.text)}</small></div></a><a class="link" href="#/cambiar/${id}/${bi}/${ii}">Cambiar ejercicio</a></div>`; }).join("")}</div>`;
   const rounds = [];
   const active = Array.from({ length: b.rounds }, (_, r) => r).find(r => !b.items.every(it => roundDone(it, r)));
   for (let r = 0; r < b.rounds; r++) {
     const on = b.items.every(it => roundDone(it, r));
     rounds.push(`<div class="round ${on ? "done" : ""} ${r === active ? "active" : ""}" data-round="${r}"><div class="round-head"><b>Vuelta ${r + 1}</b><button class="tick" data-tick="${r}" aria-pressed="${on}" aria-label="Vuelta ${r + 1} terminada">${I.check}</button></div>
       <div class="entry-head"><span></span><span>Ejercicio</span><span>${S.mode === "home" ? "Extra kg" : "Kg"}</span><span>Reps</span></div>
-      ${b.items.map((it, ii) => { const sg = suggest(it), cur = getSets(it.k)[r] || {}; return `<div class="entry"><span class="letter">${b.items.length > 1 ? letters[ii] : (ii + 1)}</span><span class="nm">${esc(D.EX[it.k].name)}<small>${esc(it.reps)}</small></span><input type="number" inputmode="decimal" step="0.5" min="0" data-i="${ii}" data-r="${r}" data-f="w" placeholder="${sg.n ?? (S.mode === "home" ? "—" : "pc")}" value="${cur.w ?? ""}" aria-label="${esc(D.EX[it.k].name)} vuelta ${r + 1}, kilos"><input type="number" inputmode="numeric" min="0" data-i="${ii}" data-r="${r}" data-f="r" placeholder="${lowReps(it.reps)}" value="${cur.r ?? ""}" aria-label="${esc(D.EX[it.k].name)} vuelta ${r + 1}, repeticiones"></div>`; }).join("")}${r === active ? `<div style="padding:8px 16px 4px"><button class="btn" data-tick="${r}" aria-label="Terminar vuelta ${r + 1}">Vuelta ${r + 1} lista</button></div>` : ""}</div>`);
+      ${b.items.map((it, ii) => { const sg = suggest(it), cur = getSets(it.k)[r] || {}; return `<div class="entry"><span class="letter">${b.items.length > 1 ? letters[ii] : (ii + 1)}</span><span class="nm">${esc(D.EX[it.k].name)}<small>${esc(it.reps)}</small></span><input type="number" inputmode="decimal" step="0.5" min="0" data-i="${ii}" data-r="${r}" data-f="w" placeholder="${sg.n ?? (S.mode === "home" ? "—" : "pc")}" value="${cur.w ?? ""}" aria-label="${esc(D.EX[it.k].name)} vuelta ${r + 1}, kilos"><input type="number" inputmode="numeric" min="0" data-i="${ii}" data-r="${r}" data-f="r" placeholder="${lowReps(it.reps) ?? "reps"}" value="${cur.r ?? ""}" aria-label="${esc(D.EX[it.k].name)} vuelta ${r + 1}, repeticiones"></div>`; }).join("")}${r === active ? `<div style="padding:8px 16px 4px"><button class="btn" data-tick="${r}" aria-label="Terminar vuelta ${r + 1}">Vuelta ${r + 1} lista</button></div>` : ""}</div>`);
   }
   const p = blockProgress(b);
   const how = b.t === "uni" ? "Una serie, descansa, repite." : b.t === "bi" ? "Haz A, pasa directo a B y descansa al terminar la vuelta." : "Haz A, B y C seguidos y descansa al terminar la vuelta.";
@@ -454,7 +488,7 @@ function vCardio(s, b, bi) {
 function vWhy(kind) {
   const list = C.why[kind].filter(x => !x.only || x.only.includes(S.profile.goal || "recomp")), used = [];
   const src = id => C.sources.find(x => x.id === id);
-  const vol = {}; SESSIONS().forEach(se => se.gym.forEach(b => b.items.forEach(it => { const g = D.MUSCLE[it.k]; vol[g] = (vol[g] || 0) + b.rounds; })));
+  const vol = {}; SESSIONS().forEach(se => blocksOf(se).forEach(b => b.items.forEach(it => { const g = D.MUSCLE[it.k]; vol[g] = (vol[g] || 0) + b.rounds; })));
   const order = ["pecho", "espalda", "hombro", "hombro posterior", "bíceps", "tríceps", "cuádriceps", "femoral", "glúteo", "pantorrilla", "abdomen"];
   const volTable = kind === "train" ? `<h2 class="sec">Series directas por semana</h2><div class="group">${order.filter(m => vol[m]).map(m => `<div class="row"><div class="main"><div class="title">${esc(m.charAt(0).toUpperCase() + m.slice(1))}</div></div><span class="val" style="color:var(--label);font-weight:600">${vol[m]}</span></div>`).join("")}</div><p class="note">Cuenta solo las series que apuntan a ese músculo. Los press de pecho y hombro también trabajan el tríceps, y los jalones y remos trabajan el bíceps, así que su volumen real es mayor. El rango habitual para hipertrofia es 10–20.</p>` : "";
   return `${nav(kind === "train" ? "Por qué este plan" : "Por qué esta dieta", { back: kind === "train" ? "Entreno" : "Comida", to: kind === "train" ? "#/entreno" : "#/comida" })}
@@ -465,8 +499,17 @@ function vWhy(kind) {
   <div class="group">${used.map(i => src(i)).filter(Boolean).map(x => `${x.u ? `<a class="row top" href="${x.u}" target="_blank" rel="noopener">` : `<div class="row top">`}<div class="main"><div class="title" style="font-size:15px">${esc(x.t)}</div><div class="meta">${esc(x.why)} <span class="pill">${esc(x.v)}</span></div></div>${x.u ? I.chev + "</a>" : "</div>"}`).join("")}</div>
   <p class="note">“Resumen verificado”: leí el resumen del estudio. “Resumen secundario”: la cifra viene de un resumen de terceros; verifícala en el texto original. Las cifras son estimaciones, no recetas individuales.</p>`;
 }
+function vLimited() { return `${nav("Mancuernas limitadas", { back: "Entreno" })}<div class="group"><div class="prose">${C.limitedGuide}</div></div>`; }
 function vCardioGuide() { return `${nav("Guía de cardio", { back: "Entreno" })}<div class="group"><div class="prose">${C.cardioGuide}</div></div>`; }
 
+function vSwap(sid, bi, ii) {
+  const s = SESSIONS().find(x => x.id === sid), b = s && blocksOf(s)[bi], it = b && b.items[ii]; if (!it) return vTrain();
+  const key = `${sid}|${S.mode}|${bi}|${ii}`, cur = D.EX[it.k], alts = altsFor(s, bi, ii), swapped = !!(S.swaps || {})[key];
+  return `${nav("Cambiar ejercicio", { back: `Bloque ${bi + 1}`, to: `#/bloque/${sid}/${bi}`, sub: `Ahora: <strong>${esc(cur.name)}</strong> · ${esc(cur.muscle)}` })}
+  ${alts.length ? `<h2 class="sec">Alternativas con tu equipo</h2><div class="group">${alts.map(a => { const ex = D.EX[a.k]; return `<button class="row" data-swapto="${key}|${a.k}"><img class="thumb" loading="lazy" decoding="async" alt="" src="gifs/${ex.id}.gif" width="56" height="56"><div class="main"><div class="title">${esc(ex.name)}</div><div class="meta">${esc(ex.muscle)} · ${esc(a.fam)}</div></div>${I.chev}</button>`; }).join("")}</div>
+  <p class="note">Solo aparecen ejercicios del mismo músculo y patrón de movimiento, disponibles en tu modalidad y con tu equipo. Las repeticiones y el peso sugerido se ajustan al nuevo ejercicio.</p>` : `<div class="group"><div class="empty">No hay alternativas equivalentes con tu equipo para este ejercicio.</div></div>`}
+  ${swapped ? `<h2 class="sec">Original</h2><div class="group"><button class="row" data-swapto="${key}|"><div class="main"><div class="title">Volver al ejercicio original</div></div></button></div>` : ""}`;
+}
 function vExercise(k, ctx) {
   const ex = D.EX[k]; if (!ex) return vTrain();
   const [sid, bi, ii] = (ctx || "").split("-"), s = SESSIONS().find(x => x.id === sid);
@@ -474,7 +517,7 @@ function vExercise(k, ctx) {
   const hist = [...(S.hist[k] || [])].reverse().slice(0, 5);
   return `${nav(ex.name, { back: s ? `Bloque ${+bi + 1}` : "Entreno", sub: esc(ex.muscle) })}
   <div class="gif-wrap"><img src="gifs/${ex.id}.gif" alt="Demostración de ${esc(ex.name)}: posición inicial y final" width="320" height="213"></div>
-  ${it ? `<div class="group" style="margin-top:14px"><div class="row top"><div class="main"><div class="weight-line"><span class="kg">${esc(sg.text)}</span><span class="pill">${esc(it.reps)} reps</span></div><div class="meta">${esc(sg.src)}${it.note ? " " + esc(it.note) : ""}</div></div></div></div>` : ""}
+  ${it ? `<div class="group" style="margin-top:14px"><div class="row top"><div class="main"><div class="weight-line"><span class="kg">${esc(sg.text)}</span><span class="pill">${esc(repsLabel(it.reps))}</span></div><div class="meta">${esc(sg.src)}${it.note ? " " + esc(it.note) : ""}</div></div></div></div>` : ""}
   <h2 class="sec">Técnica</h2>
   <div class="group"><ul class="cues">${ex.cues.map(c => `<li>${esc(c)}</li>`).join("")}</ul></div>
   <h2 class="sec">Tu historial</h2>
@@ -722,6 +765,13 @@ function vSettings() {
   <h2 class="sec">Tu perfil</h2>
   <div class="group" id="prof">${profileFields(S.profile, "pf")}</div>
   <p class="note">Tus calorías, macros, porciones y pesos sugeridos se recalculan con estos datos y con tu peso registrado.</p>
+  <h2 class="sec">Tu equipo</h2>
+  <div class="group" id="eqp">
+    <div class="field"><label for="eq-db">Mancuernas (si entrenas con ellas)</label><select id="eq-db">${[10, 20, 30, 40].map(v => `<option value="${v}" ${equip().dbMax === v ? "selected" : ""}>${v === 40 ? "40 kg o más cada una" : v === 10 ? "10 kg cada una o menos" : "Hasta " + v + " kg cada una"}</option>`).join("")}</select></div>
+    <div class="field"><label for="eq-bench">¿Tienes banca?</label><select id="eq-bench"><option value="si" ${equip().bench ? "selected" : ""}>Sí</option><option value="no" ${equip().bench ? "" : "selected"}>No</option></select></div>
+    <div class="field"><label for="eq-bar">¿Tienes barra de dominadas?</label><select id="eq-bar"><option value="si" ${equip().bar ? "selected" : ""}>Sí</option><option value="no" ${equip().bar ? "" : "selected"}>No</option></select></div>
+  </div>
+  <p class="note">Al cambiar tu equipo, el plan en casa se ajusta y se restablecen los ejercicios que habías cambiado.</p>
   <h2 class="sec">Apariencia</h2>
   <div class="group"><div class="field"><label>Color de acento</label><div class="seg" role="group" aria-label="Color de acento">${[["naranja", "Naranja"], ["azul", "Azul"], ["morado", "Morado"], ["rosa", "Rosa"]].map(([k, v]) => `<button data-accent="${k}" aria-pressed="${S.accent === k}">${v}</button>`).join("")}</div></div></div>
   <h2 class="sec">Reto</h2>
@@ -763,7 +813,7 @@ function saveRound(r, setDone) {
     cur.w = w.value === "" ? null : +w.value; cur.r = rp.value === "" ? null : +rp.value;
     if (setDone !== undefined) {
       cur.done = setDone;
-      if (setDone) { if (cur.w === null) { const sg = suggest(it); if (sg.n != null) { cur.w = sg.n; w.value = sg.n; } } if (cur.r === null) { cur.r = lowReps(it.reps); rp.value = cur.r; } }
+      if (setDone) { if (cur.w === null) { const sg = suggest(it); if (sg.n != null) { cur.w = sg.n; w.value = sg.n; } } if (cur.r === null) { const lr = lowReps(it.reps); if (lr !== null) { cur.r = lr; rp.value = lr; } } }
     }
   });
   save();
@@ -788,7 +838,7 @@ function bind() {
   $("#steps")?.addEventListener("change", e => { checksOf(todayISO()).steps = +e.target.value || 0; save(); toast("Pasos guardados"); });
   $$("[data-accent]").forEach(b => b.addEventListener("click", () => { S.accent = b.dataset.accent; applyAccent(); save(); $$("[data-accent]").forEach(x => x.setAttribute("aria-pressed", x === b)); }));
   $$("[data-adj]").forEach(b => { if (!b.closest("#rev-out")) b.addEventListener("click", () => adjustKcal(b.dataset.adj)); });
-  $$("[data-choice]").forEach(b => b.addEventListener("click", () => { const [k, v] = b.dataset.choice.split("|"); onb.d[k] = ["days", "pct"].includes(k) ? +v : v; if (k === "goal") onb.d.pct = null; vibrate(8); refresh(); }));
+  $$("[data-choice]").forEach(b => b.addEventListener("click", () => { const [k, v] = b.dataset.choice.split("|"); onb.d[k] = ["days", "pct", "dbMax"].includes(k) ? +v : v; if (k === "goal") onb.d.pct = null; vibrate(8); refresh(); }));
   [["#ob-age", "age"], ["#ob-h", "h"], ["#ob-kg", "kg"], ["#ob-date", "date"]].forEach(([sel, k]) => $(sel)?.addEventListener("input", e => { onb.d[k] = e.target.value; }));
   $$("[data-onb]").forEach(b => b.addEventListener("click", () => {
     const a = b.dataset.onb;
@@ -796,6 +846,7 @@ function bind() {
     const err = onbValid(onb.step, onb.d); if (err) return toast(err);
     if (a === "next") { onb.step++; render(); } else act("start", b);
   }));
+  $$("[data-swapto]").forEach(b => b.addEventListener("click", () => { const parts = b.dataset.swapto.split("|"), k = parts.pop(), key = parts.join("|"); S.swaps = S.swaps || {}; if (k) S.swaps[key] = k; else delete S.swaps[key]; save(); vibrate(10); toast(k ? "Ejercicio cambiado" : "Ejercicio original"); const [sid, , bi] = parts; go(`#/bloque/${sid}/${bi}`); }));
   $$("[data-menu]").forEach(b => b.addEventListener("click", () => { const d = +b.dataset.menu; MEAL_BASE().forEach((m, si) => { S.picks[m.slot] = (d + si) % 3; }); save(); vibrate(10); toast("Menú aplicado a hoy"); go("#/comida"); }));
   $$("[data-pick]").forEach(b => b.addEventListener("click", () => { S.picks[b.dataset.slot] = +b.dataset.pick; save(); $$("[data-pick]").forEach(x => { const on = x === b; x.setAttribute("aria-checked", on); x.querySelector(".opt-radio").classList.toggle("on", on); }); vibrate(8); }));
   $$("[data-rq]").forEach(i => i.type === "range" && i.addEventListener("input", () => { $("#rv-" + i.dataset.rq).textContent = i.value; }));
@@ -819,6 +870,7 @@ function bind() {
   $("#imp")?.addEventListener("change", async e => { try { const j = JSON.parse(await e.target.files[0].text()); S = Object.assign(defaults(), j); save(); toast("Copia importada"); go("#/hoy"); } catch { toast("Archivo no válido"); } });
   [["st", "#st-goal"], ["pf", "#pf-goal"]].forEach(([ids, sel]) => $(sel)?.addEventListener("change", e => { $("#" + ids + "-pct").innerHTML = paceOptions(e.target.value); }));
   $$("#prof select, #prof input").forEach(i => i.addEventListener("change", () => { const pr = readProfile("pf"); if (typeof pr === "string") return toast(pr); S.profile = pr; save(); toast("Perfil actualizado"); }));
+  $$("#eqp select").forEach(i => i.addEventListener("change", () => { S.profile.equip = { dbMax: +$("#eq-db").value, bench: $("#eq-bench").value === "si", bar: $("#eq-bar").value === "si" }; S.swaps = {}; _plan = { k: "", v: null }; save(); toast("Equipo actualizado"); }));
   $("#se-date")?.addEventListener("change", e => { if (e.target.value) { S.start = e.target.value; save(); toast("Fecha actualizada"); } });
   $("#se-we")?.addEventListener("change", e => { S.weekend = e.target.value; save(); toast("Fin de semana actualizado"); });
   $$("[data-act]").forEach(b => b.addEventListener("click", () => act(b.dataset.act, b)));
@@ -830,8 +882,8 @@ function act(a, el) {
   const iso = todayISO();
   if (a === "start") {
     const d = onb.d;
-    S.profile = { sex: d.sex, age: +d.age, h: +d.h, kg: parseFloat(d.kg), level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, adj: 0 };
-    S.start = d.date || iso; S.weekend = d.weekend; S.mode = d.mode; S.weights = { [S.start]: S.profile.kg }; _plan = { k: "", v: null };
+    S.profile = { sex: d.sex, age: +d.age, h: +d.h, kg: parseFloat(d.kg), level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, adj: 0, equip: { bench: d.bench !== "no", bar: d.bar === "si", dbMax: +d.dbMax } };
+    S.swaps = {}; S.start = d.date || iso; S.weekend = d.weekend; S.mode = d.mode; S.weights = { [S.start]: S.profile.kg }; _plan = { k: "", v: null };
     save(); onb = ONB(); go("#/hoy"); toast("Listo: día 1");
   } else if (a === "saveweight") {
     const v = parseFloat($("#w-today").value);
@@ -858,7 +910,7 @@ function act(a, el) {
   }
 }
 
-if (localStorage.getItem("reto90.debug")) window.__reto = { get S() { return S; }, set S(v) { S = v; }, SESSIONS, planCalc, D, C, blocksOf, render };
+if (localStorage.getItem("reto90.debug")) window.__reto = { get S() { return S; }, set S(v) { S = v; }, SESSIONS, planCalc, D, C, blocksOf, altsFor, suggest, equip, render };
 const applyAccent = () => { document.documentElement.dataset.accent = S.accent || "naranja"; };
 applyAccent();
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});

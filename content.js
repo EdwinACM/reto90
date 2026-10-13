@@ -148,6 +148,14 @@ window.CONTENT = {
       { id: "run", name: "Trote suave", gif: "Jogging_Treadmill", how: "Trote ligero en el que puedas hablar frases cortas." },
     ],
   },
+  limitedGuide: `<p>Cuando tus mancuernas ya no suben de peso, el músculo todavía puede seguir creciendo si cambias <strong>cómo</strong> las usas:</p>
+  <ol><li><strong>Más repeticiones:</strong> sube hasta 20–25 antes de buscar más peso. Las cargas ligeras llevadas cerca del fallo también hacen crecer el músculo.</li>
+  <li><strong>Baja lento:</strong> 3 segundos en la bajada y 1 segundo de pausa abajo.</li>
+  <li><strong>Pasa a una pierna o un brazo:</strong> zancadas, subidas al escalón, remo y press a una mano duplican la carga efectiva.</li>
+  <li><strong>Menos descanso:</strong> 45–60 segundos en los accesorios.</li>
+  <li><strong>Termina cerca del fallo:</strong> deja 0–2 repeticiones en reserva en la última serie.</li></ol>
+  <p>Ojo: para la <em>fuerza máxima</em> las cargas altas siguen siendo mejores; si tu objetivo es solo el tamaño del músculo, estas técnicas funcionan.</p>`,
+
   cardioGuide: `<p><strong>Objetivo:</strong> gastar calorías extra sin fatigar tus piernas para el siguiente entreno. Por eso la base es cardio suave y constante (zona 2).</p>
   <ul><li><strong>Caminadora:</strong> inclinación 6–10 %, velocidad 5.5–6.5 km/h, sin agarrarte de los pasamanos.</li>
   <li><strong>Elíptica:</strong> resistencia 6–8, unas 120–140 zancadas por minuto, espalda recta.</li>
@@ -211,6 +219,7 @@ window.CONTENT = {
       { t: "Esfuerzo medido en repeticiones en reserva (RIR)", d: "Terminar cada serie dejando 1–3 repeticiones “en el tanque” se puede estimar con una escala validada de esfuerzo percibido; los principiantes calculan peor, por eso al inicio se busca el peso con tu criterio y se ajusta en la siguiente sesión.", s: ["zourdos"] },
       { t: "Progresión doble y semanas de descarga", d: "Subes peso cuando completas el máximo del rango en todas las vueltas. Un consenso de expertos define la descarga como un periodo de menor carga para reducir la fatiga y preparar el siguiente bloque; las semanas 4 y 8 son una práctica habitual, no un resultado de estudios.", s: ["bell"] },
       { t: "División según tus días y tu nivel", d: "Con 3 días haces cuerpo completo; con 4, torso y pierna; con 5, empuje, tirón, pierna, torso y pierna; con 6, empuje, tirón y pierna dos veces. Siempre cada músculo ≥ 2 veces por semana. Si eres principiante, el volumen baja una serie por bloque; si ya llevas más de un año, sube una en el ejercicio principal. Si tu objetivo es ganar músculo, el cardio se reduce y se añade una serie a los accesorios.", s: ["freq16", "helms15"] },
+      { t: "En casa con mancuernas o sin equipo", d: "Las cargas ligeras llevadas cerca del fallo hicieron crecer el músculo de forma similar a las pesadas en un meta-análisis de estudios con imágenes del músculo; para la fuerza máxima las cargas altas son mejores. Por eso, en casa, el plan sube repeticiones, baja lento y pasa a una pierna o un brazo antes de pedir más peso. Si no tienes banca, el plan sustituye cada ejercicio por uno equivalente (press de suelo, flexiones elevadas…), y con barra de dominadas entra el tirón vertical.", s: ["load"] },
       { t: "Mujeres y hombres", d: "Los resúmenes que encontré indican que las ganancias relativas de masa muscular son similares entre sexos y que las mujeres pueden mejorar más en fuerza relativa de tren superior; los hombres ganan más en términos absolutos. Por eso el plan es el mismo y solo cambian los pesos de partida.", s: ["sexdiff"] },
     ],
     diet: [
