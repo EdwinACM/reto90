@@ -5,7 +5,7 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const app = $("#app"), tabsEl = $("#tabs");
 const KEY = "reto90.v1";
 const LS = (() => { const mem = {}; let ok = true; try { localStorage.setItem("_t", "1"); localStorage.removeItem("_t"); } catch (e) { ok = false; }
-  return { getItem: k => { if (ok) { try { return localStorage.getItem(k); } catch (e) {} } return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; }, setItem: (k, v) => { mem[k] = String(v); if (ok) { try { localStorage.setItem(k, v); } catch (e) {} } }, removeItem: k => { delete mem[k]; if (ok) { try { localStorage.removeItem(k); } catch (e) {} } } }; })();
+  return { persistent: ok, getItem: k => { if (ok) { try { return localStorage.getItem(k); } catch (e) {} } return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; }, setItem: (k, v) => { mem[k] = String(v); if (ok) { try { localStorage.setItem(k, v); } catch (e) {} } }, removeItem: k => { delete mem[k]; if (ok) { try { localStorage.removeItem(k); } catch (e) {} } } }; })();
 
 /* ───────── Estado ───────── */
 const todayISO = (d = new Date()) => { const z = new Date(d.getTime() - d.getTimezoneOffset() * 6e4); return z.toISOString().slice(0, 10); };
@@ -423,6 +423,7 @@ function vToday() {
   return `<div class="navbar" id="navbar"><span class="nb-title" aria-hidden="true">Hoy</span></div><h1 class="large" id="lt">${n < 1 ? "Hoy" : n > 90 ? "Reto completo" : "Día " + n}</h1>
     <p class="sub" style="margin-bottom:8px">${S.profile.name ? "Hola, " + esc(S.profile.name) + " · " : ""}${longDate(iso)}${n >= 1 ? ` · Semana ${wk}, ${esc(ph.name)}` : ""}</p>
     <div class="bar" role="progressbar" aria-label="Avance del reto" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><i style="--p:${(pct)/100}"></i></div>
+    ${storageWarn()}
     ${weekStrip(iso)}
     ${nowCard(iso)}
     ${tipHoy()}
@@ -456,6 +457,21 @@ function nowCard(iso) {
   const a = nextAction(iso);
   return a ? `<button class="nowcard" ${a.go ? `data-go="${a.go}"` : "data-noop"}><div><small>Ahora</small><b>${esc(a.t)}</b><span>${esc(a.m)}</span></div>${a.go ? I.chev : ""}</button>` : `<div class="nowcard done" role="status"><div><small>Ahora</small><b>Día completo</b><span>Lo que hiciste hoy cuenta. Descansa y mañana seguimos.</span></div></div>`;
 }
+let installEv = null;
+const isStandalone = () => { try { return matchMedia("(display-mode: standalone)").matches || navigator.standalone === true; } catch (e) { return false; } };
+const inApp = () => /FBAN|FBAV|Instagram|Line\/|WhatsApp|MicroMessenger|; wv\)|Snapchat|TikTok/i.test(navigator.userAgent);
+function installCard() {
+  const ua = navigator.userAgent, ios = /iPhone|iPad|iPod/i.test(ua), and = /Android/i.test(ua);
+  let t, m, btn = "";
+  if (isStandalone()) { t = "App instalada"; m = "Ya la usas como app. Tus datos se guardan en este teléfono."; }
+  else if (inApp()) { t = "Ábrela en tu navegador"; m = (and ? "Estás dentro de otra app (WhatsApp, Facebook, Instagram…). Toca ⋮ o “Abrir en el navegador” y elige Chrome; ahí sí podrás instalarla y guardar tus datos." : "Estás dentro de otra app. Toca “Abrir en Safari” y desde ahí añádela a tu pantalla de inicio."); }
+  else if (installEv) { t = "Instalar en tu teléfono"; m = "Se abre a pantalla completa, funciona sin internet y guarda tus datos."; btn = `<button class="btn" data-act="install">Instalar app</button>`; }
+  else if (ios) { t = "Instalar en tu iPhone"; m = "En Safari toca Compartir ⬆︎ y elige “Añadir a pantalla de inicio”."; }
+  else if (and) { t = "Instalar en tu Android"; m = "En Chrome toca ⋮ (arriba a la derecha) y elige “Instalar app” o “Añadir a pantalla de inicio”. Si no aparece, recarga la página una vez."; }
+  else { t = "Instalar"; m = "En Chrome o Edge usa el icono de instalar en la barra de direcciones."; }
+  return `<div class="group"><div class="row top"><div class="main"><div class="title">${t}</div><div class="meta">${m}</div></div></div>${btn ? `<div class="btn-wrap">${btn}</div>` : ""}</div>`;
+}
+const storageWarn = () => LS.persistent ? "" : `<div class="group" style="margin-top:14px"><div class="row top"><div class="main"><div class="title" style="color:var(--bad)">Este navegador no guarda tus datos</div><div class="meta">Lo que registres se perderá al cerrar. Abre la app en Chrome o Safari (no dentro de WhatsApp, Instagram o Facebook) y, si puedes, instálala. Mientras tanto exporta una copia en Progreso → Mis datos.</div></div></div></div>`;
 function tipHoy() {
   if (S.tips && S.tips.hoy) return "";
   return `<div class="group" style="margin-top:14px"><div class="row top"><div class="main"><div class="title">Así se usa</div><div class="meta">Toca el círculo para marcar una comida. Toca su nombre para cambiar de opción. Tu entreno está justo debajo: ahí registras cada vuelta.</div></div><button class="btn small quiet" data-act="tiphoy">Entendido</button></div></div>`;
@@ -862,6 +878,8 @@ function vStrength() {
 function vData() {
   const saved = +LS.getItem(KEY + ".saved") || 0, n = Object.keys(S.weights).length, ses = totalSessions();
   return `${nav("Mis datos", { back: "Progreso", sub: "Todo se guarda automáticamente en tu teléfono, sin cuenta ni servidor." })}
+  ${storageWarn()}
+  <h2 class="sec">Instalar la app</h2>${installCard()}
   <h2 class="sec">Estado</h2>
   <div class="group">
     <div class="row"><div class="main"><div class="title">Último guardado</div></div><span class="val">${saved ? new Date(saved).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}</span></div>
@@ -875,7 +893,7 @@ function vData() {
     <button class="row" data-act="export"><div class="main"><div class="title">Exportar copia (archivo)</div><div class="meta">Guárdala en Archivos, iCloud, Drive o envíatela por correo${S.lastExport ? " · última: " + shortDate(S.lastExport) : ""}</div></div></button>
     <button class="row" data-act="offline"><div class="main"><div class="title">Guardar los ejercicios para usar sin internet</div><div class="meta" id="d-offline">Descarga unos 12 MB una sola vez (conviene con Wi-Fi)</div></div></button>
     <button class="row" data-act="copydata"><div class="main"><div class="title">Copiar mis datos como texto</div><div class="meta">Pégalos en Notas o en un mensaje</div></div></button>
-    <label class="row" style="cursor:pointer"><div class="main"><div class="title">Importar copia</div><div class="meta">Restaura un archivo exportado antes</div></div><input type="file" accept="application/json" id="imp" hidden></label>
+    <label class="row" style="cursor:pointer"><div class="main"><div class="title">Importar copia</div><div class="meta">Restaura un archivo exportado antes</div></div><input type="file" accept=".json,application/json,text/plain,application/octet-stream" id="imp" hidden></label>
   </div>
   <p class="note">Las fotos se guardan aparte, dentro de este dispositivo, y no entran en la copia. Si cambias de teléfono, guarda tus fotos por tu cuenta. Si borras los datos del navegador o desinstalas la app, se pierde todo.</p>
   <h2 class="sec">Zona de riesgo</h2><div class="group"><button class="row" data-act="reset"><div class="main"><div class="title" style="color:var(--bad)">Borrar todo y reiniciar</div></div></button></div>`;
@@ -997,6 +1015,7 @@ function vSources() {
 }
 function vSettings() {
   return `${nav("Ajustes", { back: "Plan" })}
+  <h2 class="sec">Instalar la app</h2>${installCard()}
   <h2 class="sec">Tu perfil</h2>
   <div class="group" id="prof">${profileFields(S.profile, "pf")}</div>
   <p class="note">Tus calorías, macros, porciones y pesos sugeridos se recalculan con estos datos y con tu peso registrado.</p>
@@ -1019,7 +1038,7 @@ function vSettings() {
   <h2 class="sec">Tus datos</h2>
   <div class="group">
     <button class="row" data-act="export"><div class="main"><div class="title">Exportar copia (JSON)</div><div class="meta">Respaldo de pesos, series y comidas</div></div></button>
-    <label class="row" style="cursor:pointer"><div class="main"><div class="title">Importar copia</div></div><input type="file" accept="application/json" id="imp" hidden></label>
+    <label class="row" style="cursor:pointer"><div class="main"><div class="title">Importar copia</div></div><input type="file" accept=".json,application/json,text/plain,application/octet-stream" id="imp" hidden></label>
     <button class="row" data-act="reset"><div class="main"><div class="title" style="color:var(--bad)">Borrar todo y reiniciar</div></div></button>
   </div>
   <p class="note">Todo se guarda solo en este teléfono. Si borras los datos del navegador pierdes tu historial: exporta una copia de vez en cuando.</p>`;
@@ -1203,6 +1222,9 @@ function act(a, el) {
   } else if (a === "export") {
     const blob = new Blob([JSON.stringify(S, null, 1)], { type: "application/json" });
     const l = document.createElement("a"); l.href = URL.createObjectURL(blob); l.download = `reto90-${iso}.json`; l.click(); S.lastExport = iso; save(); toast("Copia exportada");
+  } else if (a === "install") {
+    if (!installEv) return toast("Usa el menú del navegador para instalar");
+    installEv.prompt(); installEv.userChoice.then(r => { installEv = null; toast(r.outcome === "accepted" ? "Instalando…" : "Cuando quieras, desde Ajustes"); refresh(); }, () => {});
   } else if (a === "print") {
     try { window.print(); } catch { toast("No pude abrir la impresión"); }
   } else if (a === "csv") {
@@ -1228,6 +1250,8 @@ applyAccent();
 let sx = 0, sy = 0, edge = false;
 document.addEventListener("touchstart", e => { const t = e.touches[0]; edge = t.clientX < 24 && !sheetEl; sx = t.clientX; sy = t.clientY; }, { passive: true });
 document.addEventListener("touchend", e => { if (!edge) return; edge = false; const t = e.changedTouches[0]; if (t.clientX - sx > 80 && Math.abs(t.clientY - sy) < 60) $("[data-to]")?.click(); }, { passive: true });
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEv = e; if (/^#\/(plan\/ajustes|progreso\/datos)/.test(location.hash)) refresh(); });
+window.addEventListener("appinstalled", () => { installEv = null; toast("App instalada"); if (/^#\/(plan\/ajustes|progreso\/datos)/.test(location.hash)) refresh(); });
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
   navigator.serviceWorker.addEventListener("message", e => { const d = e.data || {}, info = $("#d-offline"); if (d.type === "precache" && info) info.textContent = d.done >= d.total ? "Listo: los ejercicios están guardados en tu teléfono" : `Descargando… ${Math.round(d.done / d.total * 100)} %`; });
