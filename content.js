@@ -16,13 +16,13 @@ window.CONTENT = {
     { n: 1, name: "Base", weeks: [1, 4], rir: "3 → 2", steps: 8000, cardioAdd: 0, cardio: "Lun, Mar y Jue 20 · Vie 35 min", goal: "Aprender la rutina, encontrar tus cargas de trabajo y fijar horarios. Semana 4 es de descarga." },
     { n: 2, name: "Progresión", weeks: [5, 8], rir: "2 → 1", steps: 9000, cardioAdd: 5, cardio: "Lun, Mar y Jue 25 · Vie 40 min", goal: "Subir peso o repeticiones cada semana en los básicos. Semana 8 es de descarga." },
     { n: 3, name: "Intensificar", weeks: [9, 12], rir: "1–2 (última serie a 0–1)", steps: 10000, cardioAdd: 10, cardio: "Lun, Mar y Jue 30 · Vie 45 min", goal: "Mejores marcas en los ejercicios principales y, si te recuperas bien, intervalos en el cardio del viernes." },
-    { n: 4, name: "Cierre", weeks: [13, 13], rir: "1–2", steps: 10000, cardioAdd: 10, cardio: "Lun, Mar y Jue 30 · Vie 45 min", goal: "Días 85–90: marcas finales, medidas, fotos y decidir la siguiente fase." },
+    { n: 4, name: "Cierre", weeks: [13, 13], rir: "1–2", steps: 10000, cardioAdd: 10, cardio: "Lun, Mar y Jue 30 · Vie 45 min", goal: "Días 85–90: marcas finales, medidas y decidir la siguiente fase." },
   ],
 
   milestones: [
     { day: 14, t: "Primer ajuste", d: "Con 2 semanas de datos, revisa si la tendencia de peso va en rango y ajusta calorías si hace falta." },
     { day: 30, t: "Mes 1", pct: [1.4, 2.7], cm: [1, 3], d: "cintura −{cm} cm · subiste carga o repeticiones en la mayoría de ejercicios." },
-    { day: 60, t: "Mes 2", pct: [3.4, 5.4], cm: [3, 5], d: "cintura −{cm} cm · fotos con cambio visible en abdomen y cintura." },
+    { day: 60, t: "Mes 2", pct: [3.4, 5.4], cm: [3, 5], d: "cintura −{cm} cm · cambio visible en abdomen y cintura." },
     { day: 90, t: "Día 90", pct: [4.7, 8], cm: [5, 8], d: "cintura −{cm} cm · fuerza igual o mayor. Son estimaciones: tu cuerpo marca el ritmo real." },
   ],
 
@@ -39,7 +39,7 @@ window.CONTENT = {
     10: "Mantén el volumen extra; busca marcas personales en los básicos.",
     11: "Semana más exigente del reto. No recortes sueño ni proteína.",
     12: "Última semana fuerte. Mismas cargas, mejor técnica y control.",
-    13: "Días 85–90: marcas finales, fotos, medidas y revisión completa.",
+    13: "Días 85–90: marcas finales, medidas y revisión completa.",
   },
 
   habits: [
@@ -79,7 +79,7 @@ window.CONTENT = {
   measureGuide: [
     { t: "Peso", d: "Diario, en ayunas. Se evalúa el promedio de 7 días." },
     { t: "Cintura", d: "1 vez por semana (domingo en ayunas). Cinta a la altura del ombligo, sin apretar, al final de una exhalación." },
-    { t: "Fotos", d: "Días 1, 15, 30, 45, 60, 75 y 90. Mismo lugar, misma luz, misma hora, ropa igual, cámara a la altura del pecho. Frente, perfil y espalda, relajado." },
+    { t: "Fotos (opcional)", d: "Días 1, 15, 30, 45, 60, 75 y 90. Mismo lugar, misma luz, misma hora, ropa igual, cámara a la altura del pecho. Frente, perfil y espalda, relajado." },
     { t: "Fuerza", d: "La app guarda tus series. Busca subir peso o repeticiones en los básicos." },
     { t: "Pasos, sueño y energía", d: "Marca en el chequeo diario. Se resume en la revisión semanal." },
   ],
@@ -177,34 +177,6 @@ window.CONTENT = {
 
   supplements: `<p><strong>Creatina monohidratada</strong>, 3–5 g al día (cualquier hora, todos los días) es el suplemento con más evidencia de seguridad y eficacia para fuerza y masa magra. La tomabas en tu plan anterior y puedes continuarla. Omega 3, magnesio, multivitamínico y vitamina C son opcionales: no hay evidencia de que quemen grasa.</p><p>La proteína en polvo es solo comodidad; si cubres tus gramos con comida, no la necesitas.</p>`,
 
-  sources: [
-    { id: "issnProt", v: "resumen verificado", t: "ISSN Position Stand: protein and exercise (Jäger et al., 2017)", u: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5477153/", why: "Proteína: 1.4–2.0 g/kg para construir músculo; más alta en déficit." },
-    { id: "issnDiet", v: "resumen verificado", t: "ISSN Position Stand: diets and body composition (Aragon et al., 2017)", u: "https://pubmed.ncbi.nlm.nih.gov/28630601/", why: "Déficit para perder grasa, 2.3–3.1 g/kg de masa magra en déficit, y ninguna proporción de macros es superior." },
-    { id: "helms14", v: "resumen verificado", t: "Evidence-based recommendations for natural bodybuilding contest preparation: nutrition and supplementation (Helms et al., 2014)", u: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4033492/", why: "Pérdida de 0.5–1 % del peso por semana; el momento y la frecuencia de comidas influyen poco." },
-    { id: "helms15", v: "resumen verificado", t: "Recommendations for natural bodybuilding contest preparation: resistance and cardiovascular training (Helms et al., 2015)", u: "https://pubmed.ncbi.nlm.nih.gov/24998610/", why: "Músculos 2 veces por semana o más, la mayoría de repeticiones en 6–12 al 70–80 % del máximo." },
-    { id: "garthe", v: "resumen verificado", t: "Effect of two different weight-loss rates on body composition and strength and power-related performance in elite athletes (Garthe et al., Int J Sport Nutr Exerc Metab, 2011)", u: "", why: "0.7 % del peso por semana conservó mejor la masa magra y la fuerza que 1.4 % (24 atletas)." },
-    { id: "freq16", v: "resumen verificado", t: "Effects of resistance training frequency on measures of muscle hypertrophy (Schoenfeld et al., Sports Med, 2016)", u: "https://pubmed.ncbi.nlm.nih.gov/27102172/", why: "Entrenar un músculo 2 o más veces por semana superó a 1 vez." },
-    { id: "freq19", v: "resumen verificado", t: "How many times per week should a muscle be trained? (Schoenfeld, Grgic & Krieger, J Sports Sci, 2019)", u: "", why: "Con las series semanales igualadas, la frecuencia pesa poco: por eso se reparte el volumen para que cada sesión sea llevadera." },
-    { id: "vol", v: "resumen verificado", t: "Dose-response relationship between weekly resistance training volume and increases in muscle mass (Schoenfeld, Ogborn & Krieger, J Sports Sci, 2016)", u: "", why: "Más series semanales por músculo se asocian con más crecimiento, con evidencia clara hasta ~10 series." },
-    { id: "load", v: "resumen verificado", t: "Strength and hypertrophy adaptations between low- vs high-load resistance training (Schoenfeld et al., J Strength Cond Res, 2017)", u: "https://pubmed.ncbi.nlm.nih.gov/28834797/", why: "Cargas ligeras llevadas al fallo también hacen crecer el músculo: por eso el aislamiento va en 12–15 repeticiones." },
-    { id: "rest", v: "resumen verificado", t: "Longer interset rest periods enhance muscle strength and hypertrophy in resistance-trained men (Schoenfeld et al., J Strength Cond Res, 2016)", u: "https://doi.org/10.1519/JSC.0000000000001272", why: "3 min de descanso dio más fuerza y más grosor muscular que 1 min (estudio pequeño de 8 semanas)." },
-    { id: "triceps", v: "resumen verificado", t: "Triceps brachii hypertrophy with overhead vs pushdown extensions (Maeo et al., 2022)", u: "", why: "La extensión con el brazo arriba de la cabeza hizo crecer más la cabeza larga (21 personas sin entrenamiento, 12 semanas)." },
-    { id: "concurrent", v: "resumen verificado", t: "Compatibility of concurrent aerobic and strength training for skeletal muscle size and function (Schumann et al., Sports Med, 2022)", u: "https://pmc.ncbi.nlm.nih.gov/articles/PMC9474354/", why: "Sumar cardio no frena la hipertrofia ni la fuerza máxima; puede atenuar la potencia." },
-    { id: "abs", v: "resumen verificado", t: "Electromyographic comparison of a variety of abdominal exercises to the traditional crunch (University of Wisconsin)", u: "https://minds.wisc.edu/items/13f23340-bc92-4049-9c47-6fcc60df9852", why: "Los estudios de EMG favorecen la elevación de piernas colgado; los resultados con el rodillo son mixtos. EMG no es lo mismo que crecimiento." },
-    { id: "spot", v: "resumen verificado", t: "The effect of abdominal exercise on abdominal fat (Vispute et al., J Strength Cond Res, 2011)", u: "https://doi.org/10.1519/JSC.0b013e3181fb4a46", why: "Entrenar abdomen no reduce la grasa abdominal por sí solo (24 personas, 6 semanas)." },
-    { id: "protMeal", v: "resumen secundario", t: "How much protein can the body use in a single meal for muscle-building? (Schoenfeld & Aragon, JISSN, 2018)", u: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5828430/", why: "El tope de 20–25 g por comida es demasiado bajo; ~0.4 g/kg por comida en 4 o más comidas (cifra tomada de un resumen: verifícala)." },
-    { id: "acsm", v: "resumen secundario", t: "Nutrition and Athletic Performance (Thomas, Erdman & Burke; Academy of Nutrition and Dietetics, Dietitians of Canada y ACSM, 2016)", u: "https://pubmed.ncbi.nlm.nih.gov/26917108/", why: "Proteína 1.2–2.0 g/kg, grasas 20–35 % de la energía, carbohidratos según la actividad (cifras tomadas de un resumen: verifícalas)." },
-    { id: "creatine", v: "resumen verificado", t: "ISSN Position Stand: Safety and efficacy of creatine supplementation (Kreider et al., 2017)", u: "https://doi.org/10.1186/s12970-017-0173-z", why: "Creatina: eficacia y seguridad en personas sanas." },
-    { id: "sleep", v: "resumen verificado", t: "Insufficient sleep undermines dietary efforts to reduce adiposity (Nedeltcheva et al., Ann Intern Med, 2010)", u: "", why: "Dormir poco reduce la grasa perdida y aumenta la masa magra perdida (10 adultos, 14 días)." },
-    { id: "recomp", v: "resumen secundario", t: "Body recomposition: can trained individuals build muscle and lose fat at the same time? (Barakat et al., Strength Cond J, 2020)", u: "https://doi.org/10.1519/SSC.0000000000000584", why: "Recomposición en personas entrenadas: posible, más lenta que perder grasa o ganar músculo por separado." },
-    { id: "iraki", v: "resumen verificado", t: "Nutrition recommendations for bodybuilders in the off-season: a narrative review (Iraki et al., Sports, 2019)", u: "https://pubmed.ncbi.nlm.nih.gov/31247944/", why: "Superávit de ~10–20 % y subida de 0.25–0.5 % del peso por semana en principiantes e intermedios; más conservador en avanzados." },
-    { id: "slater", v: "resumen verificado", t: "Is an energy surplus required to maximize skeletal muscle hypertrophy associated with resistance training? (Slater et al., Front Nutr, 2019)", u: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6710320/", why: "El superávit necesario para la hipertrofia máxima no se conoce con certeza." },
-    { id: "morton", v: "resumen verificado", t: "Protein supplementation and resistance training-induced gains in muscle mass and strength: systematic review, meta-analysis and meta-regression (Morton et al., Br J Sports Med, 2018)", u: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5867436/", why: "Más proteína no dio ganancias extra de masa magra por encima de ≈ 1.6 g/kg/día en promedio." },
-    { id: "zourdos", v: "resumen verificado", t: "Novel resistance training-specific rating of perceived exertion scale measuring repetitions in reserve (Zourdos et al., J Strength Cond Res, 2016)", u: "", why: "Escala de esfuerzo basada en repeticiones en reserva; la experiencia afecta la precisión." },
-    { id: "bell", v: "resumen verificado", t: "Integrating deloading into strength and physique sports training programmes: an international Delphi consensus approach (Bell et al., Sports Med Open, 2023)", u: "https://pmc.ncbi.nlm.nih.gov/articles/PMC10511399/", why: "Definición consensuada de descarga como periodo de menor estrés de entrenamiento (no verifiqué los detalles de cuándo hacerla)." },
-    { id: "sexdiff", v: "resumen secundario", t: "Sex differences in resistance training adaptations (Roberts et al., 2020; Refalo et al., 2025)", u: "", why: "Ganancias relativas de masa muscular similares entre hombres y mujeres; los hombres ganan más en términos absolutos (cifras de resúmenes de terceros)." },
-    { id: "fedb", v: "licencia indicada en el repositorio", t: "Free Exercise DB (Ollie Jennings / yuhonas), Unlicense, dominio público", u: "https://github.com/yuhonas/free-exercise-db", why: "Fotos de inicio y fin de cada ejercicio; la app las convierte en animaciones." },
-  ],
 
   why: {
     train: [
