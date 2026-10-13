@@ -429,10 +429,10 @@ function vSetup() {
   const heads = ["¿Qué quieres lograr?", "Sobre ti", "Tu entrenamiento", "Tu comida y tu ritmo", "Tu plan"];
   const subs = ["Tu plan se adapta a esto.", "Para calcular tus calorías. Se queda en tu teléfono.", "Para armar tu semana.", "Porciones y ritmo.", "Tu plan está listo."];
   let body = "";
-  if (step === 0) body = radioRows("goal", Object.entries(C.goals).map(([k, g]) => [k, g.name, g.desc]), d.goal) + `<h2 class="sec">¿Ya usabas la app?</h2><div class="group">
+  if (step === 0) body = radioRows("goal", Object.entries(C.goals).map(([k, g]) => [k, g.name, g.desc]), d.goal) + (onb.redo ? "" : `<h2 class="sec">¿Ya usabas la app?</h2><div class="group">
     <label class="row" style="cursor:pointer"><div class="main"><div class="title">Restaurar copia de seguridad</div><div class="meta">Archivo exportado antes</div></div><input type="file" accept=".json,application/json,text/plain,application/octet-stream" id="imp0" hidden></label>
     <div class="field"><label for="code0">O pega tu código de transferencia</label><textarea id="code0" rows="2" placeholder="R90G…" autocapitalize="off" autocomplete="off" spellcheck="false"></textarea></div>
-    <div class="btn-wrap"><button class="btn secondary" data-act="usecode0">Usar código</button></div></div>`;
+    <div class="btn-wrap"><button class="btn secondary" data-act="usecode0">Usar código</button></div></div>`);
   if (step === 1) body = `<h2 class="sec">Sexo (para estimar tus calorías)</h2>${segRow("sex", [["m", "Hombre"], ["f", "Mujer"]], d.sex)}
     <h2 class="sec">Tu nombre</h2><div class="group"><div class="field"><label for="ob-name">Nombre (opcional)</label><input id="ob-name" type="text" maxlength="30" autocomplete="given-name" autocapitalize="words" enterkeyhint="done" placeholder="Cómo te llamas" value="${esc(d.name || "")}"></div></div>
     <h2 class="sec">Tus medidas</h2><div class="group">
@@ -462,7 +462,7 @@ function vSetup() {
     </div>${c.floorHit ? `<p class="note"><strong>Aviso:</strong> tu meta quedaría por debajo de un mínimo razonable, así que se subió. Con un peso bajo conviene un ritmo suave.</p>` : ""}
     <p class="note">Son estimaciones; no sustituyen a un médico o nutriólogo.</p>`; });
   const last = step === ONB_STEPS - 1;
-  return `${step ? `<div class="navbar" id="navbar"><button class="nb-btn" data-onb="back" aria-label="Paso anterior">${I.back}<span>Atrás</span></button><span class="nb-title" aria-hidden="true">${heads[step]}</span></div>` : `<div class="navbar" id="navbar"></div>`}
+  return `${step ? `<div class="navbar" id="navbar"><button class="nb-btn" data-onb="back" aria-label="Paso anterior">${I.back}<span>Atrás</span></button><span class="nb-title" aria-hidden="true">${heads[step]}</span></div>` : `<div class="navbar" id="navbar">${onb.redo ? `<button class="nb-btn" data-onb="cancel">Cancelar</button>` : ""}</div>`}
   <div class="dots" role="progressbar" aria-label="Paso ${step + 1} de ${ONB_STEPS}" aria-valuenow="${step + 1}" aria-valuemin="1" aria-valuemax="${ONB_STEPS}">${Array.from({ length: ONB_STEPS }, (_, i) => `<i class="${i <= step ? "on" : ""}"></i>`).join("")}</div>
   <h1 class="large" id="lt">${heads[step]}</h1><p class="sub">${subs[step]}</p>
   ${body}
@@ -1056,8 +1056,9 @@ function vHub() {
   <div class="group"><div class="field"><label>Tema</label>${segHtml([["auto", "Automático"], ["light", "Claro"], ["dark", "Oscuro"]], S.theme, "theme", "Tema")}</div>
   <div class="field"><label>Color de acento</label>${segHtml([["naranja", "Naranja"], ["azul", "Azul"], ["morado", "Morado"], ["rosa", "Rosa"]], S.accent, "accent", "Color de acento")}</div></div>
   <h2 class="sec">General</h2>
-  <div class="group">${row("#/plan/ajustes", "Perfil y equipo")}${row("#/plan/avisos", "Recordatorios y sonido")}${row("#/progreso/datos", "Mis datos y copia de seguridad")}
-  <div class="row check-row"><label for="ph-on">Fotos de progreso (opcional)</label><input class="switch" id="ph-on" type="checkbox" ${S.photos ? "checked" : ""}></div></div>`;
+  <div class="group">${row("#/plan/ajustes", "Perfil y equipo")}<button class="row" data-act="level"><div class="main"><div class="title">Nivel</div></div><span class="val">${esc(C.levels[S.profile.level || "medio"].name)}</span>${I.chev}</button>${row("#/plan/avisos", "Recordatorios y sonido")}${row("#/progreso/datos", "Mis datos y copia de seguridad")}
+  <div class="row check-row"><label for="ph-on">Fotos de progreso (opcional)</label><input class="switch" id="ph-on" type="checkbox" ${S.photos ? "checked" : ""}></div>
+  <button class="row" data-act="restart"><div class="main"><div class="title">Volver a comenzar</div></div>${I.chev}</button></div>`;
 }function vRemind() {
   const r = S.remind;
   return `${nav("Recordatorios", { back: "Ajustes", to: "#/plan", sub: "Se añaden a tu calendario y avisan aunque la app esté cerrada" })}
@@ -1211,6 +1212,7 @@ function bind() {
   $("#ob-name")?.addEventListener("input", e => { onb.d.name = cleanName(e.target.value); });
   $$("[data-onb]").forEach(b => b.addEventListener("click", () => {
     const a = b.dataset.onb;
+    if (a === "cancel") { onb = ONB(); return go("#/plan"); }
     if (a === "back") { onb.step = Math.max(0, onb.step - 1); return refresh(); }
     const err = onbValid(onb.step, onb.d); if (err) return toast(err);
     if (a === "next") { onb.step++; render(); } else act("start", b);
@@ -1295,7 +1297,7 @@ function act(a, el) {
   if (a === "start") {
     const d = onb.d;
     S.profile = { name: cleanName(d.name), sex: d.sex, age: +d.age, h: +d.h, kg: parseFloat(d.kg), level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, adj: 0, equip: { bench: d.bench !== "no", bar: d.bar === "si", dbMax: +d.dbMax, pull: d.pull === "si", dips: d.dips === "si" } };
-    S.swaps = {}; S.start = d.date || iso; S.weekend = d.weekend; S.mode = d.mode; S.weights = { [S.start]: S.profile.kg }; _plan = { k: "", v: null };
+    const keepW = onb.redo ? S.weights : {}; S.swaps = {}; S.reviews = {}; S.start = d.date || iso; S.weekend = d.weekend; S.mode = d.mode; S.weights = { ...keepW, [S.start]: S.profile.kg }; _plan = { k: "", v: null };
     save(); onb = ONB(); if (window.Store) Store.persist(); go("#/hoy"); toast("Listo: día 1");
   } else if (a === "saveweight") {
     const v = parseFloat($("#w-today").value);
@@ -1356,6 +1358,23 @@ function act(a, el) {
       try { if (navigator.share) { await navigator.share({ title: "Código Reto 90", text: code }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
       try { await navigator.clipboard.writeText(code); toast("Código copiado: pégalo en el otro teléfono"); } catch (e) { toast("No pude copiar el código"); }
     })();
+  } else if (a === "level") {
+    const cur = S.profile.level || "medio";
+    openSheet("Tu nivel", `<div class="group" role="radiogroup">${Object.entries(C.levels).map(([k, v]) => `<button class="row top" role="radio" aria-checked="${k === cur}" data-lv="${k}"><span class="opt-radio ${k === cur ? "on" : ""}"></span><div class="main"><div class="title">${esc(v.name)}</div><div class="meta">${esc(v.sub)}</div></div></button>`).join("")}</div>`, el => {
+      el.querySelectorAll("[data-lv]").forEach(b => b.addEventListener("click", () => { S.profile.level = b.dataset.lv; S.swaps = {}; _plan = { k: "", v: null }; save(); vibrate(10); closeSheet(); toast("Nivel actualizado: ejercicios, series y descansos se adaptan"); refresh(); }));
+    });
+  } else if (a === "restart") {
+    openSheet("Volver a comenzar", `<div class="group">
+      <button class="row top" data-rs="new"><div class="main"><div class="title">Nuevo reto desde hoy</div><div class="meta">Conserva tu historial y tus pesos</div></div></button>
+      <button class="row top" data-rs="redo"><div class="main"><div class="title">Cambiar objetivo y nivel</div><div class="meta">Repite el cuestionario y conserva tus datos</div></div></button>
+      <button class="row top" data-rs="wipe"><div class="main"><div class="title" style="color:var(--bad)">Borrar todo</div><div class="meta">Empiezas de cero</div></div></button></div>`, el => {
+      el.querySelectorAll("[data-rs]").forEach(b => b.addEventListener("click", () => {
+        const k = b.dataset.rs;
+        if (k === "new") { S.start = todayISO(); S.swaps = {}; S.reviews = {}; _plan = { k: "", v: null }; save(); closeSheet(); toast("Nuevo reto: día 1"); go("#/hoy"); }
+        else if (k === "redo") { const p = S.profile, e = equip(); onb = ONB(); onb.redo = true; Object.assign(onb.d, { name: p.name || "", goal: p.goal, sex: p.sex, age: String(p.age), h: String(p.h), kg: String(Math.round(currentKg() * 10) / 10), level: p.level, days: p.days, mode: S.mode, bench: e.bench ? "si" : "no", dbMax: e.dbMax, bar: e.bar ? "si" : "no", pull: e.pull ? "si" : "no", dips: e.dips ? "si" : "no", diet: p.diet, pct: p.pct, weekend: S.weekend }); closeSheet(true); go("#/inicio"); render(); }
+        else { closeSheet(true); act("reset"); }
+      }));
+    });
   } else if (a === "usecode0") {
     (async () => { try { adoptState(await stateFromCode($("#code0")?.value)); toast("Datos restaurados"); go("#/hoy"); } catch (e) { toast("Código no válido"); } })();
   } else if (a === "usecode") {
