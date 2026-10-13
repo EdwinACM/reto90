@@ -1,5 +1,5 @@
 importScripts("precache.js");
-const V = "reto90-v3";
+const V = "reto90-v4";
 const SHELL = ["./", "index.html", "styles.css", "app.js", "data.js", "content.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(V).then(async c => {
@@ -17,6 +17,6 @@ self.addEventListener("fetch", e => {
   if (isMedia) {   // caché primero
     e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => { if (res.ok) { const cp = res.clone(); caches.open(V).then(c => c.put(req, cp)); } return res; })));
   } else {         // red primero (recibes actualizaciones), caché si no hay internet
-    e.respondWith(fetch(req).then(res => { if (res.ok) { const cp = res.clone(); caches.open(V).then(c => c.put(req, cp)); } return res; }).catch(() => caches.match(req).then(h => h || caches.match("index.html"))));
+    e.respondWith(fetch(req, { cache: "no-cache" }).then(res => { if (res.ok) { const cp = res.clone(); caches.open(V).then(c => c.put(req, cp)); } return res; }).catch(() => caches.match(req).then(h => h || caches.match("index.html"))));
   }
 });
