@@ -1,6 +1,6 @@
 importScripts("precache.js");
-const V = "reto90-v4";
-const SHELL = ["./", "index.html", "styles.css", "app.js", "data.js", "content.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
+const V = "reto90-v5";
+const SHELL = ["./", "index.html", "styles.css", "app.js", "data.js", "store.js", "content.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(V).then(async c => {
     await c.addAll(SHELL);
