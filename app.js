@@ -19,11 +19,12 @@ function cleanMap(src, fn) { const out = {}; if (!isObj(src)) return out; Object
 /* Nada de lo que viene de fuera (archivo importado, copia restaurada) entra al estado sin pasar por aquí:
    solo claves conocidas, tipos y rangos válidos. Así no puede inyectar HTML ni romper la app. */
 const SLOTS = new Set([...D.MEALS, ...D.MEALS_VEG].map(m => m.slot).concat("Snack"));
+const cleanName = v => typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f<>&"]/g, "").replace(/\s+/g, " ").trim().slice(0, 30) : "";
 function normalizeState(raw) {
   const d = defaults(); if (!isObj(raw)) return d;
   if (isObj(raw.profile)) {
     const p = raw.profile, e = isObj(p.equip) ? p.equip : {};
-    const pr = { sex: ["m", "f"].includes(p.sex) ? p.sex : null, age: numIn(p.age, 14, 90), h: numIn(p.h, 120, 220), kg: numIn(p.kg, 30, 250), level: Object.keys(C.levels).includes(p.level) ? p.level : "medio", goal: Object.keys(C.goals).includes(p.goal) ? p.goal : "recomp", pct: [5, 10, 15, 20].includes(p.pct) ? p.pct : null, days: [3, 4, 5, 6].includes(p.days) ? p.days : 6, diet: ["omni", "veg"].includes(p.diet) ? p.diet : "omni", adj: numIn(p.adj, -450, 450) ?? 0, equip: { bench: e.bench !== false, bar: e.bar === true, dbMax: [10, 20, 30, 40].includes(e.dbMax) ? e.dbMax : 20, pull: e.pull === true, dips: e.dips === true } };
+    const pr = { name: cleanName(p.name), sex: ["m", "f"].includes(p.sex) ? p.sex : null, age: numIn(p.age, 14, 90), h: numIn(p.h, 120, 220), kg: numIn(p.kg, 30, 250), level: Object.keys(C.levels).includes(p.level) ? p.level : "medio", goal: Object.keys(C.goals).includes(p.goal) ? p.goal : "recomp", pct: [5, 10, 15, 20].includes(p.pct) ? p.pct : null, days: [3, 4, 5, 6].includes(p.days) ? p.days : 6, diet: ["omni", "veg"].includes(p.diet) ? p.diet : "omni", adj: numIn(p.adj, -450, 450) ?? 0, equip: { bench: e.bench !== false, bar: e.bar === true, dbMax: [10, 20, 30, 40].includes(e.dbMax) ? e.dbMax : 20, pull: e.pull === true, dips: e.dips === true } };
     if (pr.sex && pr.age && pr.h && pr.kg) { if (pr.pct === null) pr.pct = C.goals[pr.goal].pace; d.profile = pr; }
   }
   d.start = d.profile && validDate(raw.start) ? raw.start : null;
@@ -278,7 +279,7 @@ let lastTab = null;
 function renderTabs(tab) {
   tabsEl.innerHTML = `<div class="inner">${TABS.map(([k, l, ic]) => `<a href="#/${k}" class="${k === tab && lastTab && lastTab !== tab ? "bump" : ""}" ${k === tab ? 'aria-current="page"' : ""}>${ic}<span>${l}</span></a>`).join("")}</div>`; lastTab = tab;
 }
-const TABOF = { hoy: "hoy", entreno: "entreno", bloque: "entreno", ej: "entreno", cambiar: "entreno", comida: "comida", progreso: "progreso", plan: "plan" };
+const TABOF = { hoy: "hoy", entreno: "entreno", bloque: "entreno", ej: "entreno", cambiar: "entreno", comida: "comida", imprimir: "comida", progreso: "progreso", plan: "plan" };
 
 function render(o) {
   const keep = !!(o && o.keep), y0 = scrollY;
@@ -290,6 +291,7 @@ function render(o) {
     case "inicio": html = vSetup(); break;
     case "hoy": html = vToday(); break;
     case "entreno": html = r[1] === "guia" ? vGuide() : r[1] === "abdomen" ? vAbs() : r[1] === "cardio" ? vCardioGuide() : r[1] === "limitadas" ? vLimited() : r[1] === "porque" ? vWhy("train") : r[1] ? vSession(r[1]) : vTrain(); hasCta = !!r[1] && !["guia", "abdomen", "cardio", "porque", "limitadas"].includes(r[1]); break;
+    case "imprimir": html = vPrint(); break;
     case "bloque": html = vBlock(r[1], +r[2]); hasCta = true; break;
     case "ej": html = vExercise(r[1], r[2]); break;
     case "cambiar": html = vSwap(r[1], +r[2], +r[3]); break;
@@ -318,6 +320,7 @@ function render(o) {
 /* ───────── Vistas ───────── */
 const paceOptions = (g, cur) => C.goals[g].paces.map(([k, v]) => `<option value="${k}" ${String(cur ?? C.goals[g].pace) === String(k) ? "selected" : ""}>${v}</option>`).join("");
 const profileFields = (p = {}, ids = "st") => `
+    <div class="field"><label for="${ids}-name">Tu nombre</label><input id="${ids}-name" type="text" maxlength="30" autocomplete="given-name" autocapitalize="words" placeholder="Opcional" value="${esc(p.name || "")}"></div>
     <div class="field"><label for="${ids}-goal">Tu objetivo</label><select id="${ids}-goal">${Object.entries(C.goals).map(([k, v]) => `<option value="${k}" ${(p.goal || "recomp") === k ? "selected" : ""}>${v.name}</option>`).join("")}</select></div>
     <div class="field"><label for="${ids}-pct">Ritmo</label><select id="${ids}-pct">${paceOptions(p.goal || "recomp", p.pct ?? p.def)}</select></div>
     <div class="field"><label for="${ids}-sex">Sexo (para estimar tus calorías)</label><select id="${ids}-sex"><option value="" ${p.sex ? "" : "selected"} disabled>Elige</option><option value="m" ${p.sex === "m" ? "selected" : ""}>Hombre</option><option value="f" ${p.sex === "f" ? "selected" : ""}>Mujer</option></select></div>
@@ -333,9 +336,9 @@ function readProfile(ids) {
   if (!(age >= 14 && age <= 90)) return "Escribe tu edad (14 a 90)";
   if (!(h >= 120 && h <= 220)) return "Escribe tu estatura en cm";
   if (!(kg >= 30 && kg <= 250)) return "Escribe tu peso en kg";
-  return { sex, age, h, kg, level: g("lv"), goal: g("goal"), pct: +g("pct"), days: +g("days"), diet: g("diet"), adj: S.profile?.adj || 0, equip: S.profile?.equip };
+  return { name: cleanName(g("name") || ""), sex, age, h, kg, level: g("lv"), goal: g("goal"), pct: +g("pct"), days: +g("days"), diet: g("diet"), adj: S.profile?.adj || 0, equip: S.profile?.equip };
 }
-const ONB = () => ({ step: 0, d: { goal: null, sex: null, age: "", h: "", kg: "", level: null, days: null, mode: "gym", bench: "si", dbMax: 20, bar: "no", pull: "no", dips: "no", diet: "omni", pct: null, weekend: "sab", date: todayISO() } });
+const ONB = () => ({ step: 0, d: { name: "", goal: null, sex: null, age: "", h: "", kg: "", level: null, days: null, mode: "gym", bench: "si", dbMax: 20, bar: "no", pull: "no", dips: "no", diet: "omni", pct: null, weekend: "sab", date: todayISO() } });
 let onb = ONB();
 const ONB_STEPS = 5;
 function radioRows(name, options, cur) {
@@ -348,7 +351,7 @@ function onbValid(step, d) {
   if (step === 2) { if (!d.level) return "Elige tu experiencia"; if (!d.days) return "Elige cuántos días puedes entrenar"; }
   return "";
 }
-function withDraft(fn) { const prev = S.profile, pw = S.weights, pwe = S.weekend, pm = S.mode; const d = onb.d; S.profile = { sex: d.sex, age: +d.age, h: +d.h, kg: parseFloat(d.kg), level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, adj: 0, equip: { bench: d.bench !== "no", bar: d.bar === "si", dbMax: +d.dbMax, pull: d.pull === "si", dips: d.dips === "si" } }; S.weights = {}; S.weekend = d.weekend; S.mode = d.mode; _plan = { k: "", v: null }; try { return fn(); } finally { S.profile = prev; S.weights = pw; S.weekend = pwe; S.mode = pm; _plan = { k: "", v: null }; } }
+function withDraft(fn) { const prev = S.profile, pw = S.weights, pwe = S.weekend, pm = S.mode; const d = onb.d; S.profile = { name: cleanName(d.name), sex: d.sex, age: +d.age, h: +d.h, kg: parseFloat(d.kg), level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, adj: 0, equip: { bench: d.bench !== "no", bar: d.bar === "si", dbMax: +d.dbMax, pull: d.pull === "si", dips: d.dips === "si" } }; S.weights = {}; S.weekend = d.weekend; S.mode = d.mode; _plan = { k: "", v: null }; try { return fn(); } finally { S.profile = prev; S.weights = pw; S.weekend = pwe; S.mode = pm; _plan = { k: "", v: null }; } }
 function vSetup() {
   const { step, d } = onb;
   const heads = ["¿Qué quieres lograr?", "Sobre ti", "Tu entrenamiento", "Tu comida y tu ritmo", "Tu plan"];
@@ -356,6 +359,7 @@ function vSetup() {
   let body = "";
   if (step === 0) body = radioRows("goal", Object.entries(C.goals).map(([k, g]) => [k, g.name, g.desc]), d.goal);
   if (step === 1) body = `<h2 class="sec">Sexo (para estimar tus calorías)</h2>${segRow("sex", [["m", "Hombre"], ["f", "Mujer"]], d.sex)}
+    <h2 class="sec">Tu nombre</h2><div class="group"><div class="field"><label for="ob-name">Nombre (opcional)</label><input id="ob-name" type="text" maxlength="30" autocomplete="given-name" autocapitalize="words" enterkeyhint="done" placeholder="Cómo te llamas" value="${esc(d.name || "")}"></div></div>
     <h2 class="sec">Tus medidas</h2><div class="group">
     <div class="field"><label for="ob-age">Edad (años)</label><input id="ob-age" type="number" inputmode="numeric" min="14" max="90" placeholder="Edad" value="${esc(d.age)}"></div>
     <div class="field"><label for="ob-h">Estatura (cm)</label><input id="ob-h" type="number" inputmode="numeric" min="120" max="220" placeholder="Estatura" value="${esc(d.h)}"></div>
@@ -415,7 +419,7 @@ function vToday() {
   } else sesBlock = `<h2 class="sec">Entrenamiento</h2><div class="group"><div class="row"><div class="main"><div class="title">Descanso activo</div><div class="meta">Camina 45 minutos y estira. Hoy no hay pesas.</div></div></div></div>`;
   const w = S.weights[iso], delta = weekDelta(), steps = ck.steps || 0, water = ck.water || 0;
   return `<div class="navbar" id="navbar"><span class="nb-title" aria-hidden="true">Hoy</span></div><h1 class="large" id="lt">${n < 1 ? "Hoy" : n > 90 ? "Reto completo" : "Día " + n}</h1>
-    <p class="sub" style="margin-bottom:8px">${longDate(iso)}${n >= 1 ? ` · Semana ${wk}, ${esc(ph.name)}` : ""}</p>
+    <p class="sub" style="margin-bottom:8px">${S.profile.name ? "Hola, " + esc(S.profile.name) + " · " : ""}${longDate(iso)}${n >= 1 ? ` · Semana ${wk}, ${esc(ph.name)}` : ""}</p>
     <div class="bar" role="progressbar" aria-label="Avance del reto" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><i style="--p:${(pct)/100}"></i></div>
     ${weekStrip(iso)}
     ${nowCard(iso)}
@@ -629,6 +633,28 @@ function vFood() {
     <button class="row" data-go="#/comida/porque"><div class="main"><div class="title">Por qué esta dieta</div><div class="meta">Calorías, macros y la evidencia detrás</div></div>${I.chev}</button>
   </div>`;
 }
+function weekMenu() {
+  const restIdx = S.weekend === "sab" ? 6 : 5, base = MEAL_BASE();
+  return DAYN.map((dn, d) => {
+    const rest = d === restIdx, meals = base.filter(m => !(rest && m.slot === "Pre-entreno")).map(m => { const si = base.indexOf(m); return { slot: m.slot, time: m.time, v: optView(m.opts[(d + si) % m.opts.length]) }; });
+    const tot = meals.reduce((a, x) => ({ kcal: a.kcal + x.v.m.kcal, p: a.p + x.v.m.p, c: a.c + x.v.m.c, g: a.g + x.v.m.g }), { kcal: 0, p: 0, c: 0, g: 0 });
+    return { dn, rest, meals, tot };
+  });
+}
+function shopData() {
+  const T = isVeg() ? D.SHOP_VEG : D.SHOP, F = D.FOODS;
+  const grp = [["Proteínas", ["pollo", "bistec", "tilapia", "atun", "huevo", "claras", "jamon", "panela", "yogurt", "requeson", "tofu", "soya", "lentejas", "garbanzo", "whey"]], ["Carbohidratos", ["arroz", "papa", "frijol", "avena", "tortilla", "pan", "tostada", "platano", "fresas"]], ["Grasas y verdura", ["aguacate", "aceite", "verdura"]]];
+  const line = k => {
+    const q = Math.ceil((T[k] || 0) * mealScale()); if (!q) return null;
+    const f = F[k]; let txt;
+    if (f.unit === "pza") txt = k === "tortilla" ? `${(q * 30 / 1000).toFixed(1)} kg (≈ ${q} tortillas)` : `${q} pzas`;
+    else if (k === "atun") txt = `${Math.ceil(q / 140)} latas`;
+    else txt = q >= 1000 ? `${(Math.ceil(q / 100) / 10).toFixed(1)} kg` : `${Math.ceil(q / 50) * 50} g`;
+    if (k === "aceite") txt = "1 botella chica"; if (k === "whey") txt = "opcional (2 scoops)";
+    return [f.name.charAt(0).toUpperCase() + f.name.slice(1), txt];
+  };
+  return grp.map(([t, ks]) => [t, ks.map(line).filter(Boolean)]);
+}
 const DAYN = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 function vMenu() {
   const restIdx = S.weekend === "sab" ? 6 : 5;
@@ -637,6 +663,11 @@ function vMenu() {
     const rest = d === restIdx, names = MEAL_BASE().filter(m => !(rest && m.slot === "Pre-entreno")).map(m => { const si = MEAL_BASE().indexOf(m); return m.opts[(d + si) % m.opts.length].name; });
     return `<button class="row top" data-menu="${d}"><div class="main"><div class="title">${dn}${rest ? ' <span class="pill">descanso</span>' : ""}</div><div class="meta">${names.map(esc).join(" · ")}</div></div>${I.chev}</button>`;
   }).join("")}</div>
+  <h2 class="sec">Guardar o imprimir</h2>
+  <div class="group">
+    <button class="row" data-go="#/imprimir"><div class="main"><div class="title">Versión para imprimir</div><div class="meta">Menú y compras ordenados; guárdalo como PDF</div></div>${I.chev}</button>
+    <button class="row" data-act="csv"><div class="main"><div class="title">Descargar para Excel (CSV)</div><div class="meta">Tabla con comidas, ingredientes y macros</div></div></button>
+  </div>
   <p class="note">La lista de compras sale de esta rotación. Al elegir un día, tus comidas de hoy cambian a esas opciones; puedes cambiarlas una por una cuando quieras.</p>`;
 }
 function vFoodGuide(id) {
@@ -670,6 +701,14 @@ function vFoodRules() {
   <h2 class="sec">En la cocina</h2><div class="group"><div class="prose">${C.foodRules}</div></div>
   <h2 class="sec">Hidratación</h2><div class="group"><div class="prose">${C.hydrationTips}</div></div>
   <h2 class="sec">Suplementos</h2><div class="group"><div class="prose">${C.supplements}</div></div>`;
+}
+function vPrint() {
+  const c = planCalc(), wm = weekMenu(), who = S.profile.name ? esc(S.profile.name) : "";
+  const rows = wm.map(d => `<section class="pd-day"><h3>${d.dn}${d.rest ? " · descanso" : ""}<span>${num(d.tot.kcal)} kcal · P ${d.tot.p} g · C ${d.tot.c} g · G ${d.tot.g} g</span></h3><table><thead><tr><th>Comida</th><th>Platillo</th><th>Ingredientes</th><th>kcal</th><th>P</th><th>C</th><th>G</th></tr></thead><tbody>${d.meals.map(x => `<tr><td>${esc(x.slot)}<br><small>${esc(x.time)}</small></td><td>${esc(x.v.name)}</td><td>${x.v.items.map(esc).join(", ")}</td><td>${x.v.m.kcal}</td><td>${x.v.m.p}</td><td>${x.v.m.c}</td><td>${x.v.m.g}</td></tr>`).join("")}</tbody></table></section>`).join("");
+  const shop = shopData().map(([t, it]) => `<div class="pd-col"><h4>${esc(t)}</h4><ul>${it.map(([n, q]) => `<li><span>${esc(n)}</span><b>${esc(q)}</b></li>`).join("")}</ul></div>`).join("");
+  return `${nav("Imprimir menú", { back: "Comida", to: "#/comida/menu", sub: "Se ve igual en papel. En el iPhone: Imprimir → pellizca la vista previa para guardar como PDF." })}
+  <div class="btn-wrap noprint"><button class="btn" data-act="print">Imprimir o guardar PDF</button></div>
+  <article class="print-doc"><header><h2>Menú semanal${who ? " de " + who : ""}</h2><p>Meta en día de entreno ≈ ${num(c.train.kcal)} kcal · proteína ${c.train.p} g · carbohidratos ${c.train.c} g · grasas ${c.train.g} g. Porciones ajustadas a tu plan.</p></header>${rows}<h2 class="pd-h">Lista de compras (7 días)</h2><div class="pd-shop">${shop}</div><footer>Son estimaciones; no sustituyen a un médico o nutriólogo. Reto 90.</footer></article>`;
 }
 function vShop() {
   const T = isVeg() ? D.SHOP_VEG : D.SHOP, F = D.FOODS;
@@ -1034,6 +1073,7 @@ function bind() {
   $$("[data-adj]").forEach(b => { if (!b.closest("#rev-out")) b.addEventListener("click", () => adjustKcal(b.dataset.adj)); });
   $$("[data-choice]").forEach(b => b.addEventListener("click", () => { const [k, v] = b.dataset.choice.split("|"); onb.d[k] = ["days", "pct", "dbMax"].includes(k) ? +v : v; if (k === "goal") onb.d.pct = null; vibrate(8); if (b.closest(".seg")) { segMove(b); setTimeout(refresh, 240); } else refresh(); }));
   [["#ob-age", "age"], ["#ob-h", "h"], ["#ob-kg", "kg"], ["#ob-date", "date"]].forEach(([sel, k]) => $(sel)?.addEventListener("input", e => { onb.d[k] = e.target.value; }));
+  $("#ob-name")?.addEventListener("input", e => { onb.d.name = cleanName(e.target.value); });
   $$("[data-onb]").forEach(b => b.addEventListener("click", () => {
     const a = b.dataset.onb;
     if (a === "back") { onb.step = Math.max(0, onb.step - 1); return refresh(); }
@@ -1118,7 +1158,7 @@ function act(a, el) {
   const iso = todayISO();
   if (a === "start") {
     const d = onb.d;
-    S.profile = { sex: d.sex, age: +d.age, h: +d.h, kg: parseFloat(d.kg), level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, adj: 0, equip: { bench: d.bench !== "no", bar: d.bar === "si", dbMax: +d.dbMax, pull: d.pull === "si", dips: d.dips === "si" } };
+    S.profile = { name: cleanName(d.name), sex: d.sex, age: +d.age, h: +d.h, kg: parseFloat(d.kg), level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, adj: 0, equip: { bench: d.bench !== "no", bar: d.bar === "si", dbMax: +d.dbMax, pull: d.pull === "si", dips: d.dips === "si" } };
     S.swaps = {}; S.start = d.date || iso; S.weekend = d.weekend; S.mode = d.mode; S.weights = { [S.start]: S.profile.kg }; _plan = { k: "", v: null };
     save(); onb = ONB(); if (window.Store) Store.persist(); go("#/hoy"); toast("Listo: día 1");
   } else if (a === "saveweight") {
@@ -1152,6 +1192,16 @@ function act(a, el) {
   } else if (a === "export") {
     const blob = new Blob([JSON.stringify(S, null, 1)], { type: "application/json" });
     const l = document.createElement("a"); l.href = URL.createObjectURL(blob); l.download = `reto90-${iso}.json`; l.click(); S.lastExport = iso; save(); toast("Copia exportada");
+  } else if (a === "print") {
+    try { window.print(); } catch { toast("No pude abrir la impresión"); }
+  } else if (a === "csv") {
+    const q = v => { let t = String(v ?? ""); if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; return '"' + t.replace(/"/g, '""') + '"'; };
+    const out = [["Día", "Comida", "Horario", "Platillo", "Ingredientes", "kcal", "Proteína (g)", "Carbohidratos (g)", "Grasas (g)"]];
+    weekMenu().forEach(d => { d.meals.forEach(x => out.push([d.dn, x.slot, x.time, x.v.name, x.v.items.join(", "), x.v.m.kcal, x.v.m.p, x.v.m.c, x.v.m.g])); out.push([d.dn, "TOTAL DEL DÍA", "", "", "", d.tot.kcal, d.tot.p, d.tot.c, d.tot.g]); });
+    out.push([], ["LISTA DE COMPRAS (7 días)", "Producto", "Cantidad"]);
+    shopData().forEach(([t, it]) => it.forEach(([n, qty]) => out.push([t, n, qty])));
+    const text = "\ufeff" + out.map(r => r.map(q).join(",")).join("\r\n");
+    const l = document.createElement("a"); l.href = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" })); l.download = `menu-${S.profile.name ? S.profile.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" : ""}${iso}.csv`; l.click(); toast("Menú descargado (CSV)");
   } else if (a === "reset") {
     if (confirm("¿Borrar todos tus datos y reiniciar? No se puede deshacer.")) { localStorage.removeItem(KEY); S = defaults(); go("#/inicio"); render(); }
   }

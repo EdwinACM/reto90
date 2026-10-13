@@ -358,3 +358,26 @@ button.link { border: 0; background: none; font: inherit; cursor: pointer; displ
 .nowcard .chev { width: 10px; height: 17px; flex: none; }
 
 h1.large:focus { outline: none; }
+
+/* Impresión del menú */
+.print-doc { background: var(--card); border-radius: 14px; padding: 16px; margin-top: 8px; font-size: 13px; }
+.print-doc h2 { font-size: 20px; margin: 0 0 4px; } .print-doc header p, .print-doc footer { color: var(--label-2); font-size: 12px; margin: 0 0 12px; }
+.pd-day { margin: 14px 0; break-inside: avoid; } .pd-day h3 { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 15px; margin: 0 0 6px; } .pd-day h3 span { font-weight: 400; color: var(--label-2); font-size: 12px; }
+.print-doc table { width: 100%; border-collapse: collapse; } .print-doc th, .print-doc td { text-align: left; vertical-align: top; padding: 5px 6px; border-bottom: .5px solid var(--sep); font-size: 12px; } .print-doc th { color: var(--label-2); font-weight: 600; } .print-doc small { color: var(--label-2); }
+.pd-h { margin-top: 20px !important; } .pd-shop { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; } .pd-col h4 { margin: 0 0 4px; font-size: 13px; } .pd-col ul { list-style: none; padding: 0; margin: 0; } .pd-col li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: .5px solid var(--sep); }
+@media print {
+  @page { margin: 12mm; }
+  html, body { background: #fff !important; color: #000 !important; }
+  #tabs, .navbar, .cta-bar, #toast, #rest, .noprint, h1.large, .sub { display: none !important; }
+  .page { padding: 0 !important; animation: none !important; }
+  .print-doc { box-shadow: none; border-radius: 0; padding: 0; background: #fff; font-size: 11px; }
+  .print-doc th, .print-doc td { border-color: #bbb; color: #000; } .print-doc small, .pd-day h3 span, .print-doc header p, .print-doc footer { color: #444; }
+}
+@media screen and (max-width: 640px) {
+  .print-doc table, .print-doc tbody, .print-doc tr { display: block; } .print-doc thead { display: none; }
+  .print-doc tr { padding: 8px 0; border-bottom: .5px solid var(--sep); } .print-doc td { display: block; border: 0; padding: 1px 0; }
+  .print-doc td:nth-child(1) { font-weight: 600; } .print-doc td:nth-child(1) small { font-weight: 400; margin-left: 6px; }
+  .print-doc td:nth-child(1) br { display: none; } .print-doc td:nth-child(2) { font-weight: 500; } .print-doc td:nth-child(3) { color: var(--label-2); }
+  .print-doc td:nth-child(n+4) { display: inline-block; margin: 3px 12px 0 0; color: var(--label-2); }
+  .print-doc td:nth-child(4)::after { content: " kcal"; } .print-doc td:nth-child(5)::before { content: "P "; } .print-doc td:nth-child(6)::before { content: "C "; } .print-doc td:nth-child(7)::before { content: "G "; }
+}
