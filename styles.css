@@ -3,9 +3,9 @@
   --bg: #f2f2f7; --surface: #ffffff; --surface-2: #f2f2f7;
   --label: #000000; --label-2: #56565c; --label-3: #6b6b70;
   --sep: rgba(60, 60, 67, .16); --fill: rgba(120, 120, 128, .14); --fill-2: rgba(120, 120, 128, .22);
-  --accent: #c93d08; --accent-text: #ffffff; --accent-soft: rgba(201, 61, 8, .10);
+  --accent: #bf3a06; --accent-text: #ffffff; --accent-soft: rgba(191, 58, 6, .10);
   --tri: #6a4bd8; --tri-soft: rgba(106, 75, 216, .12);
-  --good: #1a8f45; --good-soft: rgba(26, 143, 69, .13); --warn: #a35f00; --bad: #c8302a;
+  --good: #147a3a; --good-soft: rgba(20, 122, 58, .13); --warn: #a35f00; --bad: #c8302a;
   --tab-h: 54px; --cta-h: 0px;
   --ease: cubic-bezier(.22, 1, .36, 1);
   --shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 6px 20px rgba(0, 0, 0, .08); --seg-on: #ffffff;
@@ -215,7 +215,7 @@ a.blk:active, button.blk:active { background: var(--fill-2); }
 
 /* Semáforo de alimentos (siempre con texto: el color no es el único indicador) */
 .semdot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: 0; }
-.semdot.verde { background: var(--good); } .semdot.amarillo { background: #d99a00; } .semdot.rojo { background: var(--bad); }
+.semdot.verde { background: var(--good); } .semdot.amarillo { background: #b57d00; } .semdot.rojo { background: var(--bad); }
 
 /* Colores de acento (todos con contraste ≥ 4.5:1 sobre el fondo y el texto del botón) */
 :root[data-accent="azul"] { --accent: #0a5bd6; --accent-text: #ffffff; --accent-soft: rgba(10, 91, 214, .10); }
@@ -356,3 +356,5 @@ a.blk:active, button.blk:active { background: var(--fill-2); }
 button.link { border: 0; background: none; font: inherit; cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; padding: 0 2px; font-size: 15px; font-weight: 500; color: var(--accent); }
 
 .nowcard .chev { width: 10px; height: 17px; flex: none; }
+
+h1.large:focus { outline: none; }
