@@ -9,11 +9,15 @@ const KEY = "reto90.v1";
 const todayISO = (d = new Date()) => { const z = new Date(d.getTime() - d.getTimezoneOffset() * 6e4); return z.toISOString().slice(0, 10); };
 const addDays = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return todayISO(d); };
 const diffDays = (a, b) => Math.round((new Date(a + "T12:00:00") - new Date(b + "T12:00:00")) / 864e5);
-const defaults = () => ({ swaps: {}, accent: "naranja", profile: null, cardio: {}, intro: false, start: null, weekend: "sab", mode: "gym", weights: {}, waists: {}, checks: {}, hist: {}, picks: {}, eaten: {}, reviews: {} });
+const defaults = () => ({ body: {}, prs: {}, lastExport: null, tips: {}, swaps: {}, accent: "naranja", profile: null, cardio: {}, intro: false, start: null, weekend: "sab", mode: "gym", weights: {}, waists: {}, checks: {}, hist: {}, picks: {}, eaten: {}, reviews: {} });
 let S;
 try { S = Object.assign(defaults(), JSON.parse(localStorage.getItem(KEY) || "{}")); } catch { S = defaults(); }
 Object.values(D.ARCH).forEach(s => ["gym", "db", "home"].forEach(m => s[m].forEach((b, i) => { b.key = s.id + "-" + m + "-" + i; b.sid = s.id; b.idx = i; })));
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
+let backupT = null;
+const save = () => {
+  try { localStorage.setItem(KEY, JSON.stringify(S)); localStorage.setItem(KEY + ".saved", String(Date.now())); } catch {}
+  clearTimeout(backupT); backupT = setTimeout(() => { if (window.Store && Store.available() && S.start) Store.setKV("backup", JSON.stringify(S)).catch(() => {}); }, 1200);
+};
 
 /* ───────── Utilidades ───────── */
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -64,11 +68,21 @@ function adaptSession(a, wd, goal, lv, days, sex) {
     if (lv === "nuevo" && i > 0 && b.rounds >= 3 && !abs) b.rounds -= 1;
     if (lv === "alto" && i === 0) b.rounds = Math.min(5, b.rounds + 1);
   }));
-  s.db = applyEquip(s.db, "db"); s.home = applyEquip(s.home, "home");
+  s.gym = applySkills(s.gym); s.db = applyEquip(s.db, "db"); s.home = applyEquip(s.home, "home");
   return s;
 }
-const equip = () => ({ bench: true, bar: false, dbMax: 20, ...(S.profile.equip || {}) });
-function resolveItem(k) { const a = D.ALT_DEF[k] || { reps: "10–12", w: null, note: "" }; return { k, reps: a.reps, w: a.w ? { ...a.w } : null, note: a.note || "" }; }
+const equip = () => ({ bench: true, bar: false, dbMax: 20, pull: false, dips: false, ...(S.profile.equip || {}) });
+const PRESET = {
+  pullup: { reps: "6–10", w: null, note: "Peso corporal. Cuando llegues a 10 en todas las vueltas, añade peso con un cinturón o una mancuerna entre los pies." },
+  dips: { reps: "8–12", w: null, note: "Torso vertical para trabajar tríceps. Cuando llegues a 12 en todas las vueltas, añade peso." },
+};
+function resolveItem(k, preset) { const a = (preset && PRESET[k]) || D.ALT_DEF[k] || { reps: "10–12", w: null, note: "" }; return { k, reps: a.reps, w: a.w ? { ...a.w } : null, note: a.note || "" }; }
+/* Gimnasio: si puedes hacer 5 o más dominadas / fondos, entran en lugar del jalón y del pushdown */
+function applySkills(blocks) {
+  const eq = equip(), has = k => blocks.some(b => b.items.some(i => i.k === k));
+  blocks.forEach(b => { b.items = b.items.map(it => (eq.pull && it.k === "lat_pd" && !has("pullup")) ? resolveItem("pullup", true) : (eq.dips && it.k === "tri_push" && !has("dips")) ? resolveItem("dips", true) : it); });
+  return blocks;
+}
 /* Sin banca: sustituciones lógicas; con barra: el tirón vertical real reemplaza a los sustitutos débiles */
 function applyEquip(blocks, mode) {
   const eq = equip(), has = k => blocks.some(b => b.items.some(i => i.k === k));
@@ -174,8 +188,11 @@ function scaleW(item) {
 /* Peso sugerido: estimado la primera vez; luego según lo registrado */
 const incFor = (k, u) => u === "c/mano" ? 2 : u === "stack" ? 5 : (["smith_sq", "leg_press", "hack", "rdl", "hip_thrust"].includes(k) ? 10 : S.mode === "db" ? 2 : 2.5);
 function suggest(item) {
-  if (!item.w || S.mode === "home") return { text: S.mode === "home" ? "Sin peso (mochila opcional)" : "Peso corporal", n: null, src: "" };
   const iso = todayISO();
+  if (!item.w || S.mode === "home") {
+    const pv = [...(S.hist[item.k] || [])].reverse().find(x => x.d !== iso && x.sets.some(t => t.done && t.r)), best = pv ? Math.max(...pv.sets.filter(t => t.done && t.r).map(t => t.r)) : null;
+    return { text: S.mode === "home" ? "Sin peso (mochila opcional)" : "Peso corporal", n: null, src: best ? `Tu última vez: ${best} repeticiones. Intenta una más en cada vuelta.` : "" };
+  }
   const prev = [...(S.hist[item.k] || [])].reverse().find(x => x.d !== iso && x.sets.some(s => s.done && s.w));
   const u = item.w.u;
   if (!prev) { const n0 = scaleW(item); return { n: n0, u, text: `${fmt(n0, n0 % 1 ? 1 : 0)} kg ${u}`, src: "Estimado con tu peso y tu nivel: ajusta a 1–2 repeticiones en reserva." }; }
@@ -184,8 +201,10 @@ function suggest(item) {
   const cap = dbCap(u), n = Math.min(cap, hit ? top + incFor(item.k, u) : top), capped = hit && top >= cap;
   return { n, u, text: `${fmt(n, n % 1 ? 1 : 0)} kg ${u}`, src: capped ? "Ya llegaste al máximo de tus mancuernas: sube repeticiones (hasta 20–25), baja en 3 s o pasa a una pierna o un brazo." : hit ? `Completaste el rango alto con ${top} kg: sube.` : `Tu última vez: ${top} kg. Busca una repetición más.` };
 }
+const segHtml = (items, cur, attr, label = "Opciones") => `<div class="seg" role="group" aria-label="${esc(label)}" style="--n:${items.length};--i:${Math.max(0, items.findIndex(([v]) => String(v) === String(cur)))}">${items.map(([v, t]) => `<button data-${attr}="${v}" aria-pressed="${String(cur) === String(v)}">${esc(t)}</button>`).join("")}</div>`;
+function segMove(btn) { const seg = btn.closest(".seg"); [...seg.children].forEach((x, i) => { x.setAttribute("aria-pressed", String(x === btn)); if (x === btn) seg.style.setProperty("--i", i); }); }
 const MODES = [["gym", "Gimnasio"], ["db", "Mancuernas"], ["home", "Sin equipo"]];
-const modeSeg = () => `<div class="seg" role="group" aria-label="Dónde entrenas">${MODES.map(([k, v]) => `<button data-mode="${k}" aria-pressed="${S.mode === k}">${v}</button>`).join("")}</div>`;
+const modeSeg = () => segHtml(MODES, S.mode, "mode", "Dónde entrenas");
 const typeLabel = t => ({ uni: "Uniserie", bi: "Biserie", tri: "Triserie", cardio: "Cardio" }[t]);
 const cardioMin = b => b.min + (phaseOf(weekNum()).cardioAdd || 0);
 const cardioKinds = () => S.mode === "gym" ? C.cardioKinds.gym : C.cardioKinds.home;
@@ -222,8 +241,9 @@ function nav(title, o = {}) {
   return `<div class="navbar" id="navbar">${back}<span class="nb-title" aria-hidden="true">${esc(title)}</span></div><h1 class="large" id="lt">${esc(title)}</h1>${o.sub ? `<p class="sub">${o.sub}</p>` : ""}`;
 }
 const cta = html => `<div class="cta-bar"><div class="inner">${html}</div></div>`;
+let lastTab = null;
 function renderTabs(tab) {
-  tabsEl.innerHTML = `<div class="inner">${TABS.map(([k, l, ic]) => `<a href="#/${k}" ${k === tab ? 'aria-current="page"' : ""}>${ic}<span>${l}</span></a>`).join("")}</div>`;
+  tabsEl.innerHTML = `<div class="inner">${TABS.map(([k, l, ic]) => `<a href="#/${k}" class="${k === tab && lastTab && lastTab !== tab ? "bump" : ""}" ${k === tab ? 'aria-current="page"' : ""}>${ic}<span>${l}</span></a>`).join("")}</div>`; lastTab = tab;
 }
 const TABOF = { hoy: "hoy", entreno: "entreno", bloque: "entreno", ej: "entreno", cambiar: "entreno", comida: "comida", progreso: "progreso", plan: "plan" };
 
@@ -241,7 +261,7 @@ function render(o) {
     case "ej": html = vExercise(r[1], r[2]); break;
     case "cambiar": html = vSwap(r[1], +r[2], +r[3]); break;
     case "comida": html = r[1] === "guia" ? vFoodGuide(r[2]) : r[1] === "menu" ? vMenu() : r[1] === "compras" ? vShop() : r[1] === "snacks" ? vSnacks() : r[1] === "reglas" ? vFoodRules() : r[1] === "porque" ? vWhy("diet") : r[1] === "slot" ? vSlot(r[2]) : vFood(); break;
-    case "progreso": html = r[1] === "revision" ? vReview() : r[1] === "peso" ? vLogWeight() : r[1] === "fuerza" ? vStrength() : r[1] === "guia" ? vMeasureGuide() : vProgress(); break;
+    case "progreso": html = r[1] === "medidas" ? vBodyMeasures() : r[1] === "fotos" ? vPhotos() : r[1] === "historial" ? vHistory() : r[1] === "datos" ? vData() : r[1] === "revision" ? vReview() : r[1] === "peso" ? vLogWeight() : r[1] === "fuerza" ? vStrength() : r[1] === "guia" ? vMeasureGuide() : vProgress(); break;
     case "plan": html = r[1] === "semana" ? vWeek(+r[2]) : r[1] === "habitos" ? vHabits() : r[1] === "fuentes" ? vSources() : r[1] === "ajustes" ? vSettings() : r[1] === "reglas" ? vAdjust() : vPlan(); break;
     default: html = vToday();
   }
@@ -257,6 +277,8 @@ function render(o) {
   if (lt && nb && "IntersectionObserver" in window) { io = new IntersectionObserver(([e]) => nb.classList.toggle("scrolled", !e.isIntersecting), { rootMargin: "-48px 0px 0px 0px" }); io.observe(lt); }
   bind();
   if (popSel) { $(popSel)?.classList.add("pop"); popSel = null; }
+  if (r[0] === "progreso" && r[1] === "fotos") loadPhotos();
+  if (r[0] === "progreso" && r[1] === "datos" && window.Store) { Store.persisted().then(v => { const e = $("#d-persist"); if (e) e.textContent = v ? "Activa" : "No concedida"; }); Store.usage().then(u => { const e = $("#d-usage"); if (e) e.textContent = u ? (u.used / 1048576).toFixed(1) + " MB" : "—"; }); }
 }
 
 /* ───────── Vistas ───────── */
@@ -279,20 +301,20 @@ function readProfile(ids) {
   if (!(kg >= 30 && kg <= 250)) return "Escribe tu peso en kg";
   return { sex, age, h, kg, level: g("lv"), goal: g("goal"), pct: +g("pct"), days: +g("days"), diet: g("diet"), adj: S.profile?.adj || 0, equip: S.profile?.equip };
 }
-const ONB = () => ({ step: 0, d: { goal: null, sex: null, age: "", h: "", kg: "", level: null, days: null, mode: "gym", bench: "si", dbMax: 20, bar: "no", diet: "omni", pct: null, weekend: "sab", date: todayISO() } });
+const ONB = () => ({ step: 0, d: { goal: null, sex: null, age: "", h: "", kg: "", level: null, days: null, mode: "gym", bench: "si", dbMax: 20, bar: "no", pull: "no", dips: "no", diet: "omni", pct: null, weekend: "sab", date: todayISO() } });
 let onb = ONB();
 const ONB_STEPS = 5;
 function radioRows(name, options, cur) {
   return `<div class="group" role="radiogroup">${options.map(([v, t, m]) => `<button class="row top" role="radio" aria-checked="${String(cur) === String(v)}" data-choice="${name}|${v}"><span class="opt-radio ${String(cur) === String(v) ? "on" : ""}"></span><div class="main"><div class="title">${esc(t)}</div>${m ? `<div class="meta">${esc(m)}</div>` : ""}</div></button>`).join("")}</div>`;
 }
-const segRow = (name, options, cur) => `<div class="seg" role="group">${options.map(([v, t]) => `<button data-choice="${name}|${v}" aria-pressed="${String(cur) === String(v)}">${esc(t)}</button>`).join("")}</div>`;
+const segRow = (name, options, cur) => `<div class="seg" role="group" style="--n:${options.length};--i:${Math.max(0, options.findIndex(([v]) => String(v) === String(cur)))}">${options.map(([v, t]) => `<button data-choice="${name}|${v}" aria-pressed="${String(cur) === String(v)}">${esc(t)}</button>`).join("")}</div>`;
 function onbValid(step, d) {
   if (step === 0 && !d.goal) return "Elige lo que quieres lograr";
   if (step === 1) { if (!d.sex) return "Elige tu sexo"; if (!(+d.age >= 14 && +d.age <= 90)) return "Escribe tu edad (14 a 90)"; if (!(+d.h >= 120 && +d.h <= 220)) return "Escribe tu estatura en cm"; if (!(parseFloat(d.kg) >= 30 && parseFloat(d.kg) <= 250)) return "Escribe tu peso en kg"; }
   if (step === 2) { if (!d.level) return "Elige tu experiencia"; if (!d.days) return "Elige cuántos días puedes entrenar"; }
   return "";
 }
-function withDraft(fn) { const prev = S.profile, pw = S.weights, pwe = S.weekend, pm = S.mode; const d = onb.d; S.profile = { sex: d.sex, age: +d.age, h: +d.h, kg: parseFloat(d.kg), level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, adj: 0, equip: { bench: d.bench !== "no", bar: d.bar === "si", dbMax: +d.dbMax } }; S.weights = {}; S.weekend = d.weekend; S.mode = d.mode; _plan = { k: "", v: null }; try { return fn(); } finally { S.profile = prev; S.weights = pw; S.weekend = pwe; S.mode = pm; _plan = { k: "", v: null }; } }
+function withDraft(fn) { const prev = S.profile, pw = S.weights, pwe = S.weekend, pm = S.mode; const d = onb.d; S.profile = { sex: d.sex, age: +d.age, h: +d.h, kg: parseFloat(d.kg), level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, adj: 0, equip: { bench: d.bench !== "no", bar: d.bar === "si", dbMax: +d.dbMax, pull: d.pull === "si", dips: d.dips === "si" } }; S.weights = {}; S.weekend = d.weekend; S.mode = d.mode; _plan = { k: "", v: null }; try { return fn(); } finally { S.profile = prev; S.weights = pw; S.weekend = pwe; S.mode = pm; _plan = { k: "", v: null }; } }
 function vSetup() {
   const { step, d } = onb;
   const heads = ["¿Qué quieres lograr?", "Sobre ti", "Tu entrenamiento", "Tu comida y tu ritmo", "Tu plan"];
@@ -308,6 +330,7 @@ function vSetup() {
     <h2 class="sec">Días de pesas por semana</h2>${radioRows("days", C.daysOptions, d.days)}
     <h2 class="sec">¿Dónde entrenas?</h2>${radioRows("mode", [["gym", "Gimnasio", "Máquinas, poleas, barras y mancuernas"], ["db", "En casa con mancuernas", "Tus mancuernas, con o sin banca"], ["home", "En casa, sin equipo", "Solo tu cuerpo, una mesa o silla y una mochila"]], d.mode)}
     ${d.mode === "db" ? `<h2 class="sec">Tus mancuernas pesan hasta…</h2>${radioRows("dbMax", [[10, "10 kg cada una o menos"], [20, "Hasta 20 kg cada una"], [30, "Hasta 30 kg cada una"], [40, "40 kg o más cada una"]], d.dbMax)}<h2 class="sec">¿Tienes banca?</h2>${segRow("bench", [["si", "Sí"], ["no", "No"]], d.bench)}` : ""}
+    ${d.mode === "gym" ? `<h2 class="sec">Peso corporal</h2><div class="group"><div class="field"><label>¿Puedes hacer 5 o más dominadas?</label>${segRow("pull", [["si", "Sí"], ["no", "No"]], d.pull)}</div><div class="field"><label>¿Y 5 o más fondos en paralelas?</label>${segRow("dips", [["si", "Sí"], ["no", "No"]], d.dips)}</div></div><p class="note">Si es que sí, entran en tu plan en lugar del jalón y el pushdown. Si no, quedan como alternativas (y hay máquina asistida).</p>` : ""}
     ${d.mode !== "gym" ? `<h2 class="sec">¿Tienes barra de dominadas?</h2>${segRow("bar", [["si", "Sí"], ["no", "No"]], d.bar)}<p class="note">Con barra, el tirón vertical (dominadas) entra en tu plan.</p>` : ""}`;
   if (step === 3) { const g = C.goals[d.goal]; body = `<h2 class="sec">Cómo comes</h2>${radioRows("diet", Object.entries(C.diets), d.diet)}
     <h2 class="sec">Ritmo</h2>${radioRows("pct", g.paces, d.pct ?? g.pace)}
@@ -320,7 +343,7 @@ function vSetup() {
       <div class="row top"><div class="main"><div class="title">Calorías</div><div class="meta">${num(c.train.kcal)} kcal en día de entreno · ${num(c.rest.kcal)} en descanso</div></div></div>
       <div class="row top"><div class="main"><div class="title">Proteína, carbohidratos y grasas</div><div class="meta">${c.train.p} g · ${c.train.c} g · ${c.train.g} g en día de entreno</div></div></div>
       <div class="row top"><div class="main"><div class="title">Tu semana</div><div class="meta">${ss.map(x => `${x.day} ${x.name}`).join(" · ")}</div></div></div>
-      <div class="row top"><div class="main"><div class="title">Equipo</div><div class="meta">${d.mode === "gym" ? "Gimnasio completo" : d.mode === "db" ? `Mancuernas hasta ${d.dbMax} kg · banca: ${d.bench === "no" ? "no" : "sí"} · barra de dominadas: ${d.bar === "si" ? "sí" : "no"}` : `Sin equipo · barra de dominadas: ${d.bar === "si" ? "sí" : "no"}`}</div></div></div>
+      <div class="row top"><div class="main"><div class="title">Equipo</div><div class="meta">${d.mode === "gym" ? `Gimnasio completo${d.pull === "si" ? " · con dominadas" : ""}${d.dips === "si" ? " · con fondos" : ""}` : d.mode === "db" ? `Mancuernas hasta ${d.dbMax} kg · banca: ${d.bench === "no" ? "no" : "sí"} · barra de dominadas: ${d.bar === "si" ? "sí" : "no"}` : `Sin equipo · barra de dominadas: ${d.bar === "si" ? "sí" : "no"}`}</div></div></div>
       <div class="row top"><div class="main"><div class="title">Cardio</div><div class="meta">${d.goal === "muscle" ? "Poco: solo para tu salud y recuperación" : d.mode === "gym" ? "Zona 2 en caminadora o elíptica al final de las pesas" : "Zona 2: caminata rápida, trote suave o bici al final de las pesas"}</div></div></div>
       <div class="row top"><div class="main"><div class="title">Ritmo esperado</div><div class="meta">${d.goal === "muscle" ? "Subir" : "Bajar"} ≈ ${c.rate} por semana</div></div></div>
     </div>${c.floorHit ? `<p class="note"><strong>Aviso:</strong> tu meta quedaría por debajo de un mínimo razonable, así que se subió. Con un peso bajo conviene un ritmo suave.</p>` : ""}
@@ -361,6 +384,9 @@ function vToday() {
     <p class="sub" style="margin-bottom:8px">${longDate(iso)}${n >= 1 ? ` · Semana ${wk}, ${esc(ph.name)}` : ""}</p>
     <div class="bar" role="progressbar" aria-label="Avance del reto" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><i style="--p:${(pct)/100}"></i></div>
     ${weekStrip(iso)}
+    ${nowCard(iso)}
+    ${tipHoy()}
+    <h2 class="sec">Resumen del día</h2><div class="group">${ringsHtml(iso)}</div>
     ${sesBlock}
     <h2 class="sec">Comidas</h2>
     <div class="group">${mealRows(iso, true)}${intake(iso)}</div>
@@ -373,7 +399,32 @@ function vToday() {
     <h2 class="sec">Peso en ayunas</h2>
     <div class="group"><div class="input-line"><input id="w-today" type="number" inputmode="decimal" step="0.1" placeholder="kg" aria-label="Peso de hoy en kilogramos" value="${w || ""}"><button class="btn" data-act="saveweight">Guardar</button></div>
       ${delta !== null ? `<div class="row"><div class="main"><div class="title">Tendencia de 7 días</div><div class="meta">${trendText(delta)}</div></div></div>` : ""}</div>
+    ${backupDue() ? `<h2 class="sec">Tus datos</h2><div class="group"><button class="row" data-go="#/progreso/datos"><div class="main"><div class="title">Haz una copia de tus datos</div><div class="meta">${S.lastExport ? "Tu última copia fue el " + shortDate(S.lastExport) : "Aún no has exportado una copia"}. Así no pierdes tu progreso si cambias de teléfono.</div></div>${I.chev}</button></div>` : ""}
     ${new Date().getDay() === 0 ? `<h2 class="sec">Esta semana</h2><div class="group"><button class="row" data-go="#/progreso/revision"><div class="main"><div class="title">Revisión semanal</div><div class="meta">Cinco preguntas y el ajuste recomendado</div></div>${I.chev}</button></div>` : ""}`;
+}
+const backupDue = () => dayNum() >= 7 && (Object.keys(S.weights).length >= 3 || totalSessions() >= 3) && (!S.lastExport || diffDays(todayISO(), S.lastExport) >= 14);
+function nextAction(iso) {
+  const h = new Date().getHours(), ses = sessionFor(iso), ck = S.checks[iso] || {}, nxt = nextMealSlot(iso), done = ses && sessionDoneOn(iso, ses.id), all = MEALS();
+  if (!S.weights[iso] && h < 12) return { t: "Registra tu peso en ayunas", m: "Diez segundos que mejoran tu tendencia", go: "#/progreso/peso" };
+  if (ses && !done && h >= 15) return { t: `Es hora de entrenar: ${ses.name}`, m: `${blocksOf(ses).length} bloques · ${sessMin(ses)} min`, go: `#/entreno/${ses.id}` };
+  if (nxt) { const m = all.find(x => x.slot === nxt); return { t: `Sigue: ${nxt} (${m.time})`, m: pick(m).name, go: `#/comida/slot/${all.indexOf(m)}` }; }
+  if (ses && !done) return { t: `Hoy toca: ${ses.name}`, m: `${blocksOf(ses).length} bloques · ${sessMin(ses)} min`, go: `#/entreno/${ses.id}` };
+  if ((ck.water || 0) < 2500) return { t: "Toma agua", m: `Llevas ${fmt((ck.water || 0) / 1000, 1)} L de 2.5–3 L`, go: "" };
+  return null;
+}
+function nowCard(iso) {
+  const a = nextAction(iso);
+  return a ? `<button class="nowcard" ${a.go ? `data-go="${a.go}"` : "data-noop"}><div><small>Ahora</small><b>${esc(a.t)}</b><span>${esc(a.m)}</span></div>${a.go ? I.chev : ""}</button>` : `<div class="nowcard done" role="status"><div><small>Ahora</small><b>Día completo</b><span>Lo que hiciste hoy cuenta. Descansa y mañana seguimos.</span></div></div>`;
+}
+function tipHoy() {
+  if (S.tips && S.tips.hoy) return "";
+  return `<div class="group" style="margin-top:14px"><div class="row top"><div class="main"><div class="title">Así se usa</div><div class="meta">Toca el círculo para marcar una comida. Toca su nombre para cambiar de opción. Tu entreno está justo debajo: ahí registras cada vuelta.</div></div><button class="btn small quiet" data-act="tiphoy">Entendido</button></div></div>`;
+}
+function ringsHtml(iso) {
+  const t = eatenTotals(iso), T = targetFor(iso), water = (S.checks[iso] || {}).water || 0;
+  const items = [["var(--accent)", 52, t.kcal / T.kcal, "Calorías", `${num(t.kcal)} / ${num(T.kcal)}`], ["var(--tri)", 40, t.p / T.p, "Proteína", `${t.p} / ${T.p} g`], ["var(--water)", 28, water / 2800, "Agua", `${fmt(water / 1000, 1)} / 2.8 L`]];
+  return `<div class="rings-row"><svg class="rings" viewBox="0 0 120 120" role="img" aria-label="Anillos del día: calorías ${Math.round(items[0][2] * 100)} %, proteína ${Math.round(items[1][2] * 100)} %, agua ${Math.round(items[2][2] * 100)} %">${items.map(([col, r, v]) => { const c = +(2 * Math.PI * r).toFixed(1), off = +(c * (1 - Math.min(1, Math.max(0, v)))).toFixed(1); return `<circle class="ring-bg" cx="60" cy="60" r="${r}"/><circle class="ring-fg" cx="60" cy="60" r="${r}" stroke="${col}" style="--c:${c};stroke-dasharray:${c};stroke-dashoffset:${off}"/>`; }).join("")}</svg>
+  <div class="ring-legend">${items.map(([col, , , l, v]) => `<div><i style="background:${col}"></i>${l}<b>${v}</b></div>`).join("")}</div></div>`;
 }
 function weekStrip(iso) {
   const names = ["L", "M", "X", "J", "V", "S", "D"];
@@ -444,7 +495,7 @@ function vBlock(id, bi) {
   const s = SESSIONS().find(x => x.id === id), b = s && blocksOf(s)[bi]; if (!b) return vTrain();
   if (b.t === "cardio") return vCardio(s, b, bi);
   const bl = blocksOf(s), next = bi + 1 < bl.length;
-  const strip = `<div class="strip" role="list">${b.items.map((it, ii) => { const ex = D.EX[it.k], sg = suggest(it), swapped = !!(S.swaps || {})[`${id}|${S.mode}|${bi}|${ii}`]; return `<div role="listitem" class="si"><a href="#/ej/${it.k}/${id}-${bi}-${ii}" aria-label="Ver técnica de ${esc(ex.name)}"><div class="gif"><img src="gifs/${ex.id}.gif" alt="Demostración de ${esc(ex.name)}" width="320" height="213"></div><div class="cap">${b.items.length > 1 ? letters[ii] + " · " : ""}${esc(ex.name)}${swapped ? ' <span class="badge">Cambiado</span>' : ""}<small>${esc(repsLabel(it.reps))} · ${esc(sg.text)}</small></div></a><a class="link" href="#/cambiar/${id}/${bi}/${ii}">Cambiar ejercicio</a></div>`; }).join("")}</div>`;
+  const strip = `<div class="strip" role="list">${b.items.map((it, ii) => { const ex = D.EX[it.k], sg = suggest(it), swapped = !!(S.swaps || {})[`${id}|${S.mode}|${bi}|${ii}`]; return `<div role="listitem" class="si"><a href="#/ej/${it.k}/${id}-${bi}-${ii}" aria-label="Ver técnica de ${esc(ex.name)}"><div class="gif"><img src="gifs/${ex.id}.gif" alt="Demostración de ${esc(ex.name)}" width="320" height="213"></div><div class="cap">${b.items.length > 1 ? letters[ii] + " · " : ""}${esc(ex.name)}${swapped ? ' <span class="badge">Cambiado</span>' : ""}<small>${esc(repsLabel(it.reps))} · ${esc(sg.text)}</small></div></a><button class="link" data-swap="${id}|${bi}|${ii}">Cambiar ejercicio</button></div>`; }).join("")}</div>`;
   const rounds = [];
   const active = Array.from({ length: b.rounds }, (_, r) => r).find(r => !b.items.every(it => roundDone(it, r)));
   for (let r = 0; r < b.rounds; r++) {
@@ -471,7 +522,7 @@ function vCardio(s, b, bi) {
   const mix = b.kind === "mix" && weekNum() >= 5;
   const sessionHasNext = bi + 1 < blocksOf(s).length;
   return `${nav("Cardio", { back: s.name, to: `#/entreno/${s.id}`, sub: `${mins} min · zona 2 · ${esc(s.name)}` })}
-  <div class="seg" role="group" aria-label="Tipo de cardio">${cardioKinds().map(x => `<button data-ckind="${x.id}" aria-pressed="${x.id === k.id}">${esc(x.name)}</button>`).join("")}</div>
+  ${segHtml(cardioKinds().map(x => [x.id, x.name]), k.id, "ckind", "Tipo de cardio")}
   <div class="gif-wrap" style="margin-top:12px"><img src="gifs/${k.gif}.gif" alt="Demostración de ${esc(k.name)}" width="320" height="213"></div>
   <div class="group" style="margin-top:14px">
     <div class="row top"><div class="main"><div class="title">${esc(k.name)}</div><div class="meta">${esc(k.how)}</div></div></div>
@@ -549,7 +600,7 @@ function vMenu() {
   const restIdx = S.weekend === "sab" ? 6 : 5;
   return `${nav("Menú de la semana", { back: "Comida", sub: "Una rotación de tus opciones. Toca un día para usarlo hoy." })}
   <div class="group">${DAYN.map((dn, d) => {
-    const rest = d === restIdx, names = MEAL_BASE().filter(m => !(rest && m.slot === "Pre-entreno")).map(m => { const si = MEAL_BASE().indexOf(m); return m.opts[(d + si) % 3].name; });
+    const rest = d === restIdx, names = MEAL_BASE().filter(m => !(rest && m.slot === "Pre-entreno")).map(m => { const si = MEAL_BASE().indexOf(m); return m.opts[(d + si) % m.opts.length].name; });
     return `<button class="row top" data-menu="${d}"><div class="main"><div class="title">${dn}${rest ? ' <span class="pill">descanso</span>' : ""}</div><div class="meta">${names.map(esc).join(" · ")}</div></div>${I.chev}</button>`;
   }).join("")}</div>
   <p class="note">La lista de compras sale de esta rotación. Al elegir un día, tus comidas de hoy cambian a esas opciones; puedes cambiarlas una por una cuando quieras.</p>`;
@@ -605,10 +656,16 @@ function vShop() {
 }
 
 /* Progreso */
+/* ───────── Seguimiento ───────── */
+let chartMetric = "peso", chartRange = 28, calOffset = 0, phAngle = "frente";
+const sessKeys = c => Object.keys(c || {}).filter(k => k.startsWith("s_") && c[k]);
+const activity = iso => { const c = S.checks[iso] || {}, sess = sessKeys(c).length > 0, meals = Object.values(S.eaten[iso] || {}).filter(Boolean).length; return { sess, meals, any: sess || meals >= 3 || !!S.weights[iso] }; };
+function streak() { let d = todayISO(), n = 0; if (!activity(d).any) d = addDays(d, -1); while (S.start && d >= S.start && activity(d).any) { n++; d = addDays(d, -1); } return n; }
+const totalSessions = () => Object.values(S.checks).reduce((a, c) => a + sessKeys(c).length, 0);
 function vProgress() {
   const now = avgWeight(todayISO()), delta = weekDelta();
   const ws = Object.entries(S.waists).sort((a, b) => a[0] < b[0] ? -1 : 1), w0 = ws[0], w1 = ws[ws.length - 1];
-  const sesDone = SESSIONS().filter(s => sessionDoneThisWeek(s.id)).length;
+  const sesDone = SESSIONS().filter(s => sessionDoneThisWeek(s.id)).length, st = streak();
   let adh = 0, dn = 0;
   for (let i = 0; i < 7; i++) { const d = addDays(todayISO(), -i); if (d < S.start) continue; dn++; const ms = mealsToday(d).filter(m => m.slot !== "Snack"), e = eatenOn(d); adh += ms.filter(m => e[m.slot]).length / ms.length; }
   return `${nav("Progreso")}
@@ -618,27 +675,125 @@ function vProgress() {
     <div class="row"><div class="main"><div class="title">Cintura</div></div><span class="val">${w1 ? (w0[0] !== w1[0] ? `${w0[1]} → ${w1[1]} cm` : w1[1] + " cm") : "—"}</span></div>
     <div class="row"><div class="main"><div class="title">Entrenos esta semana</div></div><span class="val">${sesDone} / ${SESSIONS().length}</span></div>
     <div class="row"><div class="main"><div class="title">Comidas cumplidas (7 días)</div></div><span class="val">${dn ? Math.round(adh / dn * 100) + " %" : "—"}</span></div>
+    <div class="row"><div class="main"><div class="title">Racha</div></div><span class="val">${st} ${st === 1 ? "día" : "días"}</span></div>
+    <div class="row"><div class="main"><div class="title">Entrenos completados</div></div><span class="val">${totalSessions()}</span></div>
   </div>
   <h2 class="sec">Tendencia</h2>
-  <div class="group" style="padding:12px 8px 4px">${chartSvg()}</div>
+  ${segHtml([["peso", "Peso"], ["cintura", "Cintura"]], chartMetric, "cmetric", "Qué graficar")}
+  <div style="height:8px"></div>${segHtml([[28, "4 semanas"], [84, "12 semanas"], [0, "Todo"]], chartRange, "crange", "Periodo")}
+  <div class="group" style="padding:12px 8px 4px;margin-top:10px" id="chartbox">${chartSvg()}</div>
+  <h2 class="sec">Tu constancia</h2>
+  <div class="group" id="calbox">${calHtml()}</div>
   <h2 class="sec">Registrar</h2>
   <div class="group">
     <button class="row" data-go="#/progreso/peso"><div class="main"><div class="title">Peso y cintura</div></div>${I.chev}</button>
+    <button class="row" data-go="#/progreso/medidas"><div class="main"><div class="title">Medidas del cuerpo</div><div class="meta">Pecho, brazo, muslo y cadera</div></div>${I.chev}</button>
+    <button class="row" data-go="#/progreso/fotos"><div class="main"><div class="title">Fotos de progreso</div><div class="meta">Se quedan solo en tu teléfono</div></div>${I.chev}</button>
     <button class="row" data-go="#/progreso/revision"><div class="main"><div class="title">Revisión semanal</div><div class="meta">Preguntas y ajuste de calorías</div></div>${I.chev}</button>
-    <button class="row" data-go="#/progreso/fuerza"><div class="main"><div class="title">Fuerza</div><div class="meta">Tus mejores series por ejercicio</div></div>${I.chev}</button>
+  </div>
+  <h2 class="sec">Historial</h2>
+  <div class="group">
+    <button class="row" data-go="#/progreso/fuerza"><div class="main"><div class="title">Fuerza y récords</div><div class="meta">Tus mejores series por ejercicio</div></div>${I.chev}</button>
+    <button class="row" data-go="#/progreso/historial"><div class="main"><div class="title">Entrenos completados</div><div class="meta">Cada sesión que has terminado</div></div>${I.chev}</button>
+    <button class="row" data-go="#/progreso/datos"><div class="main"><div class="title">Mis datos y copia de seguridad</div><div class="meta">Guardado en tu teléfono, exportar, importar</div></div>${I.chev}</button>
     <button class="row" data-go="#/progreso/guia"><div class="main"><div class="title">Qué medir y cómo interpretarlo</div><div class="meta">Agua, peso y grasa real</div></div>${I.chev}</button>
   </div>`;
 }
 function chartSvg() {
-  const pts = sortedWeights().slice(-42);
-  if (pts.length < 2) return `<div class="empty">Con 2 o más registros aparece la gráfica.</div>`;
-  const W = 340, H = 170, pl = 28, pr = 8, pt = 10, pb = 22, vals = pts.map(p => p[1]), avgs = pts.map(([d]) => avgWeight(d));
-  const lo = Math.floor(Math.min(...vals, ...avgs) - 0.5), hi = Math.ceil(Math.max(...vals, ...avgs) + 0.5);
+  const isW = chartMetric === "peso", from = chartRange ? addDays(todayISO(), -chartRange) : "0000-00-00";
+  const pts = (isW ? sortedWeights() : Object.entries(S.waists).sort((a, b) => a[0] < b[0] ? -1 : 1)).filter(p => p[0] >= from);
+  if (pts.length < 2) return `<div class="empty">Con 2 o más registros de ${isW ? "peso" : "cintura"} aparece la gráfica.</div>`;
+  const W = 340, H = 170, pl = 30, pr = 8, pt = 10, pb = 22, vals = pts.map(p => p[1]), avgs = isW ? pts.map(([d]) => avgWeight(d)) : vals;
+  const lo = Math.floor(Math.min(...vals, ...avgs) - 0.5), hi = Math.ceil(Math.max(...vals, ...avgs) + 0.5), unit = isW ? "kg" : "cm";
   const X = i => pl + i / (pts.length - 1) * (W - pl - pr), Y = v => pt + (hi - v) / (hi - lo) * (H - pt - pb);
   const grid = []; for (let v = lo; v <= hi; v += Math.max(1, Math.round((hi - lo) / 4))) grid.push(`<line class="grid" x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${pl - 5}" y="${Y(v) + 3}" text-anchor="end">${v}</text>`);
   const line = avgs.map((a, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(a).toFixed(1)}`).join("");
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfica de peso: puntos diarios y promedio de 7 días">${grid.join("")}${pts.map((p, i) => `<circle class="pt" cx="${X(i)}" cy="${Y(p[1])}" r="2.6"/>`).join("")}<path class="avg" d="${line}"/><text x="${pl}" y="${H - 6}">${shortDate(pts[0][0])}</text><text x="${W - pr}" y="${H - 6}" text-anchor="end">${shortDate(pts[pts.length - 1][0])}</text></svg>
-  <p class="note" style="margin:0 8px 8px">Puntos: cada pesada. Línea: promedio de 7 días, lo que importa.</p>`;
+  const change = vals[vals.length - 1] - vals[0];
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfica de ${isW ? "peso" : "cintura"}: de ${vals[0]} a ${vals[vals.length - 1]} ${unit}">${grid.join("")}${isW ? pts.map((p, i) => `<circle class="pt" cx="${X(i)}" cy="${Y(p[1])}" r="2.6"/>`).join("") : ""}<path class="avg" d="${line}" pathLength="1"/>${!isW ? pts.map((p, i) => `<circle class="dotpt" cx="${X(i)}" cy="${Y(p[1])}" r="3"/>`).join("") : ""}<text x="${pl}" y="${H - 6}">${shortDate(pts[0][0])}</text><text x="${W - pr}" y="${H - 6}" text-anchor="end">${shortDate(pts[pts.length - 1][0])}</text></svg>
+  <p class="note" style="margin:0 8px 8px">${isW ? "Puntos: cada pesada. Línea: promedio de 7 días, lo que importa. " : ""}Cambio en el periodo: <strong>${change > 0 ? "+" : ""}${fmt(change, 1)} ${unit}</strong>.</p>`;
+}
+function calHtml() {
+  const t = new Date(todayISO() + "T12:00:00"); t.setDate(1); t.setMonth(t.getMonth() + calOffset);
+  const y = t.getFullYear(), m = t.getMonth(), first = (new Date(y, m, 1).getDay() + 6) % 7, days = new Date(y, m + 1, 0).getDate(), iso = todayISO(), cells = [];
+  for (let i = 0; i < first; i++) cells.push("<span></span>");
+  for (let d = 1; d <= days; d++) {
+    const di = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`, a = activity(di), inR = S.start && di >= S.start && di <= iso;
+    cells.push(`<button class="cd ${a.sess ? "done" : a.any ? "part" : ""} ${di === iso ? "today" : ""} ${inR ? "" : "out"}" data-day="${di}" aria-label="${esc(longDate(di))}${a.sess ? ", entreno completado" : a.any ? ", con actividad" : ""}"><i>${d}</i></button>`);
+  }
+  const title = t.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+  return `<div class="cal-h"><button class="nb-btn" data-cal="-1" aria-label="Mes anterior">${I.back}</button><b>${title.charAt(0).toUpperCase() + title.slice(1)}</b><button class="nb-btn" data-cal="1" aria-label="Mes siguiente" ${calOffset >= 0 ? "disabled" : ""}><span style="display:inline-block;transform:rotate(180deg)">${I.back}</span></button></div>
+  <div class="cal-w" aria-hidden="true">${["L", "M", "X", "J", "V", "S", "D"].map(x => `<span>${x}</span>`).join("")}</div><div class="cal-g">${cells.join("")}</div>
+  <div class="cal-k"><span><i class="kd done"></i> Entreno</span><span><i class="kd part"></i> Actividad</span></div>`;
+}
+function dayInfoHtml(iso) {
+  const c = S.checks[iso] || {}, e = Object.entries(S.eaten[iso] || {}).filter(([, v]) => v).map(([k]) => k), sess = sessKeys(c).map(k => D.ARCH[k.slice(2)]?.name).filter(Boolean);
+  const sets = Object.values(S.hist).reduce((a, h) => a + ((h.find(x => x.d === iso)?.sets || []).filter(x => x.done).length), 0);
+  const row = (t, v) => `<div class="row"><div class="main"><div class="title">${t}</div></div><span class="val">${v}</span></div>`;
+  return `<div class="group">${row("Peso", S.weights[iso] ? fmt(S.weights[iso], 1) + " kg" : "—")}${row("Entreno", sess.length ? esc(sess.join(", ")) : "—")}${sets ? row("Series completadas", sets) : ""}${row("Comidas marcadas", e.length ? e.length : "—")}${row("Agua", c.water ? fmt(c.water / 1000, 1) + " L" : "—")}${row("Pasos", c.steps ? num(c.steps) : "—")}${row("Dormí 7 h o más", c.sleep ? "Sí" : "—")}</div>${e.length ? `<p class="note">${esc(e.join(" · "))}</p>` : ""}`;
+}
+function vBodyMeasures() {
+  const iso = todayISO(), F = [["cintura", "Cintura (a la altura del ombligo)"], ["pecho", "Pecho (a la altura de las tetillas)"], ["brazo", "Brazo flexionado (la parte más ancha)"], ["muslo", "Muslo (a medio camino de la rodilla)"], ["cadera", "Cadera (la parte más ancha)"]];
+  const get = (k, d) => k === "cintura" ? S.waists[d] : (S.body || {})[d]?.[k];
+  const dates = [...new Set([...Object.keys(S.waists), ...Object.keys(S.body || {})])].sort();
+  const delta = F.map(([k, l]) => { const ds = dates.filter(d => get(k, d)); return ds.length >= 2 ? `<div class="row"><div class="main"><div class="title">${esc(l.split(" (")[0])}</div><div class="meta">${get(k, ds[0])} → ${get(k, ds[ds.length - 1])} cm</div></div><span class="val" style="font-weight:600;color:var(--label)">${(get(k, ds[ds.length - 1]) - get(k, ds[0])) > 0 ? "+" : ""}${fmt(get(k, ds[ds.length - 1]) - get(k, ds[0]), 1)} cm</span></div>` : ""; }).join("");
+  return `${nav("Medidas del cuerpo", { back: "Progreso", sub: "Cada 2 semanas, en ayunas, con cinta sin apretar. Son mejores que la báscula para ver cambios reales." })}
+  <h2 class="sec">Hoy</h2><div class="group">${F.map(([k, l]) => `<div class="field"><label for="m-${k}">${esc(l)}</label><input id="m-${k}" type="number" inputmode="decimal" step="0.1" min="10" max="250" placeholder="cm" value="${get(k, iso) ?? ""}"></div>`).join("")}</div>
+  <div class="btn-wrap"><button class="btn" data-act="savebody">Guardar medidas</button></div>
+  <h2 class="sec">Cambio desde la primera medida</h2>${delta ? `<div class="group">${delta}</div>` : `<div class="group"><div class="empty">Registra al menos dos veces para ver tu cambio.</div></div>`}`;
+}
+function vPhotos() {
+  return `${nav("Fotos de progreso", { back: "Progreso", sub: "Se guardan solo en este teléfono: no se suben a ningún lado ni entran en la copia JSON." })}
+  <div class="group"><div class="field"><label>Ángulo de la foto</label>${segHtml([["frente", "Frente"], ["perfil", "Perfil"], ["espalda", "Espalda"]], phAngle, "angle", "Ángulo")}</div>
+    <label class="row" style="cursor:pointer"><div class="main"><div class="title" style="color:var(--accent)">Tomar o elegir una foto</div><div class="meta">Mismo lugar, luz y hora cada vez</div></div><input type="file" accept="image/*" id="ph-file" hidden></label></div>
+  <div id="ph-cmp"></div><div id="ph-grid"><div class="skel"></div></div>`;
+}
+let photoUrls = [];
+async function loadPhotos() {
+  const grid = $("#ph-grid"), cmp = $("#ph-cmp"); if (!grid) return;
+  photoUrls.forEach(u => URL.revokeObjectURL(u)); photoUrls = [];
+  if (!window.Store || !Store.available()) { grid.innerHTML = `<div class="group"><div class="empty">Tu navegador no permite guardar fotos aquí.</div></div>`; return; }
+  let list = []; try { list = (await Store.photos()).sort((a, b) => a.date < b.date ? 1 : -1); } catch { grid.innerHTML = `<div class="group"><div class="empty">No pude leer las fotos guardadas.</div></div>`; return; }
+  if (!$("#ph-grid")) return;
+  const url = p => { const u = URL.createObjectURL(p.blob); photoUrls.push(u); return u; };
+  const same = list.filter(p => p.angle === phAngle);
+  cmp.innerHTML = same.length >= 2 ? (() => { const a = same[same.length - 1], b = same[0]; return `<h2 class="sec">Primera y última (${esc(phAngle)})</h2><div class="cmp"><figure><img src="${url(a)}" alt="Foto de ${esc(a.angle)} del ${esc(longDate(a.date))}"><figcaption>${shortDate(a.date)}</figcaption></figure><figure><img src="${url(b)}" alt="Foto de ${esc(b.angle)} del ${esc(longDate(b.date))}"><figcaption>${shortDate(b.date)} · ${diffDays(b.date, a.date)} días después</figcaption></figure></div>`; })() : "";
+  grid.innerHTML = list.length ? `<h2 class="sec">Todas tus fotos</h2><div class="pgrid">${list.map(p => `<button class="pth" data-photo="${esc(p.id)}" aria-label="Foto de ${esc(p.angle)}, ${esc(longDate(p.date))}"><img src="${url(p)}" alt=""><span>${shortDate(p.date)} · ${esc(p.angle)}</span></button>`).join("")}</div>` : `<div class="group"><div class="empty">Aún no hay fotos. Tómate una el día 1 para comparar al final del reto.</div></div>`;
+  $$("[data-photo]").forEach(b => b.addEventListener("click", () => { const p = list.find(x => x.id === b.dataset.photo); openSheet(`${shortDate(p.date)} · ${p.angle}`, `<img class="pfull" src="${url(p)}" alt="Foto de ${esc(p.angle)}"><div class="btn-wrap"><button class="btn danger-soft" data-delph="${esc(p.id)}">Eliminar foto</button></div>`, el => el.querySelector("[data-delph]").addEventListener("click", async () => { if (confirm("¿Eliminar esta foto? No se puede deshacer.")) { await Store.delPhoto(p.id); closeSheet(); loadPhotos(); toast("Foto eliminada"); } })); }));
+}
+function vHistory() {
+  const rows = []; Object.keys(S.checks).sort().reverse().forEach(d => sessKeys(S.checks[d]).forEach(k => { const se = D.ARCH[k.slice(2)]; if (!se) return; const sets = Object.values(S.hist).reduce((a, h) => a + ((h.find(x => x.d === d)?.sets || []).filter(x => x.done).length), 0); rows.push(`<div class="row"><div class="main"><div class="title">${esc(se.name)}</div><div class="meta">${esc(longDate(d))}${sets ? " · " + sets + " series" : ""}</div></div></div>`); }));
+  return `${nav("Entrenos completados", { back: "Progreso", sub: `${rows.length} en total` })}${rows.length ? `<div class="group">${rows.join("")}</div>` : `<div class="group"><div class="empty">Cuando termines tu primer entreno aparecerá aquí.</div></div>`}`;
+}
+const e1rm = (w, r) => w * (1 + (r || 1) / 30);
+function spark(vals) {
+  if (vals.length < 2) return "";
+  const W = 64, H = 22, lo = Math.min(...vals), hi = Math.max(...vals), X = i => 2 + i / (vals.length - 1) * (W - 4), Y = v => hi === lo ? H / 2 : 2 + (hi - v) / (hi - lo) * (H - 4);
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="${vals.map((v, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join("")}"/></svg>`;
+}
+function vStrength() {
+  const keys = Object.keys(S.hist).filter(k => S.hist[k].some(x => x.sets.some(t => t.done || t.r)));
+  return `${nav("Fuerza y récords", { back: "Progreso", sub: "Mejor serie y tendencia por ejercicio." })}
+  ${keys.length ? `<div class="group">${keys.map(k => { const h = S.hist[k].filter(x => x.sets.some(t => t.r)), best = h.map(x => bestOf(x)), top = h.map(x => Math.max(...x.sets.filter(t => t.r).map(t => t.w ? e1rm(t.w, t.r) : t.r))); const pr = S.prs && S.prs[k]; return `<div class="row"><div class="main"><div class="title">${esc(D.EX[k]?.name || k)}</div><div class="meta">${h.length} sesiones · inicio ${best[0]}${pr ? " · récord ≈ " + fmt(pr, 0) + " kg (1RM est.)" : ""}</div></div>${spark(top)}<span class="val" style="color:var(--label);font-weight:600">${best[best.length - 1]}</span></div>`; }).join("")}</div><p class="note">El 1RM estimado usa la fórmula de Epley (peso × (1 + repeticiones ÷ 30)); es una aproximación.</p>` : `<div class="group"><div class="empty">Marca tus vueltas en cada bloque y aquí verás tu progreso y tus récords.</div></div>`}`;
+}
+function vData() {
+  const saved = +localStorage.getItem(KEY + ".saved") || 0, n = Object.keys(S.weights).length, ses = totalSessions();
+  return `${nav("Mis datos", { back: "Progreso", sub: "Todo se guarda automáticamente en tu teléfono, sin cuenta ni servidor." })}
+  <h2 class="sec">Estado</h2>
+  <div class="group">
+    <div class="row"><div class="main"><div class="title">Último guardado</div></div><span class="val">${saved ? new Date(saved).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}</span></div>
+    <div class="row"><div class="main"><div class="title">Copia interna de respaldo</div><div class="meta">Si el navegador borra el guardado principal, la app lo recupera sola</div></div><span class="val">${window.Store && Store.available() ? "Activa" : "No disponible"}</span></div>
+    <div class="row"><div class="main"><div class="title">Protección contra borrado</div><div class="meta">El navegador no debería limpiar estos datos cuando falte espacio</div></div><span class="val" id="d-persist">…</span></div>
+    <div class="row"><div class="main"><div class="title">Espacio usado</div></div><span class="val" id="d-usage">…</span></div>
+    <div class="row"><div class="main"><div class="title">Lo que hay guardado</div></div><span class="val">${n} pesos · ${ses} entrenos</span></div>
+  </div>
+  <h2 class="sec">Copia de seguridad</h2>
+  <div class="group">
+    <button class="row" data-act="export"><div class="main"><div class="title">Exportar copia (archivo)</div><div class="meta">Guárdala en Archivos, iCloud, Drive o envíatela por correo${S.lastExport ? " · última: " + shortDate(S.lastExport) : ""}</div></div></button>
+    <button class="row" data-act="copydata"><div class="main"><div class="title">Copiar mis datos como texto</div><div class="meta">Pégalos en Notas o en un mensaje</div></div></button>
+    <label class="row" style="cursor:pointer"><div class="main"><div class="title">Importar copia</div><div class="meta">Restaura un archivo exportado antes</div></div><input type="file" accept="application/json" id="imp" hidden></label>
+  </div>
+  <p class="note">Las fotos se guardan aparte, dentro de este dispositivo, y no entran en la copia. Si cambias de teléfono, guarda tus fotos por tu cuenta. Si borras los datos del navegador o desinstalas la app, se pierde todo.</p>
+  <h2 class="sec">Zona de riesgo</h2><div class="group"><button class="row" data-act="reset"><div class="main"><div class="title" style="color:var(--bad)">Borrar todo y reiniciar</div></div></button></div>`;
 }
 function vLogWeight() {
   const iso = todayISO(), rows = sortedWeights().slice(-14).reverse();
@@ -651,11 +806,6 @@ function vLogWeight() {
   ${rows.length ? `<div class="group">${rows.map(([d, v]) => `<div class="row"><div class="main"><div class="title">${shortDate(d)}</div></div><span class="val">${fmt(v, 1)} kg${S.waists[d] ? " · " + S.waists[d] + " cm" : ""}</span></div>`).join("")}</div>` : `<div class="group"><div class="empty">Aún no hay registros.</div></div>`}`;
 }
 const bestOf = e => { const s = e.sets.filter(x => x.r).sort((a, b) => (b.w || 0) * 100 + b.r - ((a.w || 0) * 100 + a.r))[0]; return s ? `${s.w ? s.w + " kg × " : ""}${s.r}` : "—"; };
-function vStrength() {
-  const keys = Object.keys(S.hist).filter(k => S.hist[k].length);
-  return `${nav("Fuerza", { back: "Progreso", sub: "Mejor serie por ejercicio." })}
-  ${keys.length ? `<div class="group">${keys.map(k => { const h = S.hist[k]; return `<div class="row"><div class="main"><div class="title">${esc(D.EX[k]?.name || k)}</div><div class="meta">${h.length} sesiones · inicio ${bestOf(h[0])}</div></div><span class="val">${bestOf(h[h.length - 1])}</span></div>`; }).join("")}</div>` : `<div class="group"><div class="empty">Marca tus vueltas en cada bloque y aquí verás tu progreso.</div></div>`}`;
-}
 function vMeasureGuide() {
   return `${nav("Cómo medir", { back: "Progreso" })}
   <h2 class="sec">Qué y cuándo</h2><div class="group">${C.measureGuide.map(m => `<div class="row top"><div class="main"><div class="title">${esc(m.t)}</div><div class="meta">${esc(m.d)}</div></div></div>`).join("")}</div>
@@ -769,11 +919,13 @@ function vSettings() {
   <div class="group" id="eqp">
     <div class="field"><label for="eq-db">Mancuernas (si entrenas con ellas)</label><select id="eq-db">${[10, 20, 30, 40].map(v => `<option value="${v}" ${equip().dbMax === v ? "selected" : ""}>${v === 40 ? "40 kg o más cada una" : v === 10 ? "10 kg cada una o menos" : "Hasta " + v + " kg cada una"}</option>`).join("")}</select></div>
     <div class="field"><label for="eq-bench">¿Tienes banca?</label><select id="eq-bench"><option value="si" ${equip().bench ? "selected" : ""}>Sí</option><option value="no" ${equip().bench ? "" : "selected"}>No</option></select></div>
-    <div class="field"><label for="eq-bar">¿Tienes barra de dominadas?</label><select id="eq-bar"><option value="si" ${equip().bar ? "selected" : ""}>Sí</option><option value="no" ${equip().bar ? "" : "selected"}>No</option></select></div>
+    <div class="field"><label for="eq-pull">Gimnasio: ¿puedes hacer 5 o más dominadas?</label><select id="eq-pull"><option value="si" ${equip().pull ? "selected" : ""}>Sí</option><option value="no" ${equip().pull ? "" : "selected"}>No</option></select></div>
+    <div class="field"><label for="eq-dips">Gimnasio: ¿y 5 o más fondos?</label><select id="eq-dips"><option value="si" ${equip().dips ? "selected" : ""}>Sí</option><option value="no" ${equip().dips ? "" : "selected"}>No</option></select></div>
+    <div class="field"><label for="eq-bar">¿Tienes barra de dominadas? (en casa)</label><select id="eq-bar"><option value="si" ${equip().bar ? "selected" : ""}>Sí</option><option value="no" ${equip().bar ? "" : "selected"}>No</option></select></div>
   </div>
   <p class="note">Al cambiar tu equipo, el plan en casa se ajusta y se restablecen los ejercicios que habías cambiado.</p>
   <h2 class="sec">Apariencia</h2>
-  <div class="group"><div class="field"><label>Color de acento</label><div class="seg" role="group" aria-label="Color de acento">${[["naranja", "Naranja"], ["azul", "Azul"], ["morado", "Morado"], ["rosa", "Rosa"]].map(([k, v]) => `<button data-accent="${k}" aria-pressed="${S.accent === k}">${v}</button>`).join("")}</div></div></div>
+  <div class="group"><div class="field"><label>Color de acento</label>${segHtml([["naranja", "Naranja"], ["azul", "Azul"], ["morado", "Morado"], ["rosa", "Rosa"]], S.accent, "accent", "Color de acento")}</div></div>
   <h2 class="sec">Reto</h2>
   <div class="group">
     <div class="field"><label for="se-date">Día 1 del reto</label><input id="se-date" type="date" value="${S.start}"></div>
@@ -820,7 +972,14 @@ function saveRound(r, setDone) {
 }
 function checkSessionComplete(s) {
   const pr = sessionProgress(s);
-  if (pr.done === pr.total && !sessionDoneOn(todayISO(), s.id)) { checksOf(todayISO())["s_" + s.id] = true; save(); toast("Entrenamiento completo"); vibrate([30, 60, 30]); }
+  if (pr.done === pr.total && !sessionDoneOn(todayISO(), s.id)) { checksOf(todayISO())["s_" + s.id] = true; save(); celebrate("Entrenamiento completo"); vibrate([30, 60, 30]); }
+}
+let lastPR = [];
+function checkPR(r) {
+  const ctx = blockCtx(); if (!ctx) return;
+  S.prs = S.prs || {}; lastPR = [];
+  ctx.b.items.forEach(it => { const c = getSets(it.k)[r]; if (!c || !c.done || !c.w) return; const e = e1rm(c.w, c.r), prev = S.prs[it.k]; if (prev === undefined) S.prs[it.k] = e; else if (e > prev * 1.001) { S.prs[it.k] = e; lastPR.push(D.EX[it.k].name); } });
+  save();
 }
 function afterTick() {
   const ctx = blockCtx(); if (!ctx) return;
@@ -831,14 +990,14 @@ function afterTick() {
 function bind() {
   $("[data-to]")?.addEventListener("click", e => go(e.currentTarget.dataset.to));
   $$("[data-go]").forEach(b => b.addEventListener("click", () => go(b.dataset.go)));
-  $$("[data-mode]").forEach(b => b.addEventListener("click", () => { S.mode = b.dataset.mode; save(); refresh(); }));
+  $$("[data-mode]").forEach(b => b.addEventListener("click", () => { segMove(b); S.mode = b.dataset.mode; save(); vibrate(8); setTimeout(refresh, 260); }));
   $$("[data-check]").forEach(c => c.addEventListener("change", () => { checksOf(todayISO())[c.dataset.check] = c.checked; save(); vibrate(8); }));
   $$("[data-eat]").forEach(b => b.addEventListener("click", () => { const e = S.eaten[todayISO()] = S.eaten[todayISO()] || {}, s = b.dataset.eat; e[s] = !e[s]; if (e[s]) popSel = `[data-eat="${s}"] .circle`; save(); vibrate(10); refresh(); }));
   $$("[data-water]").forEach(b => b.addEventListener("click", () => { const c = checksOf(todayISO()); c.water = Math.max(0, Math.min(6000, (c.water || 0) + +b.dataset.water)); save(); vibrate(8); refresh(); }));
   $("#steps")?.addEventListener("change", e => { checksOf(todayISO()).steps = +e.target.value || 0; save(); toast("Pasos guardados"); });
-  $$("[data-accent]").forEach(b => b.addEventListener("click", () => { S.accent = b.dataset.accent; applyAccent(); save(); $$("[data-accent]").forEach(x => x.setAttribute("aria-pressed", x === b)); }));
+  $$("button[data-accent]").forEach(b => b.addEventListener("click", () => { segMove(b); S.accent = b.dataset.accent; applyAccent(); save(); vibrate(8); }));
   $$("[data-adj]").forEach(b => { if (!b.closest("#rev-out")) b.addEventListener("click", () => adjustKcal(b.dataset.adj)); });
-  $$("[data-choice]").forEach(b => b.addEventListener("click", () => { const [k, v] = b.dataset.choice.split("|"); onb.d[k] = ["days", "pct", "dbMax"].includes(k) ? +v : v; if (k === "goal") onb.d.pct = null; vibrate(8); refresh(); }));
+  $$("[data-choice]").forEach(b => b.addEventListener("click", () => { const [k, v] = b.dataset.choice.split("|"); onb.d[k] = ["days", "pct", "dbMax"].includes(k) ? +v : v; if (k === "goal") onb.d.pct = null; vibrate(8); if (b.closest(".seg")) { segMove(b); setTimeout(refresh, 240); } else refresh(); }));
   [["#ob-age", "age"], ["#ob-h", "h"], ["#ob-kg", "kg"], ["#ob-date", "date"]].forEach(([sel, k]) => $(sel)?.addEventListener("input", e => { onb.d[k] = e.target.value; }));
   $$("[data-onb]").forEach(b => b.addEventListener("click", () => {
     const a = b.dataset.onb;
@@ -847,18 +1006,29 @@ function bind() {
     if (a === "next") { onb.step++; render(); } else act("start", b);
   }));
   $$("[data-swapto]").forEach(b => b.addEventListener("click", () => { const parts = b.dataset.swapto.split("|"), k = parts.pop(), key = parts.join("|"); S.swaps = S.swaps || {}; if (k) S.swaps[key] = k; else delete S.swaps[key]; save(); vibrate(10); toast(k ? "Ejercicio cambiado" : "Ejercicio original"); const [sid, , bi] = parts; go(`#/bloque/${sid}/${bi}`); }));
-  $$("[data-menu]").forEach(b => b.addEventListener("click", () => { const d = +b.dataset.menu; MEAL_BASE().forEach((m, si) => { S.picks[m.slot] = (d + si) % 3; }); save(); vibrate(10); toast("Menú aplicado a hoy"); go("#/comida"); }));
+  $$("[data-cmetric]").forEach(b => b.addEventListener("click", () => { segMove(b); chartMetric = b.dataset.cmetric; $("#chartbox").innerHTML = chartSvg(); }));
+  $$("[data-crange]").forEach(b => b.addEventListener("click", () => { segMove(b); chartRange = +b.dataset.crange; $("#chartbox").innerHTML = chartSvg(); }));
+  const bindCal = () => { $$("[data-cal]").forEach(b => b.addEventListener("click", () => { calOffset = Math.min(0, calOffset + +b.dataset.cal); $("#calbox").innerHTML = calHtml(); bindCal(); })); $$("[data-day]").forEach(b => b.addEventListener("click", () => openSheet(longDate(b.dataset.day), dayInfoHtml(b.dataset.day)))); };
+  if ($("#calbox")) bindCal();
+  $$("[data-angle]").forEach(b => b.addEventListener("click", () => { segMove(b); phAngle = b.dataset.angle; loadPhotos(); }));
+  $("#ph-file")?.addEventListener("change", async e => { const f = e.target.files[0]; if (!f) return; try { toast("Guardando foto…"); await Store.addPhoto(f, todayISO(), phAngle); toast("Foto guardada"); vibrate(10); loadPhotos(); } catch { toast("No pude guardar la foto"); } e.target.value = ""; });
+  $$("[data-swap]").forEach(b => b.addEventListener("click", () => { const [sid, bi, ii] = b.dataset.swap.split("|"); const se = SESSIONS().find(x => x.id === sid), alts = altsFor(se, +bi, +ii), cur = D.EX[blocksOf(se)[+bi].items[+ii].k], key = `${sid}|${S.mode}|${bi}|${ii}`, swapped = !!(S.swaps || {})[key];
+    openSheet("Cambiar ejercicio", `<p class="note" style="margin:0 4px 10px">Ahora: <strong>${esc(cur.name)}</strong> · ${esc(cur.muscle)}</p>${alts.length ? `<div class="group">${alts.map(a => { const ex = D.EX[a.k]; return `<button class="row" data-swapto="${key}|${a.k}"><img class="thumb" loading="lazy" decoding="async" alt="" src="gifs/${ex.id}.gif" width="56" height="56"><div class="main"><div class="title">${esc(ex.name)}</div><div class="meta">${esc(ex.muscle)} · ${esc(a.fam)}</div></div>${I.chev}</button>`; }).join("")}</div><p class="note">Solo ejercicios del mismo músculo y patrón, con tu equipo. Repeticiones y peso se ajustan al nuevo ejercicio.</p>` : `<div class="group"><div class="empty">No hay alternativas equivalentes con tu equipo para este ejercicio.</div></div>`}${swapped ? `<div class="group" style="margin-top:12px"><button class="row" data-swapto="${key}|"><div class="main"><div class="title">Volver al ejercicio original</div></div></button></div>` : ""}`,
+    el => $$("[data-swapto]", el).forEach(x => x.addEventListener("click", () => { const parts = x.dataset.swapto.split("|"), k = parts.pop(), kk = parts.join("|"); S.swaps = S.swaps || {}; if (k) S.swaps[kk] = k; else delete S.swaps[kk]; save(); vibrate(10); closeSheet(); toast(k ? "Ejercicio cambiado" : "Ejercicio original"); refresh(); }))); }));
+  $$("[data-menu]").forEach(b => b.addEventListener("click", () => { const d = +b.dataset.menu; MEAL_BASE().forEach((m, si) => { S.picks[m.slot] = (d + si) % m.opts.length; }); save(); vibrate(10); toast("Menú aplicado a hoy"); go("#/comida"); }));
   $$("[data-pick]").forEach(b => b.addEventListener("click", () => { S.picks[b.dataset.slot] = +b.dataset.pick; save(); $$("[data-pick]").forEach(x => { const on = x === b; x.setAttribute("aria-checked", on); x.querySelector(".opt-radio").classList.toggle("on", on); }); vibrate(8); }));
   $$("[data-rq]").forEach(i => i.type === "range" && i.addEventListener("input", () => { $("#rv-" + i.dataset.rq).textContent = i.value; }));
   $$("[data-f]").forEach(i => i.addEventListener("input", () => saveRound(+i.dataset.r)));
   $$("[data-tick]").forEach(b => b.addEventListener("click", () => {
     const rEl = b.closest(".round"), r = +b.dataset.tick, on = !rEl.classList.contains("done");
-    saveRound(r, on); vibrate(10); afterTick(); const ctx = blockCtx();
+    saveRound(r, on); if (on) checkPR(r); vibrate(10); afterTick(); const ctx = blockCtx();
     if (on) popSel = `.round[data-round="${r}"] .tick`;
     refresh();
-    if (on) { if (blockProgress(ctx.b) === ctx.b.rounds) toast("Bloque terminado"); else startRest(ctx.b.rest); }
+    if (on && lastPR.length) { toast(`Récord personal: ${lastPR[0]}`); vibrate([20, 40, 20]); lastPR = []; }
+    else if (on) { if (blockProgress(ctx.b) === ctx.b.rounds) toast("Bloque terminado"); }
+    if (on && blockProgress(ctx.b) < ctx.b.rounds) startRest(ctx.b.rest);
   }));
-  $$("[data-ckind]").forEach(b => b.addEventListener("click", () => { S.cardioKind = b.dataset.ckind; save(); refresh(); }));
+  $$("[data-ckind]").forEach(b => b.addEventListener("click", () => { segMove(b); S.cardioKind = b.dataset.ckind; save(); setTimeout(refresh, 260); }));
   $$("[data-ctimer]").forEach(b => b.addEventListener("click", () => { startRest(+b.dataset.ctimer, "Cardio"); vibrate(10); }));
   $$("[data-cdone]").forEach(b => b.addEventListener("click", () => {
     const [key, m, sid] = b.dataset.cdone.split("|"), iso = todayISO(), day = S.cardio[iso] = S.cardio[iso] || {};
@@ -870,10 +1040,36 @@ function bind() {
   $("#imp")?.addEventListener("change", async e => { try { const j = JSON.parse(await e.target.files[0].text()); S = Object.assign(defaults(), j); save(); toast("Copia importada"); go("#/hoy"); } catch { toast("Archivo no válido"); } });
   [["st", "#st-goal"], ["pf", "#pf-goal"]].forEach(([ids, sel]) => $(sel)?.addEventListener("change", e => { $("#" + ids + "-pct").innerHTML = paceOptions(e.target.value); }));
   $$("#prof select, #prof input").forEach(i => i.addEventListener("change", () => { const pr = readProfile("pf"); if (typeof pr === "string") return toast(pr); S.profile = pr; save(); toast("Perfil actualizado"); }));
-  $$("#eqp select").forEach(i => i.addEventListener("change", () => { S.profile.equip = { dbMax: +$("#eq-db").value, bench: $("#eq-bench").value === "si", bar: $("#eq-bar").value === "si" }; S.swaps = {}; _plan = { k: "", v: null }; save(); toast("Equipo actualizado"); }));
+  $$("#eqp select").forEach(i => i.addEventListener("change", () => { S.profile.equip = { dbMax: +$("#eq-db").value, bench: $("#eq-bench").value === "si", bar: $("#eq-bar").value === "si", pull: $("#eq-pull").value === "si", dips: $("#eq-dips").value === "si" }; S.swaps = {}; _plan = { k: "", v: null }; save(); toast("Equipo actualizado"); }));
   $("#se-date")?.addEventListener("change", e => { if (e.target.value) { S.start = e.target.value; save(); toast("Fecha actualizada"); } });
   $("#se-we")?.addEventListener("change", e => { S.weekend = e.target.value; save(); toast("Fin de semana actualizado"); });
   $$("[data-act]").forEach(b => b.addEventListener("click", () => act(b.dataset.act, b)));
+}
+let sheetEl = null;
+function closeSheet(now) { if (!sheetEl) return; const el = sheetEl; sheetEl = null; el.classList.remove("on"); setTimeout(() => el.remove(), now ? 0 : 320); }
+function openSheet(title, html, bind) {
+  closeSheet(true);
+  const el = document.createElement("div"); el.className = "sheet-wrap";
+  el.innerHTML = `<div class="sheet-bd"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="sheet-top"><div class="sheet-grab" aria-hidden="true"></div><div class="sheet-h"><b>${esc(title)}</b><button class="nb-btn" data-sheet-close>Cerrar</button></div></div><div class="sheet-b">${html}</div></div>`;
+  document.body.appendChild(el); sheetEl = el; requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add("on")));
+  const sh = $(".sheet", el), top = $(".sheet-top", el); let y0 = null, dy = 0;
+  $(".sheet-bd", el).addEventListener("click", () => closeSheet());
+  $("[data-sheet-close]", el).addEventListener("click", () => closeSheet()); $("[data-sheet-close]", el).focus({ preventScroll: true });
+  top.addEventListener("pointerdown", e => { y0 = e.clientY; dy = 0; sh.style.transition = "none"; top.setPointerCapture(e.pointerId); });
+  top.addEventListener("pointermove", e => { if (y0 === null) return; dy = Math.max(0, e.clientY - y0); sh.style.transform = `translateY(${dy}px)`; });
+  const end = () => { if (y0 === null) return; y0 = null; sh.style.transition = ""; sh.style.transform = ""; if (dy > 110) closeSheet(); };
+  top.addEventListener("pointerup", end); top.addEventListener("pointercancel", end);
+  bind && bind(el);
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+window.addEventListener("hashchange", () => closeSheet(true));
+let celT = null;
+function celebrate(text) {
+  clearTimeout(celT); $(".celebrate")?.remove();
+  const el = document.createElement("div"); el.className = "celebrate"; el.setAttribute("role", "status");
+  el.innerHTML = `<div class="cel-card"><svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="23"/><path d="M15 27l8 8 14-16"/></svg><b>${esc(text)}</b></div>`;
+  document.body.appendChild(el); requestAnimationFrame(() => el.classList.add("on"));
+  celT = setTimeout(() => { el.classList.remove("on"); setTimeout(() => el.remove(), 350); }, 1700);
 }
 function adjustKcal(v) {
   S.profile.adj = v === "reset" ? 0 : clamp((S.profile.adj || 0) + +v, -450, 450); save(); vibrate(12); toast(v === "reset" ? "Ajuste quitado" : "Metas actualizadas"); refresh();
@@ -882,9 +1078,9 @@ function act(a, el) {
   const iso = todayISO();
   if (a === "start") {
     const d = onb.d;
-    S.profile = { sex: d.sex, age: +d.age, h: +d.h, kg: parseFloat(d.kg), level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, adj: 0, equip: { bench: d.bench !== "no", bar: d.bar === "si", dbMax: +d.dbMax } };
+    S.profile = { sex: d.sex, age: +d.age, h: +d.h, kg: parseFloat(d.kg), level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, adj: 0, equip: { bench: d.bench !== "no", bar: d.bar === "si", dbMax: +d.dbMax, pull: d.pull === "si", dips: d.dips === "si" } };
     S.swaps = {}; S.start = d.date || iso; S.weekend = d.weekend; S.mode = d.mode; S.weights = { [S.start]: S.profile.kg }; _plan = { k: "", v: null };
-    save(); onb = ONB(); go("#/hoy"); toast("Listo: día 1");
+    save(); onb = ONB(); if (window.Store) Store.persist(); go("#/hoy"); toast("Listo: día 1");
   } else if (a === "saveweight") {
     const v = parseFloat($("#w-today").value);
     if (!(v > 30 && v < 300)) return toast("Escribe un peso válido (kg)");
@@ -902,17 +1098,32 @@ function act(a, el) {
     $("#rev-out").innerHTML = `<h2 class="sec">Recomendación</h2><div class="group"><div class="prose">${adv.paras.map(t => `<p>${t}</p>`).join("")}</div></div>${adv.delta ? `<div class="btn-wrap"><button class="btn" data-adj="${adv.delta}">${adv.delta > 0 ? "Subir" : "Bajar"} ${Math.abs(adv.delta)} kcal en mis metas</button></div><p class="note">Se aplica a todos tus días y recalcula las porciones.</p>` : ""}`;
     $$("#rev-out [data-adj]").forEach(b => b.addEventListener("click", () => adjustKcal(b.dataset.adj)));
     $("#rev-out").scrollIntoView({ behavior: "smooth", block: "start" });
+  } else if (a === "tiphoy") { S.tips = S.tips || {}; S.tips.hoy = true; save(); refresh();
+  } else if (a === "savebody") {
+    const keys = ["cintura", "pecho", "brazo", "muslo", "cadera"]; S.body = S.body || {}; let n = 0;
+    keys.forEach(k => { const v = parseFloat($("#m-" + k)?.value); if (v >= 10 && v <= 250) { n++; if (k === "cintura") S.waists[iso] = v; else (S.body[iso] = S.body[iso] || {})[k] = v; } });
+    if (!n) return toast("Escribe al menos una medida en cm");
+    save(); vibrate(10); toast("Medidas guardadas"); refresh();
+  } else if (a === "copydata") {
+    try { navigator.clipboard.writeText(JSON.stringify(S)).then(() => toast("Datos copiados"), () => toast("No pude copiar")); } catch { toast("No pude copiar"); }
   } else if (a === "export") {
     const blob = new Blob([JSON.stringify(S, null, 1)], { type: "application/json" });
-    const l = document.createElement("a"); l.href = URL.createObjectURL(blob); l.download = `reto90-${iso}.json`; l.click();
+    const l = document.createElement("a"); l.href = URL.createObjectURL(blob); l.download = `reto90-${iso}.json`; l.click(); S.lastExport = iso; save(); toast("Copia exportada");
   } else if (a === "reset") {
     if (confirm("¿Borrar todos tus datos y reiniciar? No se puede deshacer.")) { localStorage.removeItem(KEY); S = defaults(); go("#/inicio"); render(); }
   }
 }
 
+if (window.Store && Store.available()) {
+  if (!localStorage.getItem(KEY)) Store.getKV("backup").then(b => { if (b) { try { S = Object.assign(defaults(), JSON.parse(b)); localStorage.setItem(KEY, b); _plan = { k: "", v: null }; toast("Recuperamos tus datos"); go("#/hoy"); if (parseHash()[0] === "hoy") render(); } catch {} } }).catch(() => {});
+  if (S.start) Store.persist();
+}
 if (localStorage.getItem("reto90.debug")) window.__reto = { get S() { return S; }, set S(v) { S = v; }, SESSIONS, planCalc, D, C, blocksOf, altsFor, suggest, equip, render };
 const applyAccent = () => { document.documentElement.dataset.accent = S.accent || "naranja"; };
 applyAccent();
+let sx = 0, sy = 0, edge = false;
+document.addEventListener("touchstart", e => { const t = e.touches[0]; edge = t.clientX < 24 && !sheetEl; sx = t.clientX; sy = t.clientY; }, { passive: true });
+document.addEventListener("touchend", e => { if (!edge) return; edge = false; const t = e.changedTouches[0]; if (t.clientX - sx > 80 && Math.abs(t.clientY - sy) < 60) $("[data-to]")?.click(); }, { passive: true });
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
 render();
 })();
