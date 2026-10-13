@@ -359,25 +359,45 @@ button.link { border: 0; background: none; font: inherit; cursor: pointer; displ
 
 h1.large:focus { outline: none; }
 
-/* Impresión del menú */
-.print-doc { background: var(--card); border-radius: 14px; padding: 16px; margin-top: 8px; font-size: 13px; }
-.print-doc h2 { font-size: 20px; margin: 0 0 4px; } .print-doc header p, .print-doc footer { color: var(--label-2); font-size: 12px; margin: 0 0 12px; }
-.pd-day { margin: 14px 0; break-inside: avoid; } .pd-day h3 { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 15px; margin: 0 0 6px; } .pd-day h3 span { font-weight: 400; color: var(--label-2); font-size: 12px; }
-.print-doc table { width: 100%; border-collapse: collapse; } .print-doc th, .print-doc td { text-align: left; vertical-align: top; padding: 5px 6px; border-bottom: .5px solid var(--sep); font-size: 12px; } .print-doc th { color: var(--label-2); font-weight: 600; } .print-doc small { color: var(--label-2); }
-.pd-h { margin-top: 20px !important; } .pd-shop { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; } .pd-col h4 { margin: 0 0 4px; font-size: 13px; } .pd-col ul { list-style: none; padding: 0; margin: 0; } .pd-col li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: .5px solid var(--sep); }
+/* Documento del menú (pantalla e impresión) */
+.print-doc { --pd-ink: #1c1c1e; --pd-mute: #6c6c70; --pd-line: #d9d9de; --pd-brand: #bf3a06; --pd-soft: #fbeee8; background: #fff; color: var(--pd-ink); border-radius: 14px; padding: 18px; margin-top: 8px; font-size: 13px; line-height: 1.4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.pd-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; padding-bottom: 12px; border-bottom: 3px solid var(--pd-brand); }
+.pd-kicker { margin: 0 0 4px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--pd-brand); }
+.print-doc h2 { margin: 0; font-size: 26px; line-height: 1.1; letter-spacing: -.02em; color: var(--pd-ink); } .print-doc h2 span { font-weight: 500; color: var(--pd-mute); font-size: 18px; }
+.pd-meta { margin: 0; text-align: right; font-size: 11px; color: var(--pd-mute); }
+.pd-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 14px 0 8px; } .pd-stats div { background: var(--pd-soft); border-radius: 10px; padding: 8px 6px; text-align: center; } .pd-stats b { display: block; font-size: 16px; color: var(--pd-brand); } .pd-stats span { font-size: 10px; color: var(--pd-mute); }
+.pd-note { margin: 6px 0 12px; font-size: 11px; color: var(--pd-mute); }
+.pd-day { margin: 16px 0; break-inside: avoid; page-break-inside: avoid; }
+.pd-day h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 16px; color: var(--pd-ink); } .pd-day h3 em { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--pd-brand); color: #fff; font: 700 12px/1 -apple-system, system-ui, sans-serif; } .pd-day h3 small { margin-left: auto; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--pd-mute); }
+.pd-day.rest h3 em { background: #8e8e93; }
+.print-doc table { width: 100%; border-collapse: collapse; } .print-doc th, .print-doc td { text-align: left; vertical-align: top; padding: 6px 7px; font-size: 11.5px; border-bottom: .5px solid var(--pd-line); color: var(--pd-ink); }
+.print-doc thead th { background: #f2f2f5; color: var(--pd-mute); font-size: 10px; letter-spacing: .05em; text-transform: uppercase; } .print-doc tbody tr:nth-child(even) td { background: #fafafb; }
+.print-doc .n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; } .print-doc td.dish { font-weight: 600; } .print-doc td.ing { color: var(--pd-mute); } .print-doc small { color: var(--pd-mute); font-weight: 400; }
+.print-doc tfoot td { font-weight: 700; border-top: 1.5px solid var(--pd-ink); border-bottom: 0; background: var(--pd-soft); color: var(--pd-ink); }
+.pd-h { margin: 22px 0 10px !important; font-size: 20px !important; padding-bottom: 6px; border-bottom: 3px solid var(--pd-brand); }
+.pd-shop { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; } .pd-col h4 { margin: 0 0 6px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--pd-brand); }
+.pd-col ul { list-style: none; padding: 0; margin: 0; } .pd-col li { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: .5px solid var(--pd-line); font-size: 12px; } .pd-col li i { flex: none; width: 11px; height: 11px; border: 1.2px solid #8e8e93; border-radius: 3px; } .pd-col li span { flex: 1; } .pd-col li b { font-weight: 600; text-align: right; }
+.print-doc footer { margin-top: 18px; padding-top: 8px; border-top: .5px solid var(--pd-line); font-size: 10px; color: var(--pd-mute); }
+@media screen and (max-width: 640px) {
+  .pd-head { flex-direction: column; align-items: flex-start; } .pd-meta { text-align: left; } .pd-stats { grid-template-columns: repeat(3, 1fr); }
+  .print-doc table, .print-doc tbody, .print-doc tr, .print-doc tfoot { display: block; } .print-doc thead { display: none; }
+  .print-doc tr { padding: 8px 0; border-bottom: .5px solid var(--pd-line); } .print-doc td, .print-doc tbody tr:nth-child(even) td { display: block; border: 0; padding: 1px 0; background: none; }
+  .print-doc td:nth-child(1) { font-weight: 600; } .print-doc td:nth-child(1) small { margin-left: 6px; } .print-doc td:nth-child(1) br { display: none; }
+  .print-doc td:nth-child(n+4) { display: inline-block; margin: 3px 12px 0 0; color: var(--pd-mute); text-align: left; }
+  .print-doc td:nth-child(4)::after { content: " kcal"; } .print-doc td:nth-child(5)::before { content: "P "; } .print-doc td:nth-child(6)::before { content: "C "; } .print-doc td:nth-child(7)::before { content: "G "; }
+  .print-doc tfoot tr { background: var(--pd-soft); padding: 8px; border-radius: 8px; } .print-doc tfoot td:first-child { display: block; } .print-doc tfoot td { background: none; border: 0; }
+}
 @media print {
-  @page { margin: 12mm; }
+  @page { size: A4; margin: 11mm; }
   html, body { background: #fff !important; color: #000 !important; }
   #tabs, .navbar, .cta-bar, #toast, #rest, .noprint, h1.large, .sub { display: none !important; }
-  .page { padding: 0 !important; animation: none !important; }
-  .print-doc { box-shadow: none; border-radius: 0; padding: 0; background: #fff; font-size: 11px; }
-  .print-doc th, .print-doc td { border-color: #bbb; color: #000; } .print-doc small, .pd-day h3 span, .print-doc header p, .print-doc footer { color: #444; }
+  .page { padding: 0 !important; animation: none !important; margin: 0 !important; }
+  .print-doc { border-radius: 0; padding: 0; font-size: 10.5px; }
+  .pd-day { margin: 0 0 7mm; } .pd-day:nth-of-type(2n) { break-after: page; page-break-after: always; }
+  .pd-shopwrap { break-before: page; page-break-before: always; }
+  .print-doc th, .print-doc td { padding: 4px 6px; font-size: 10px; }
 }
-@media screen and (max-width: 640px) {
-  .print-doc table, .print-doc tbody, .print-doc tr { display: block; } .print-doc thead { display: none; }
-  .print-doc tr { padding: 8px 0; border-bottom: .5px solid var(--sep); } .print-doc td { display: block; border: 0; padding: 1px 0; }
-  .print-doc td:nth-child(1) { font-weight: 600; } .print-doc td:nth-child(1) small { font-weight: 400; margin-left: 6px; }
-  .print-doc td:nth-child(1) br { display: none; } .print-doc td:nth-child(2) { font-weight: 500; } .print-doc td:nth-child(3) { color: var(--label-2); }
-  .print-doc td:nth-child(n+4) { display: inline-block; margin: 3px 12px 0 0; color: var(--label-2); }
-  .print-doc td:nth-child(4)::after { content: " kcal"; } .print-doc td:nth-child(5)::before { content: "P "; } .print-doc td:nth-child(6)::before { content: "C "; } .print-doc td:nth-child(7)::before { content: "G "; }
+/* Respaldo para navegadores sin color-mix (Android antiguo) */
+@supports not (background: color-mix(in srgb, red 50%, blue)) {
+  .navbar.scrolled, .cta-bar, #tabs, #rest, .cel-card { background: var(--surface); }
 }
