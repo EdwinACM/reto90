@@ -429,7 +429,10 @@ function vSetup() {
   const heads = ["¿Qué quieres lograr?", "Sobre ti", "Tu entrenamiento", "Tu comida y tu ritmo", "Tu plan"];
   const subs = ["Tu plan se adapta a esto.", "Para calcular tus calorías. Se queda en tu teléfono.", "Para armar tu semana.", "Porciones y ritmo.", "Tu plan está listo."];
   let body = "";
-  if (step === 0) body = radioRows("goal", Object.entries(C.goals).map(([k, g]) => [k, g.name, g.desc]), d.goal);
+  if (step === 0) body = radioRows("goal", Object.entries(C.goals).map(([k, g]) => [k, g.name, g.desc]), d.goal) + `<h2 class="sec">¿Ya usabas la app?</h2><div class="group">
+    <label class="row" style="cursor:pointer"><div class="main"><div class="title">Restaurar copia de seguridad</div><div class="meta">Archivo exportado antes</div></div><input type="file" accept=".json,application/json,text/plain,application/octet-stream" id="imp0" hidden></label>
+    <div class="field"><label for="code0">O pega tu código de transferencia</label><textarea id="code0" rows="2" placeholder="R90G…" autocapitalize="off" autocomplete="off" spellcheck="false"></textarea></div>
+    <div class="btn-wrap"><button class="btn secondary" data-act="usecode0">Usar código</button></div></div>`;
   if (step === 1) body = `<h2 class="sec">Sexo (para estimar tus calorías)</h2>${segRow("sex", [["m", "Hombre"], ["f", "Mujer"]], d.sex)}
     <h2 class="sec">Tu nombre</h2><div class="group"><div class="field"><label for="ob-name">Nombre (opcional)</label><input id="ob-name" type="text" maxlength="30" autocomplete="given-name" autocapitalize="words" enterkeyhint="done" placeholder="Cómo te llamas" value="${esc(d.name || "")}"></div></div>
     <h2 class="sec">Tus medidas</h2><div class="group">
@@ -526,6 +529,14 @@ function nowCard(iso) {
   const a = nextAction(iso);
   return a ? `<button class="nowcard" ${a.go ? `data-go="${a.go}"` : "data-noop"}><div><small>Ahora</small><b>${esc(a.t)}</b><span>${esc(a.m)}</span></div>${a.go ? I.chev : ""}</button>` : `<div class="nowcard done" role="status"><div><small>Ahora</small><b>Día completo</b><span>Lo que hiciste hoy cuenta. Descansa y mañana seguimos.</span></div></div>`;
 }
+function adoptState(n) { S = n; _plan = { k: "", v: null }; save(); applyAccent(); applyTheme(); if (window.Store) Store.persist(); }
+async function stateFromCode(raw) {
+  raw = String(raw || "").trim().replace(/\s+/g, ""); if (raw.length > 8e6) throw new Error("grande"); let json;
+  if (raw.startsWith("R90G.")) { const bin = atob(raw.slice(5)), u8 = Uint8Array.from(bin, c => c.charCodeAt(0)); json = await new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream("gzip"))).text(); }
+  else if (raw.startsWith("R90N.")) json = decodeURIComponent(escape(atob(raw.slice(5)))); else throw new Error("formato");
+  const n = normalizeState(JSON.parse(json)); if (!n.profile || !n.start) throw new Error("vacío"); return n;
+}
+async function stateFromFile(f) { if (f.size > 5e6) throw new Error("grande"); const n = normalizeState(JSON.parse(await f.text())); if (!n.profile || !n.start) throw new Error("vacío"); return n; }
 let installEv = null, shareW = "si";
 const isStandalone = () => { try { return matchMedia("(display-mode: standalone)").matches || navigator.standalone === true; } catch (e) { return false; } };
 const inApp = () => /FBAN|FBAV|Instagram|Line\/|WhatsApp|MicroMessenger|; wv\)|Snapchat|TikTok/i.test(navigator.userAgent);
@@ -1236,6 +1247,7 @@ function bind() {
     toast(on ? "Cardio registrado" : "Desmarcado"); go(`#/entreno/${sid}`);
   }));
   $$("[data-rest]").forEach(b => b.addEventListener("click", () => { if (b.dataset.rest === "add") restEnd += 15000; else { clearInterval(restT); $("#rest").classList.remove("on"); } }));
+  $("#imp0")?.addEventListener("change", async e => { const f = e.target.files[0]; if (!f) return; try { adoptState(await stateFromFile(f)); toast("Copia restaurada"); go("#/hoy"); } catch { toast("Archivo no válido"); } e.target.value = ""; });
   $("#imp")?.addEventListener("change", async e => { const f = e.target.files[0]; if (!f) return; try { if (f.size > 5e6) throw new Error("grande"); const n = normalizeState(JSON.parse(await f.text())); if (!n.profile || !n.start) throw new Error("vacío"); S = n; _plan = { k: "", v: null }; save(); toast("Copia importada"); go("#/hoy"); } catch { toast("Archivo no válido"); } e.target.value = ""; });
   [["st", "#st-goal"], ["pf", "#pf-goal"]].forEach(([ids, sel]) => $(sel)?.addEventListener("change", e => { $("#" + ids + "-pct").innerHTML = paceOptions(e.target.value); }));
   $$("#prof select, #prof input").forEach(i => i.addEventListener("change", () => { const pr = readProfile("pf"); if (typeof pr === "string") return toast(pr); S.profile = pr; save(); toast("Perfil actualizado"); }));
@@ -1344,6 +1356,8 @@ function act(a, el) {
       try { if (navigator.share) { await navigator.share({ title: "Código Reto 90", text: code }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
       try { await navigator.clipboard.writeText(code); toast("Código copiado: pégalo en el otro teléfono"); } catch (e) { toast("No pude copiar el código"); }
     })();
+  } else if (a === "usecode0") {
+    (async () => { try { adoptState(await stateFromCode($("#code0")?.value)); toast("Datos restaurados"); go("#/hoy"); } catch (e) { toast("Código no válido"); } })();
   } else if (a === "usecode") {
     (async () => {
       const raw = ($("#code-in")?.value || "").trim().replace(/\s+/g, "");
