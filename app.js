@@ -98,6 +98,32 @@ const SPLITS = { 3: ["fullA", "fullB", "fullC"], 4: ["upperA", "legsA", "upperB"
 const WD_NAME = { 1: "Lun", 2: "Mar", 3: "Mié", 4: "Jue", 5: "Vie", 6: "Sáb", 0: "Dom" };
 const ABS = new Set(["cable_crunch", "hang_leg", "rev_crunch", "ab_roller", "plank", "side_bridge", "pallof", "crunch", "russian"]);
 let _plan = { k: "", v: null };
+const ADV = new Set(["squat_bb", "deadlift", "ohp_bb", "inc_bb", "cgbp"]);
+const okLevel = k => !ADV.has(k) || (S.profile && S.profile.level === "alto");
+const COMPOUND = new Set(["bench_db", "bench_bb", "inc_db", "inc_bb", "ohp_db", "ohp_bb", "sh_mach", "chest_mach", "lat_pd", "pullup", "chinup", "row_cable", "row_db", "row_bb", "tbar", "db_row2", "dips", "cgbp", "smith_sq", "squat_bb", "leg_press", "hack", "rdl", "deadlift", "hip_thrust", "goblet", "db_squat", "db_rdl", "split_db", "bulg", "db_lunge", "step_up", "arnold", "inv_row", "pushup", "pushup_dec"]);
+const LEVEL_SWAPS = {
+  alto: { gym: { smith_sq: "squat_bb", bench_db: "bench_bb", ohp_db: "ohp_bb", inc_db: "inc_bb", skull: "cgbp", tbar: "deadlift", row_cable: "row_bb" }, db: {}, home: { pushup: "pushup_dec", bw_squat: "bulg" } },
+  nuevo: { gym: { rdl: "db_rdl", tbar: "row_cable", skull: "tri_push" }, db: {}, home: { pushup_dec: "pushup", pushup_cl: "inc_pushup" } },
+};
+const LEVEL_NOTE = { deadlift: "Prioridad: técnica. Sube solo si la espalda se mantiene neutra.", squat_bb: "Con barras de seguridad o un compañero. Baja controlado.", bench_bb: "Con barras de seguridad o un compañero." };
+function levelize(blocks, mode, lv, dl) {
+  const swaps = (LEVEL_SWAPS[lv] || {})[mode] || {}, has = k => blocks.some(b => b.items.some(i => i.k === k));
+  blocks.forEach(b => { b.items = b.items.map(it => { const t = swaps[it.k]; if (!t || has(t)) return it; const r = resolveItem(t); if (LEVEL_NOTE[t]) r.note = LEVEL_NOTE[t]; return r; }); });
+  // descansos acordes a cada bloque: básicos largos, aislamientos cortos, abdomen breve
+  blocks.forEach((b, i) => {
+    if (b.t === "cardio") return;
+    const abs = b.items.every(it => ABS.has(it.k)), comp = b.items.some(it => COMPOUND.has(it.k)), n = b.items.length, heavy = i === 0 && comp;
+    let r = abs ? 45 : comp ? (heavy ? (lv === "nuevo" ? 90 : lv === "alto" ? 150 : 120) : (lv === "nuevo" ? 75 : 90)) : 60;
+    if (n > 1 && comp) r += 15 * (n - 1);
+    b.rest = dl ? Math.max(45, r - 15) : r;
+  });
+  // avanzado: última vuelta de aislamiento llevada al límite (técnica de intensidad)
+  if (lv === "alto" && !dl && mode !== "home") {
+    const iso = blocks.filter(b => b.t !== "cardio" && !b.items.every(it => ABS.has(it.k)) && !b.items.some(it => COMPOUND.has(it.k)));
+    iso.slice(-2).forEach(b => b.items.forEach(it => { if (!/fallo/.test(it.note || "")) it.note = ((it.note ? it.note + " " : "") + "Última vuelta: al fallo y, sin descanso, baja el peso 20 % y haz unas repeticiones más.").trim(); }));
+  }
+  return blocks;
+}
 function adaptSession(a, wd, goal, lv, days, sex, cyc = 0, dl = false) {
   const s = JSON.parse(JSON.stringify(a)); s.wd = wd; s.day = WD_NAME[wd];
   // Selección por sexo: más énfasis de glúteo en mujeres; sin abductor (poco valor) en hombres
@@ -109,12 +135,12 @@ function adaptSession(a, wd, goal, lv, days, sex, cyc = 0, dl = false) {
     if (b.t === "cardio") { b.min = Math.max(10, Math.round(b.min * (goal === "muscle" ? 0.5 : 1) / 5) * 5) + (goal === "fat" && days <= 4 ? 10 : 0); return; }
     const abs = b.items.every(it => ABS.has(it.k));
     if (goal === "muscle" && i > 0 && !abs && b.rounds === 3) b.rounds += 1;
-    if (lv === "nuevo" && i > 0 && b.rounds >= 3 && !abs) b.rounds -= 1;
+    if (lv === "nuevo" && i > 1 && b.rounds >= 3 && !abs) b.rounds -= 1;
     if (lv === "alto" && i === 0) b.rounds = Math.min(5, b.rounds + 1);
   }));
   s.gym = applySkills(s.gym); s.db = applyEquip(s.db, "db"); s.home = applyEquip(s.home, "home");
   ["gym", "db", "home"].forEach(m => {
-    s[m] = rotateBlocks(s[m], m, cyc);
+    s[m] = rotateBlocks(levelize(s[m], m, lv, dl), m, cyc);
     s[m].forEach((b, i) => {
       if (b.t === "cardio") return;
       const abs = b.items.every(it => ABS.has(it.k));
@@ -135,7 +161,7 @@ function rotateBlocks(blocks, mode, cyc) {
       const alts = [];
       Object.values(D.FAMILIES).filter(f => f.items.some(i => i.k === it.k)).forEach(f => f.items.forEach(i => {
         const ok = !i.n || mode === "gym" || (i.n === "bench" ? eq.bench : eq.bar);
-        if (i.k !== it.k && !present.has(i.k) && i.m.includes(mch) && ok && !alts.includes(i.k)) alts.push(i.k);
+        if (i.k !== it.k && !present.has(i.k) && i.m.includes(mch) && ok && okLevel(i.k) && !alts.includes(i.k)) alts.push(i.k);
       }));
       if (!alts.length) return it;
       const k = alts[(cyc - 1 + bi + ii) % alts.length]; present.add(k); present.delete(it.k);
@@ -184,7 +210,7 @@ function altsFor(s, bi, ii) {
   const present = new Set(bl.flatMap(b => b.items.map(i => i.k))), mch = S.mode === "gym" ? "g" : S.mode === "db" ? "d" : "h", eq = equip(), out = [];
   Object.values(D.FAMILIES).filter(f => f.items.some(i => i.k === cur)).forEach(f => f.items.forEach(i => {
     const ok = !i.n || S.mode === "gym" || (i.n === "bench" ? eq.bench : eq.bar);
-    if (i.k !== cur && !present.has(i.k) && i.m.includes(mch) && ok && !out.some(o => o.k === i.k)) out.push({ k: i.k, fam: f.name });
+    if (i.k !== cur && !present.has(i.k) && i.m.includes(mch) && ok && okLevel(i.k) && !out.some(o => o.k === i.k)) out.push({ k: i.k, fam: f.name });
   }));
   return out;
 }
@@ -249,7 +275,7 @@ function optView(o) {
   return { name: o.name, tip: o.tip, m, items: items.map(([k, q]) => { const f = D.FOODS[k]; return f.unit === "pza" ? `${q} ${f.name}` : `${q} g de ${f.name}`; }) };
 }
 /* Pesos sugeridos: referencia (≈ 75 kg, hombre, nivel intermedio) escalada por peso, sexo y nivel */
-const LOWER = new Set(["smith_sq", "leg_press", "split_db", "leg_ext", "hack", "rdl", "leg_curl", "hip_thrust", "abductor", "calf_st", "calf_se", "goblet", "db_squat", "db_lunge", "db_rear_lunge", "step_up", "db_rdl", "glute_br", "calf_home", "calf_one"]);
+const LOWER = new Set(["squat_bb", "deadlift", "smith_sq", "leg_press", "split_db", "leg_ext", "hack", "rdl", "leg_curl", "hip_thrust", "abductor", "calf_st", "calf_se", "goblet", "db_squat", "db_lunge", "db_rear_lunge", "step_up", "db_rdl", "glute_br", "calf_home", "calf_one"]);
 const dbCap = u => (S.mode === "db" && (u === "c/mano" || u === "total")) ? equip().dbMax : Infinity;
 function scaleW(item) {
   const p = S.profile, f = (p.sex === "f" ? (LOWER.has(item.k) ? 0.8 : 0.65) : 1) * (currentKg() / 75) * C.levels[p.level].k, u = item.w.u, x = item.w.n * f;
@@ -259,7 +285,7 @@ function scaleW(item) {
 }
 
 /* Peso sugerido: estimado la primera vez; luego según lo registrado */
-const incFor = (k, u) => u === "c/mano" ? 2 : u === "stack" ? 5 : (["smith_sq", "leg_press", "hack", "rdl", "hip_thrust"].includes(k) ? 10 : S.mode === "db" ? 2 : 2.5);
+const incFor = (k, u) => u === "c/mano" ? 2 : u === "stack" ? 5 : (["smith_sq", "squat_bb", "deadlift", "leg_press", "hack", "rdl", "hip_thrust"].includes(k) ? 10 : S.mode === "db" ? 2 : 2.5);
 function suggest(item) {
   const iso = todayISO();
   if (!item.w || S.mode === "home") {
@@ -268,7 +294,12 @@ function suggest(item) {
   }
   const prev = [...(S.hist[item.k] || [])].reverse().find(x => x.d !== iso && x.sets.some(s => s.done && s.w));
   const u = item.w.u;
-  if (!prev) { const n0 = scaleW(item); return { n: n0, u, text: `${fmt(n0, n0 % 1 ? 1 : 0)} kg ${u}`, src: "Estimado con tu peso y tu nivel: ajusta a 1–2 repeticiones en reserva." }; }
+  if (!prev) {
+    let n0 = scaleW(item), msg = "Peso de prueba. Si te sobran más de 3 repeticiones, sube; si no llegas al mínimo, baja.";
+    const td = getSets(item.k, iso).filter(t => t.done && t.r && t.w), last = td[td.length - 1];
+    if (last) { const inc = incFor(item.k, u), lo = lowReps(item.reps), hi = topReps(item.reps); if (last.r >= hi + 3) { n0 = Math.min(dbCap(u), last.w + inc); msg = `Te sobró esfuerzo con ${last.w} kg: sube a ${fmt(n0, n0 % 1 ? 1 : 0)} kg.`; } else if (lo !== null && last.r < lo) { n0 = Math.max(2, last.w - inc); msg = `Quedaste corto con ${last.w} kg: baja a ${fmt(n0, n0 % 1 ? 1 : 0)} kg.`; } else { n0 = last.w; msg = `${last.w} kg va bien: mantén el peso.`; } }
+    return { n: n0, u, text: `${fmt(n0, n0 % 1 ? 1 : 0)} kg ${u}`, src: msg };
+  }
   const done = prev.sets.filter(s => s.done && s.w), top = Math.max(...done.map(s => s.w));
   const hit = done.length && done.every(s => (s.r || 0) >= topReps(item.reps));
   const cap = dbCap(u), n = Math.min(cap, hit ? top + incFor(item.k, u) : top), capped = hit && top >= cap;
@@ -588,9 +619,11 @@ function prepRows() {
   const w = weekNum(), ph = phaseOf(w), dl = deloadWeek(w);
   return `<div class="group">
     <div class="row top"><div class="main"><div class="title">Calentamiento · 8 min</div><div class="meta">5 min de bici o caminadora, movilidad de hombros y cadera, y 2 series de aproximación del primer ejercicio.</div></div></div>
+    <div class="row top"><div class="main"><div class="title">Recomendación</div><div class="meta">${esc(levelTip())}</div></div></div>
     <div class="row top"><div class="main"><div class="title">${dl ? "Semana de descarga" : "Esfuerzo"}</div><div class="meta">${dl ? "Una vuelta menos por bloque y 3–4 repeticiones en reserva." : esc(ph.rir) + " repeticiones en reserva. Sube peso al completar todas las vueltas en el máximo del rango."}</div></div></div>
   </div>`;
 }
+const levelTip = () => ({ nuevo: "Aprende el movimiento con pesos que dominas; la técnica antes que el peso.", medio: "Anota cada serie: más repeticiones o más peso cada semana es lo que construye músculo.", alto: "Técnica estricta, 1 s de pausa en el estiramiento y última vuelta de aislamiento al límite." })[S.profile.level || "medio"];
 const coolRow = () => `<div class="group"><div class="row top"><div class="main"><div class="title">Al terminar · 5 min</div><div class="meta">Estira lo trabajado y respira lento. El cardio de zona 2, si toca, va como bloque.</div></div></div></div>`;
 function warmup(b, bi) {
   const it = b.items[0], sg = it && suggest(it);
@@ -920,6 +953,10 @@ function vData() {
     <div class="row"><div class="main"><div class="title">Copia interna de respaldo</div></div><span class="val">${window.Store && Store.available() ? "Activa" : "No disponible"}</span></div>
     <div class="row"><div class="main"><div class="title">Lo que hay guardado</div></div><span class="val">${n} pesos · ${ses} entrenos</span></div>
   </div>
+  <h2 class="sec">Cambiar de teléfono</h2>
+  <div class="group"><button class="row" data-act="code"><div class="main"><div class="title">Crear código de transferencia</div><div class="meta">Se envía o copia como texto</div></div></button>
+  <div class="field"><label for="code-in">Código recibido</label><textarea id="code-in" rows="2" placeholder="Pega aquí el código" autocapitalize="off" autocomplete="off" spellcheck="false"></textarea></div>
+  <div class="btn-wrap"><button class="btn" data-act="usecode">Usar código en este teléfono</button></div></div>
   <h2 class="sec">Copia de seguridad</h2>
   <div class="group">
     <button class="row" data-act="export"><div class="main"><div class="title">Exportar copia (archivo)</div><div class="meta">Un archivo con tus pesos, series y comidas</div></div></button>
@@ -1300,6 +1337,25 @@ function act(a, el) {
       try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: "Reto 90" }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
       const l = document.createElement("a"); l.href = URL.createObjectURL(b); l.download = "reto90-progreso.png"; l.click(); toast("Imagen guardada");
     }, "image/png");
+  } else if (a === "code") {
+    (async () => {
+      const json = JSON.stringify(S); let code = "R90N." + btoa(unescape(encodeURIComponent(json)));
+      try { if (window.CompressionStream) { const cs = new Blob([json]).stream().pipeThrough(new CompressionStream("gzip")), buf = new Uint8Array(await new Response(cs).arrayBuffer()); let bin = ""; buf.forEach(b => bin += String.fromCharCode(b)); code = "R90G." + btoa(bin); } } catch (e) {}
+      try { if (navigator.share) { await navigator.share({ title: "Código Reto 90", text: code }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
+      try { await navigator.clipboard.writeText(code); toast("Código copiado: pégalo en el otro teléfono"); } catch (e) { toast("No pude copiar el código"); }
+    })();
+  } else if (a === "usecode") {
+    (async () => {
+      const raw = ($("#code-in")?.value || "").trim().replace(/\s+/g, "");
+      try {
+        if (raw.length > 8e6) throw new Error("grande"); let json;
+        if (raw.startsWith("R90G.")) { const bin = atob(raw.slice(5)), u8 = Uint8Array.from(bin, c => c.charCodeAt(0)); json = await new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream("gzip"))).text(); }
+        else if (raw.startsWith("R90N.")) json = decodeURIComponent(escape(atob(raw.slice(5)))); else throw new Error("formato");
+        const n = normalizeState(JSON.parse(json)); if (!n.profile || !n.start) throw new Error("vacío");
+        if (!confirm("Esto reemplaza los datos de este teléfono. ¿Continuar?")) return;
+        S = n; _plan = { k: "", v: null }; save(); applyAccent(); applyTheme(); toast("Datos transferidos"); go("#/hoy");
+      } catch (e) { toast("Código no válido"); }
+    })();
   } else if (a === "sharediet") {
     const text = dietText();
     (async () => {
