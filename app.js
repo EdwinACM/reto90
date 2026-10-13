@@ -11,7 +11,7 @@ const LS = (() => { const mem = {}; let ok = true; try { localStorage.setItem("_
 const todayISO = (d = new Date()) => { const z = new Date(d.getTime() - d.getTimezoneOffset() * 6e4); return z.toISOString().slice(0, 10); };
 const addDays = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return todayISO(d); };
 const diffDays = (a, b) => Math.round((new Date(a + "T12:00:00") - new Date(b + "T12:00:00")) / 864e5);
-const defaults = () => ({ body: {}, prs: {}, lastExport: null, tips: {}, swaps: {}, accent: "naranja", profile: null, cardio: {}, intro: false, start: null, weekend: "sab", mode: "gym", weights: {}, waists: {}, checks: {}, hist: {}, picks: {}, eaten: {}, reviews: {} });
+const defaults = () => ({ body: {}, prs: {}, lastExport: null, tips: {}, swaps: {}, accent: "naranja", theme: "auto", sound: true, remind: { train: "18:00", weigh: "07:00" }, profile: null, cardio: {}, intro: false, start: null, weekend: "sab", mode: "gym", weights: {}, waists: {}, checks: {}, hist: {}, picks: {}, eaten: {}, reviews: {} });
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const isObj = o => !!o && typeof o === "object" && !Array.isArray(o);
 const okKey = k => typeof k === "string" && k.length < 80 && k !== "__proto__" && k !== "constructor" && k !== "prototype";
@@ -32,6 +32,9 @@ function normalizeState(raw) {
   d.start = d.profile && validDate(raw.start) ? raw.start : null;
   d.weekend = raw.weekend === "dom" ? "dom" : "sab"; d.mode = ["gym", "db", "home"].includes(raw.mode) ? raw.mode : "gym";
   d.accent = ["naranja", "azul", "morado", "rosa"].includes(raw.accent) ? raw.accent : "naranja";
+  d.theme = ["auto", "light", "dark"].includes(raw.theme) ? raw.theme : "auto"; d.sound = raw.sound !== false;
+  const hhmm = v => typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+  d.remind = { train: isObj(raw.remind) && hhmm(raw.remind.train) ? raw.remind.train : "18:00", weigh: isObj(raw.remind) && hhmm(raw.remind.weigh) ? raw.remind.weigh : "07:00" };
   d.weights = cleanMap(raw.weights, v => numIn(v, 20, 400)); d.waists = cleanMap(raw.waists, v => numIn(v, 30, 250));
   d.body = cleanMap(raw.body, v => { if (!isObj(v)) return null; const o = {}; ["pecho", "brazo", "muslo", "cadera"].forEach(k => { const n = numIn(v[k], 10, 250); if (n !== null) o[k] = n; }); return o; });
   d.checks = cleanMap(raw.checks, v => { if (!isObj(v)) return null; const o = {}; Object.keys(v).forEach(k => { if (!okKey(k)) return; if (k === "water") { const n = numIn(v[k], 0, 10000); if (n !== null) o[k] = n; } else if (k === "steps") { const n = numIn(v[k], 0, 100000); if (n !== null) o[k] = n; } else if (k === "sleep" || /^s_[A-Za-z]{2,12}$/.test(k)) o[k] = v[k] === true; }); return o; });
@@ -78,9 +81,10 @@ const I = {
   dumb: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/></svg>`,
   fork: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v8M4 3v5a3 3 0 006 0V3M7 11v10M17 21V3c-2.5 1.5-3.5 4.5-3.5 8H17"/></svg>`,
   chart: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h18"/><path d="M5 16l4-5 4 3 6-8"/></svg>`,
+  gear: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 01-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 01-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 012.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 012.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>`,
   map: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>`,
 };
-const TABS = [["hoy", "Hoy", I.home], ["entreno", "Entreno", I.dumb], ["comida", "Comida", I.fork], ["progreso", "Progreso", I.chart], ["plan", "Plan", I.map]];
+const TABS = [["hoy", "Hoy", I.home], ["entreno", "Entreno", I.dumb], ["comida", "Comida", I.fork], ["progreso", "Progreso", I.chart]];
 
 /* ───────── Lógica del plan ───────── */
 const dayNum = (iso = todayISO()) => S.start ? diffDays(iso, S.start) + 1 : 0;
@@ -270,18 +274,19 @@ const go = h => { location.hash = h; };
 window.addEventListener("hashchange", () => render());
 const refresh = () => render({ keep: true });
 
-const BACKS = { Entreno: "#/entreno", Comida: "#/comida", Progreso: "#/progreso", Plan: "#/plan" };
+const BACKS = { Entreno: "#/entreno", Comida: "#/comida", Progreso: "#/progreso", Ajustes: "#/plan", Hoy: "#/hoy" };
 function nav(title, o = {}) {
   const to = o.to || BACKS[o.back] || "#/hoy";
   const back = o.back ? `<button class="nb-btn" data-to="${to}" aria-label="Volver a ${esc(o.back)}">${I.back}<span>${esc(o.back)}</span></button>` : "";
-  return `<div class="navbar" id="navbar">${back}<span class="nb-title" aria-hidden="true">${esc(title)}</span></div><h1 class="large" id="lt">${esc(title)}</h1>${o.sub ? `<p class="sub">${o.sub}</p>` : ""}`;
+  const gear = o.gear ? `<button class="nb-btn gear" data-go="#/plan" aria-label="Ajustes">${I.gear}</button>` : "";
+  return `<div class="navbar" id="navbar">${back}<span class="nb-title" aria-hidden="true">${esc(title)}</span>${gear}</div><h1 class="large" id="lt">${esc(title)}</h1>${o.sub ? `<p class="sub">${o.sub}</p>` : ""}`;
 }
 const cta = html => `<div class="cta-bar"><div class="inner">${html}</div></div>`;
 let lastTab = null;
 function renderTabs(tab) {
   tabsEl.innerHTML = `<div class="inner">${TABS.map(([k, l, ic]) => `<a href="#/${k}" class="${k === tab && lastTab && lastTab !== tab ? "bump" : ""}" ${k === tab ? 'aria-current="page"' : ""}>${ic}<span>${l}</span></a>`).join("")}</div>`; lastTab = tab;
 }
-const TABOF = { hoy: "hoy", entreno: "entreno", bloque: "entreno", ej: "entreno", cambiar: "entreno", comida: "comida", imprimir: "comida", progreso: "progreso", plan: "plan" };
+const TABOF = { hoy: "hoy", entreno: "entreno", bloque: "entreno", ej: "entreno", cambiar: "entreno", comida: "comida", imprimir: "comida", progreso: "progreso", plan: "hoy" };
 
 function render(o) {
   const keep = !!(o && o.keep), y0 = scrollY;
@@ -292,14 +297,14 @@ function render(o) {
   switch (r[0]) {
     case "inicio": html = vSetup(); break;
     case "hoy": html = vToday(); break;
-    case "entreno": html = r[1] === "guia" ? vGuide() : r[1] === "abdomen" ? vAbs() : r[1] === "cardio" ? vCardioGuide() : r[1] === "limitadas" ? vLimited() : r[1] === "porque" ? vWhy("train") : r[1] ? vSession(r[1]) : vTrain(); hasCta = !!r[1] && !["guia", "abdomen", "cardio", "porque", "limitadas"].includes(r[1]); break;
+    case "entreno": html = r[1] === "guias" ? vGuides() : r[1] === "guia" ? vGuide() : r[1] === "abdomen" ? vAbs() : r[1] === "cardio" ? vCardioGuide() : r[1] === "limitadas" ? vLimited() : r[1] === "porque" ? vWhy("train") : r[1] ? vSession(r[1]) : vTrain(); hasCta = !!r[1] && !["guia", "abdomen", "cardio", "porque", "limitadas"].includes(r[1]); break;
     case "imprimir": html = vPrint(); break;
     case "bloque": html = vBlock(r[1], +r[2]); hasCta = true; break;
     case "ej": html = vExercise(r[1], r[2]); break;
     case "cambiar": html = vSwap(r[1], +r[2], +r[3]); break;
-    case "comida": html = r[1] === "guia" ? vFoodGuide(r[2]) : r[1] === "menu" ? vMenu() : r[1] === "compras" ? vShop() : r[1] === "snacks" ? vSnacks() : r[1] === "reglas" ? vFoodRules() : r[1] === "porque" ? vWhy("diet") : r[1] === "slot" ? vSlot(r[2]) : vFood(); break;
-    case "progreso": html = r[1] === "medidas" ? vBodyMeasures() : r[1] === "fotos" ? vPhotos() : r[1] === "historial" ? vHistory() : r[1] === "datos" ? vData() : r[1] === "revision" ? vReview() : r[1] === "peso" ? vLogWeight() : r[1] === "fuerza" ? vStrength() : r[1] === "guia" ? vMeasureGuide() : vProgress(); break;
-    case "plan": html = r[1] === "semana" ? vWeek(+r[2]) : r[1] === "habitos" ? vHabits() : r[1] === "fuentes" ? vSources() : r[1] === "ajustes" ? vSettings() : r[1] === "reglas" ? vAdjust() : vPlan(); break;
+    case "comida": html = r[1] === "guias" ? vFoodGuides() : r[1] === "guia" ? vFoodGuide(r[2]) : r[1] === "menu" ? vMenu() : r[1] === "compras" ? vShop() : r[1] === "snacks" ? vSnacks() : r[1] === "reglas" ? vFoodRules() : r[1] === "porque" ? vWhy("diet") : r[1] === "slot" ? vSlot(r[2]) : vFood(); break;
+    case "progreso": html = r[1] === "compartir" ? vShare() : r[1] === "medidas" ? vBodyMeasures() : r[1] === "fotos" ? vPhotos() : r[1] === "historial" ? vHistory() : r[1] === "datos" ? vData() : r[1] === "revision" ? vReview() : r[1] === "peso" ? vLogWeight() : r[1] === "fuerza" ? vStrength() : r[1] === "guia" ? vMeasureGuide() : vProgress(); break;
+    case "plan": html = r[1] === "semana" ? vWeek(+r[2]) : r[1] === "habitos" ? vHabits() : r[1] === "fuentes" ? vSources() : r[1] === "ajustes" ? vSettings() : r[1] === "reglas" ? vAdjust() : r[1] === "ruta" ? vRoute() : r[1] === "avisos" ? vRemind() : vHub(); break;
     default: html = vToday();
   }
   const back = r.length < lastDepth; lastDepth = r.length;
@@ -316,6 +321,7 @@ function render(o) {
   if (!keep) { const h = $("#lt"); if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); } }
   if (popSel) { $(popSel)?.classList.add("pop"); popSel = null; }
   if (r[0] === "progreso" && r[1] === "fotos") loadPhotos();
+  if (r[0] === "progreso" && r[1] === "compartir") drawShare();
   if (r[0] === "progreso" && r[1] === "datos" && window.Store) { Store.persisted().then(v => { const e = $("#d-persist"); if (e) e.textContent = v ? "Activa" : "No concedida"; }); Store.usage().then(u => { const e = $("#d-usage"); if (e) e.textContent = u ? (u.used / 1048576).toFixed(1) + " MB" : "—"; }); }
 }
 
@@ -357,7 +363,7 @@ function withDraft(fn) { const prev = S.profile, pw = S.weights, pwe = S.weekend
 function vSetup() {
   const { step, d } = onb;
   const heads = ["¿Qué quieres lograr?", "Sobre ti", "Tu entrenamiento", "Tu comida y tu ritmo", "Tu plan"];
-  const subs = ["Elige lo que más te importa: todo se adapta a eso.", "Para calcular tus calorías y tus pesos. Se queda solo en tu teléfono.", "Para armar tu semana con los días que de verdad puedes cumplir.", "Ajustamos las porciones y qué tan rápido avanzas.", "Esto es lo que calculamos con tus respuestas."];
+  const subs = ["Tu plan se adapta a esto.", "Para calcular tus calorías. Se queda en tu teléfono.", "Para armar tu semana.", "Porciones y ritmo.", "Tu plan está listo."];
   let body = "";
   if (step === 0) body = radioRows("goal", Object.entries(C.goals).map(([k, g]) => [k, g.name, g.desc]), d.goal);
   if (step === 1) body = `<h2 class="sec">Sexo (para estimar tus calorías)</h2>${segRow("sex", [["m", "Hombre"], ["f", "Mujer"]], d.sex)}
@@ -371,7 +377,7 @@ function vSetup() {
     <h2 class="sec">¿Dónde entrenas?</h2>${radioRows("mode", [["gym", "Gimnasio", "Máquinas, poleas, barras y mancuernas"], ["db", "En casa con mancuernas", "Tus mancuernas, con o sin banca"], ["home", "En casa, sin equipo", "Solo tu cuerpo, una mesa o silla y una mochila"]], d.mode)}
     ${d.mode === "db" ? `<h2 class="sec">Tus mancuernas pesan hasta…</h2>${radioRows("dbMax", [[10, "10 kg cada una o menos"], [20, "Hasta 20 kg cada una"], [30, "Hasta 30 kg cada una"], [40, "40 kg o más cada una"]], d.dbMax)}<h2 class="sec">¿Tienes banca?</h2>${segRow("bench", [["si", "Sí"], ["no", "No"]], d.bench)}` : ""}
     ${d.mode === "gym" ? `<h2 class="sec">Peso corporal</h2><div class="group"><div class="field"><label>¿Puedes hacer 5 o más dominadas?</label>${segRow("pull", [["si", "Sí"], ["no", "No"]], d.pull)}</div><div class="field"><label>¿Y 5 o más fondos en paralelas?</label>${segRow("dips", [["si", "Sí"], ["no", "No"]], d.dips)}</div></div><p class="note">Si es que sí, entran en tu plan en lugar del jalón y el pushdown. Si no, quedan como alternativas (y hay máquina asistida).</p>` : ""}
-    ${d.mode !== "gym" ? `<h2 class="sec">¿Tienes barra de dominadas?</h2>${segRow("bar", [["si", "Sí"], ["no", "No"]], d.bar)}<p class="note">Con barra, el tirón vertical (dominadas) entra en tu plan.</p>` : ""}`;
+    ${d.mode !== "gym" ? `<h2 class="sec">¿Tienes barra de dominadas?</h2>${segRow("bar", [["si", "Sí"], ["no", "No"]], d.bar)}` : ""}`;
   if (step === 3) { const g = C.goals[d.goal]; body = `<h2 class="sec">Cómo comes</h2>${radioRows("diet", Object.entries(C.diets), d.diet)}
     <h2 class="sec">Ritmo</h2>${radioRows("pct", g.paces, d.pct ?? g.pace)}
     ${+d.days === 6 ? `<h2 class="sec">Tu día de pesas del fin de semana</h2>${segRow("weekend", [["sab", "Sábado"], ["dom", "Domingo"]], d.weekend)}` : ""}
@@ -387,7 +393,7 @@ function vSetup() {
       <div class="row top"><div class="main"><div class="title">Cardio</div><div class="meta">${d.goal === "muscle" ? "Poco: solo para tu salud y recuperación" : d.mode === "gym" ? "Zona 2 en caminadora o elíptica al final de las pesas" : "Zona 2: caminata rápida, trote suave o bici al final de las pesas"}</div></div></div>
       <div class="row top"><div class="main"><div class="title">Ritmo esperado</div><div class="meta">${d.goal === "muscle" ? "Subir" : "Bajar"} ≈ ${c.rate} por semana</div></div></div>
     </div>${c.floorHit ? `<p class="note"><strong>Aviso:</strong> tu meta quedaría por debajo de un mínimo razonable, así que se subió. Con un peso bajo conviene un ritmo suave.</p>` : ""}
-    <p class="note">Son estimaciones con rango: cada semana la app te propone ajustes con tus datos. No sustituye a un médico ni a un nutriólogo.</p>`; });
+    <p class="note">Son estimaciones; no sustituyen a un médico o nutriólogo.</p>`; });
   const last = step === ONB_STEPS - 1;
   return `${step ? `<div class="navbar" id="navbar"><button class="nb-btn" data-onb="back" aria-label="Paso anterior">${I.back}<span>Atrás</span></button><span class="nb-title" aria-hidden="true">${heads[step]}</span></div>` : `<div class="navbar" id="navbar"></div>`}
   <div class="dots" role="progressbar" aria-label="Paso ${step + 1} de ${ONB_STEPS}" aria-valuenow="${step + 1}" aria-valuemin="1" aria-valuemax="${ONB_STEPS}">${Array.from({ length: ONB_STEPS }, (_, i) => `<i class="${i <= step ? "on" : ""}"></i>`).join("")}</div>
@@ -416,17 +422,16 @@ function vToday() {
   let sesBlock;
   if (ses) {
     const pr = sessionProgress(ses), done = sessionDoneOn(iso, ses.id), started = pr.done > 0;
-    sesBlock = `<h2 class="sec">Entrenamiento</h2><div class="group"><button class="row" data-go="#/entreno/${ses.id}"><div class="main"><div class="title" style="font-size:20px;font-weight:600">${esc(ses.name)}</div><div class="meta">${esc(ses.focus)}</div><div class="meta">${blocksOf(ses).length} bloques · ${totalRounds(ses)} vueltas · ${sessMin(ses)} min</div></div>${done ? '<span class="badge good">Hecho</span>' : started ? `<span class="badge">${pr.done}/${pr.total}</span>` : ""}${I.chev}</button></div>
-      <div class="btn-wrap"><button class="btn ${done ? "secondary" : ""}" data-go="#/entreno/${ses.id}">${done ? "Ver entrenamiento" : started ? "Continuar entrenamiento" : "Empezar entrenamiento"}</button></div>`;
+    sesBlock = `<h2 class="sec">Entrenamiento</h2><div class="group"><button class="row" data-go="#/entreno/${ses.id}"><div class="main"><div class="title" style="font-size:20px;font-weight:600">${esc(ses.name)}</div><div class="meta">${esc(ses.focus)}</div><div class="meta">${blocksOf(ses).length} bloques · ${totalRounds(ses)} vueltas · ${sessMin(ses)} min</div></div>${done ? '<span class="badge good">Hecho</span>' : started ? `<span class="badge">${pr.done}/${pr.total}</span>` : ""}${I.chev}</button></div>`;
   } else sesBlock = `<h2 class="sec">Entrenamiento</h2><div class="group"><div class="row"><div class="main"><div class="title">Descanso activo</div><div class="meta">Camina 45 minutos y estira. Hoy no hay pesas.</div></div></div></div>`;
   const w = S.weights[iso], delta = weekDelta(), steps = ck.steps || 0, water = ck.water || 0;
-  return `<div class="navbar" id="navbar"><span class="nb-title" aria-hidden="true">Hoy</span></div><h1 class="large" id="lt">${n < 1 ? "Hoy" : n > 90 ? "Reto completo" : "Día " + n}</h1>
-    <p class="sub" style="margin-bottom:8px">${S.profile.name ? "Hola, " + esc(S.profile.name) + " · " : ""}${longDate(iso)}${n >= 1 ? ` · Semana ${wk}, ${esc(ph.name)}` : ""}</p>
+  return `<div class="navbar" id="navbar"><span class="nb-title" aria-hidden="true">Hoy</span><button class="nb-btn gear" data-go="#/plan" aria-label="Ajustes">${I.gear}</button></div><h1 class="large" id="lt">${n < 1 ? "Hoy" : n > 90 ? "Reto completo" : "Día " + n}</h1>
+    <p class="sub" style="margin-bottom:8px">${S.profile.name ? "Hola, " + esc(S.profile.name) + " · " : ""}${longDate(iso)}${n >= 1 ? ` · Semana ${wk}` : ""}</p>
     <div class="bar" role="progressbar" aria-label="Avance del reto" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><i style="--p:${(pct)/100}"></i></div>
     ${storageWarn()}
     ${weekStrip(iso)}
+    ${stats3()}
     ${nowCard(iso)}
-    ${tipHoy()}
     <h2 class="sec">Resumen del día</h2><div class="group">${ringsHtml(iso)}</div>
     ${sesBlock}
     <h2 class="sec">Comidas</h2>
@@ -457,7 +462,7 @@ function nowCard(iso) {
   const a = nextAction(iso);
   return a ? `<button class="nowcard" ${a.go ? `data-go="${a.go}"` : "data-noop"}><div><small>Ahora</small><b>${esc(a.t)}</b><span>${esc(a.m)}</span></div>${a.go ? I.chev : ""}</button>` : `<div class="nowcard done" role="status"><div><small>Ahora</small><b>Día completo</b><span>Lo que hiciste hoy cuenta. Descansa y mañana seguimos.</span></div></div>`;
 }
-let installEv = null;
+let installEv = null, shareW = "si";
 const isStandalone = () => { try { return matchMedia("(display-mode: standalone)").matches || navigator.standalone === true; } catch (e) { return false; } };
 const inApp = () => /FBAN|FBAV|Instagram|Line\/|WhatsApp|MicroMessenger|; wv\)|Snapchat|TikTok/i.test(navigator.userAgent);
 function installCard() {
@@ -482,6 +487,10 @@ function ringsHtml(iso) {
   return `<div class="rings-row"><svg class="rings" viewBox="0 0 120 120" role="img" aria-label="Anillos del día: calorías ${Math.round(items[0][2] * 100)} %, proteína ${Math.round(items[1][2] * 100)} %, agua ${Math.round(items[2][2] * 100)} %">${items.map(([col, r, v]) => { const c = +(2 * Math.PI * r).toFixed(1), off = +(c * (1 - Math.min(1, Math.max(0, v)))).toFixed(1); return `<circle class="ring-bg" cx="60" cy="60" r="${r}"/><circle class="ring-fg" cx="60" cy="60" r="${r}" stroke="${col}" style="--c:${c};stroke-dasharray:${c};stroke-dashoffset:${off}"/>`; }).join("")}</svg>
   <div class="ring-legend">${items.map(([col, , , l, v]) => `<div><i style="background:${col}"></i>${l}<b>${v}</b></div>`).join("")}</div></div>`;
 }
+function stats3() {
+  const st = streak(), n = SESSIONS().filter(s => sessionDoneThisWeek(s.id)).length, d = weekDelta();
+  return `<div class="stats3"><div><b>${st}</b><span>${st === 1 ? "día de racha" : "días de racha"}</span></div><div><b>${n}/${SESSIONS().length}</b><span>entrenos</span></div><div><b>${d === null ? "—" : (d > 0 ? "+" : d < 0 ? "−" : "") + fmt(Math.abs(d), 1)}</b><span>kg en 7 días</span></div></div>`;
+}
 function weekStrip(iso) {
   const names = ["L", "M", "X", "J", "V", "S", "D"];
   return `<div class="weekstrip" role="list" aria-label="Semana">${weekDates(iso).map((d, i) => {
@@ -500,23 +509,17 @@ function trendText(d) {
 /* Entreno */
 function vTrain() {
   const iso = todayISO(), todayId = sessionFor(iso)?.id, doneN = SESSIONS().filter(s => sessionDoneThisWeek(s.id)).length;
-  return `${nav("Entreno", { sub: `Esta semana: ${doneN} de ${SESSIONS().length} sesiones.` })}
+  return `${nav("Entreno", { sub: `${doneN} de ${SESSIONS().length} sesiones esta semana`, gear: true })}
   ${modeSeg()}
-  <h2 class="sec">Semana</h2>
   <div class="group">${SESSIONS().map(s => {
     const done = sessionDoneThisWeek(s.id), isT = s.id === todayId;
     return `<button class="row" data-go="#/entreno/${s.id}"><span class="daycol">${s.day}</span><div class="main"><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.focus)}</div></div>${done ? '<span class="badge good">Hecho</span>' : isT ? '<span class="badge">Hoy</span>' : ""}${I.chev}</button>`;
   }).join("")}</div>
-  <p class="note">${S.weekend === "sab" ? "Domingo" : "Sábado"} es descanso: caminata de 45 minutos y movilidad.</p>
-  <h2 class="sec">Aprende</h2>
-  <div class="group">
-    <button class="row" data-go="#/entreno/guia"><div class="main"><div class="title">Cómo leer el entrenamiento</div><div class="meta">Uniserie, biserie, triserie y pesos sugeridos</div></div>${I.chev}</button>
-    <button class="row" data-go="#/entreno/abdomen"><div class="main"><div class="title">Cómo marcar el abdomen</div><div class="meta">Qué funciona y qué no</div></div>${I.chev}</button>
-    <button class="row" data-go="#/entreno/cardio"><div class="main"><div class="title">Guía de cardio</div><div class="meta">Caminadora, elíptica y zona 2</div></div>${I.chev}</button>
-    <button class="row" data-go="#/entreno/limitadas"><div class="main"><div class="title">Progresar con mancuernas limitadas</div><div class="meta">Cuando tu peso máximo ya no es suficiente</div></div>${I.chev}</button>
-    <button class="row" data-go="#/entreno/porque"><div class="main"><div class="title">Por qué este plan</div><div class="meta">Series por músculo y la evidencia detrás</div></div>${I.chev}</button>
-  </div>
-  <div class="group" style="margin-top:14px"><div class="prose"><p><strong>Progresión:</strong> trabaja dentro del rango de repeticiones. Al completar todas las vueltas en el máximo, sube el peso.</p><p><strong>Esfuerzo:</strong> termina cada serie con ${phaseOf(weekNum()).rir} repeticiones en reserva en esta fase.</p><p><strong>Calentamiento (8 min):</strong> 5 min de caminadora o bici, movilidad de hombros y cadera, y 2 series de aproximación del primer ejercicio.</p><p><strong>Cardio:</strong> ${phaseOf(weekNum()).cardio}, en zona 2 (caminadora o elíptica).</p></div></div>`;
+  <div class="group"><button class="row" data-go="#/entreno/guias"><div class="main"><div class="title">Guías</div></div>${I.chev}</button></div>`;
+}
+function vGuides() {
+  const rows = [["guia", "Cómo leer el entrenamiento"], ["abdomen", "Marcar el abdomen"], ["cardio", "Cardio"], ["limitadas", "Mancuernas limitadas"], ["porque", "Por qué este plan"]];
+  return `${nav("Guías", { back: "Entreno" })}<div class="group">${rows.map(([k, t]) => `<button class="row" data-go="#/entreno/${k}"><div class="main"><div class="title">${t}</div></div>${I.chev}</button>`).join("")}</div>`;
 }
 function vGuide() { return `${nav("Cómo leer el entrenamiento", { back: "Entreno" })}<h2 class="sec">Uniserie, biserie y triserie</h2><div class="group"><div class="prose">${C.blocksGuide}</div></div><h2 class="sec">Pesos sugeridos</h2><div class="group"><div class="prose">${C.weightsGuide}</div></div>`; }
 function vAbs() { return `${nav("Marcar el abdomen", { back: "Entreno" })}<div class="group"><div class="prose">${C.absGuide}</div></div>`; }
@@ -527,8 +530,8 @@ function vSession(id) {
   const first = bl.findIndex(b => blockProgress(b) < b.rounds);
   const noHist = Object.keys(S.hist).length === 0 && S.mode !== "home";
   const todays = sessionFor(iso);
-  const otherDay = todays && todays.id !== id ? `<p class="note" style="margin:10px 16px 0">Hoy toca ${esc(todays.name)}. Si entrenas esta sesión ahora, queda registrada con la fecha de hoy.</p>` : "";
-  const intro = S.intro ? "" : `<h2 class="sec">Antes de empezar</h2><div class="group"><div class="prose"><p><strong>Cada sesión son bloques.</strong> Uniserie: un ejercicio. Biserie: dos ejercicios seguidos (A y B) sin descanso entre ellos. Triserie: tres.</p><p>Una <strong>vuelta</strong> es hacer todos los ejercicios del bloque una vez. Al terminarla, descansas y repites.</p><p>Los pesos son de partida: ajusta a 1–2 repeticiones en reserva.</p></div><div style="padding:0 16px 14px"><button class="btn secondary" data-act="intro">Entendido</button></div></div>`;
+  const otherDay = "";
+  const intro = "";
   return `${nav(s.name, { back: "Entreno", sub: `${esc(s.focus)} · ${sessMin(s)} min` })}
   ${modeSeg()}
   ${otherDay}${intro}<h2 class="sec">${bl.length} bloques · ${pr.done} de ${pr.total} vueltas</h2>
@@ -537,7 +540,6 @@ function vSession(id) {
     return `<a class="blk" href="#/bloque/${id}/${bi}" aria-label="Bloque ${bi + 1}: ${typeLabel(b.t)}"><div class="blk-head"><span class="chip ${b.t}">${bi + 1} · ${typeLabel(b.t)}</span><span class="info">${cd ? cardioMin(b) + " min · zona 2" : b.rounds + " vueltas · " + fmtRest(b.rest)}</span><span class="prog ${p === b.rounds ? "done" : ""}">${p === b.rounds ? "Hecho" : cd ? "" : p + "/" + b.rounds}</span></div>
       ${cd ? `<div class="row"><img class="thumb" loading="lazy" decoding="async" alt="" src="gifs/${cardioKind().gif}.gif" width="56" height="56"><div class="main"><div class="title">${esc(S.mode !== "gym" ? "Caminata rápida, trote suave o bici" : "Caminadora o elíptica")}</div><div class="meta">${esc(b.note || "Ritmo en el que puedes hablar frases cortas")}</div></div></div>` : b.items.map((it, ii) => { const ex = D.EX[it.k], sg = suggest(it); return `<div class="row">${b.items.length > 1 ? `<span class="letter">${letters[ii]}</span>` : ""}<img class="thumb" loading="lazy" decoding="async" alt="" src="gifs/${ex.id}.gif" width="56" height="56"><div class="main"><div class="title">${esc(ex.name)}</div><div class="meta">${esc(repsLabel(it.reps))} · ${esc(sg.text)}</div></div></div>`; }).join("")}</a><div class="blk-gap"></div>`;
   }).join("")}
-  ${noHist ? `<p class="note">Primera vez: los pesos están calculados con tu peso, sexo y nivel, y son conservadores. Ajusta a 1–2 repeticiones en reserva; desde la segunda sesión la app te sugiere según lo que anotes.</p>` : ""}
   ${cta(first >= 0 ? `<button class="btn" data-go="#/bloque/${id}/${first}">${pr.done ? "Continuar" : "Empezar"} · bloque ${first + 1}</button>` : `<button class="btn ${done ? "secondary" : ""}" data-act="finish" data-id="${id}">${done ? "Entrenamiento completado" : "Terminar entrenamiento"}</button>`)}`;
 }
 
@@ -567,7 +569,6 @@ function vBlock(id, bi) {
   ${warmup(b, bi)}
   <h2 class="sec">Vueltas · ${p} de ${b.rounds}</h2>
   <div class="group">${rounds.join("")}</div>
-  <p class="note">Si dejas kilos o repeticiones vacíos al marcar, se guarda el peso sugerido y el mínimo del rango. “pc” = peso corporal. Toca el GIF para ver la técnica.</p>
   <input type="hidden" id="blk-ctx" value="${id}|${bi}">
   <div id="rest" role="timer" aria-live="off"><span class="lbl">Descanso</span><span class="t">0:00</span><button data-rest="add">+15 s</button><button data-rest="stop">Listo</button></div>
   ${cta(next ? `<button class="btn ${p === b.rounds ? "" : "quiet"}" data-go="#/bloque/${id}/${bi + 1}">Siguiente bloque</button>` : `<button class="btn ${p === b.rounds ? "" : "quiet"}" data-go="#/entreno/${id}">Terminar y ver resumen</button>`)}`;
@@ -588,7 +589,6 @@ function vCardio(s, b, bi) {
     ${b.note ? `<div class="row top"><div class="main"><div class="meta">${esc(b.note)}</div></div></div>` : ""}
   </div>
   <div class="btn-wrap"><button class="btn quiet" data-ctimer="${mins * 60}">Iniciar temporizador · ${mins}:00</button></div>
-  <p class="note">El cardio ayuda, pero lo que más pesa para bajar grasa es el déficit de calorías. <a href="#/entreno/cardio">Guía de cardio</a></p>
   <div id="rest" role="timer" aria-live="off"><span class="lbl">Cardio</span><span class="t">0:00</span><button data-rest="add">+15 s</button><button data-rest="stop">Parar</button></div>
   ${cta(`<button class="btn ${done ? "secondary" : ""}" data-cdone="${b.key}|${mins}|${s.id}">${done ? "Cardio completado" : "Marcar cardio hecho"}</button>`)}`;
 }
@@ -614,7 +614,7 @@ function vSwap(sid, bi, ii) {
   const key = `${sid}|${S.mode}|${bi}|${ii}`, cur = D.EX[it.k], alts = altsFor(s, bi, ii), swapped = !!(S.swaps || {})[key];
   return `${nav("Cambiar ejercicio", { back: `Bloque ${bi + 1}`, to: `#/bloque/${sid}/${bi}`, sub: `Ahora: <strong>${esc(cur.name)}</strong> · ${esc(cur.muscle)}` })}
   ${alts.length ? `<h2 class="sec">Alternativas con tu equipo</h2><div class="group">${alts.map(a => { const ex = D.EX[a.k]; return `<button class="row" data-swapto="${key}|${a.k}"><img class="thumb" loading="lazy" decoding="async" alt="" src="gifs/${ex.id}.gif" width="56" height="56"><div class="main"><div class="title">${esc(ex.name)}</div><div class="meta">${esc(ex.muscle)} · ${esc(a.fam)}</div></div>${I.chev}</button>`; }).join("")}</div>
-  <p class="note">Solo aparecen ejercicios del mismo músculo y patrón de movimiento, disponibles en tu modalidad y con tu equipo. Las repeticiones y el peso sugerido se ajustan al nuevo ejercicio.</p>` : `<div class="group"><div class="empty">No hay alternativas equivalentes con tu equipo para este ejercicio.</div></div>`}
+  <p class="note">Mismo músculo y movimiento, con tu equipo.</p>` : `<div class="group"><div class="empty">No hay alternativas equivalentes con tu equipo para este ejercicio.</div></div>`}
   ${swapped ? `<h2 class="sec">Original</h2><div class="group"><button class="row" data-swapto="${key}|"><div class="main"><div class="title">Volver al ejercicio original</div></div></button></div>` : ""}`;
 }
 function vExercise(k, ctx) {
@@ -633,23 +633,19 @@ function vExercise(k, ctx) {
 
 /* Comida */
 function vFood() {
-  const iso = todayISO(), rest = !isTrainDay(iso), T = targetFor(iso);
-  return `${nav("Comida", { sub: rest ? "Hoy es día de descanso." : "Hoy es día de entreno." })}
-  <h2 class="sec" style="margin-top:8px">Hoy · meta ≈ ${T.kcal.toLocaleString("es-MX")} kcal</h2>
+  const iso = todayISO(), T = targetFor(iso);
+  return `${nav("Comida", { sub: `Meta ≈ ${T.kcal.toLocaleString("es-MX")} kcal · proteína ${T.p} g`, gear: true })}
   <div class="group">${mealRows(iso, true)}${intake(iso)}</div>
-  <p class="note">Rango ${T.range} kcal · proteína ${T.p} g · carbohidratos ${T.c} g · grasas ${T.g} g. Marca cada comida al terminarla. Toca el nombre para cambiar de opción.</p>
-  <h2 class="sec">Guía de alimentos</h2>
   <div class="group">
-    ${[["semaforo", "Qué comer", "Verde, con medida y a evitar"], ["evitar", "Qué evitar y por qué", "Con la alternativa para cada uno"], ["cambios", "Cambios inteligentes", "En lugar de esto, prueba esto"], ["ideas", "Ideas de comidas", "Desayuno, comida, cena y snacks"], ["fuera", "Comer fuera y antojos", "Taquería, fiestas, restaurante"], ["etiquetas", "Etiquetas y porciones", "Cómo leer un empaque y medir con la mano"], ["prep", "Meal prep y ahorro", "Cocina una vez, come toda la semana"], ["alt", "Alternativas", "Sin carne, sin lácteos, sin gluten"]].map(([id, t, m]) => `<button class="row" data-go="#/comida/guia/${id}"><div class="main"><div class="title">${t}</div><div class="meta">${m}</div></div>${I.chev}</button>`).join("")}
-  </div>
-  <h2 class="sec">Herramientas</h2>
-  <div class="group">
-    <button class="row" data-go="#/comida/menu"><div class="main"><div class="title">Menú de la semana</div><div class="meta">Una rotación lista; aplícala a hoy</div></div>${I.chev}</button>
-    <button class="row" data-go="#/comida/snacks"><div class="main"><div class="title">Snacks con proteína</div></div>${I.chev}</button>
-    <button class="row" data-go="#/comida/compras"><div class="main"><div class="title">Lista de compras semanal</div></div>${I.chev}</button>
-    <button class="row" data-go="#/comida/reglas"><div class="main"><div class="title">Reglas, hidratación y suplementos</div></div>${I.chev}</button>
-    <button class="row" data-go="#/comida/porque"><div class="main"><div class="title">Por qué esta dieta</div><div class="meta">Calorías, macros y la evidencia detrás</div></div>${I.chev}</button>
+    <button class="row" data-go="#/comida/menu"><div class="main"><div class="title">Menú de la semana</div></div>${I.chev}</button>
+    <button class="row" data-go="#/comida/compras"><div class="main"><div class="title">Lista de compras</div></div>${I.chev}</button>
+    <button class="row" data-go="#/comida/snacks"><div class="main"><div class="title">Snacks</div></div>${I.chev}</button>
+    <button class="row" data-go="#/comida/guias"><div class="main"><div class="title">Guías</div></div>${I.chev}</button>
   </div>`;
+}
+function vFoodGuides() {
+  const rows = [["#/comida/guia/semaforo", "Qué comer"], ["#/comida/guia/evitar", "Qué evitar"], ["#/comida/guia/cambios", "Cambios inteligentes"], ["#/comida/guia/ideas", "Ideas de comidas"], ["#/comida/guia/fuera", "Comer fuera"], ["#/comida/guia/etiquetas", "Etiquetas y porciones"], ["#/comida/guia/prep", "Meal prep y ahorro"], ["#/comida/guia/alt", "Alternativas"], ["#/comida/reglas", "Reglas, agua y suplementos"], ["#/comida/porque", "Por qué esta dieta"]];
+  return `${nav("Guías", { back: "Comida", to: "#/comida" })}<div class="group">${rows.map(([h, t]) => `<button class="row" data-go="${h}"><div class="main"><div class="title">${t}</div></div>${I.chev}</button>`).join("")}</div>`;
 }
 function weekMenu() {
   const restIdx = S.weekend === "sab" ? 6 : 5, base = MEAL_BASE();
@@ -676,7 +672,7 @@ function shopData() {
 const DAYN = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 function vMenu() {
   const restIdx = S.weekend === "sab" ? 6 : 5;
-  return `${nav("Menú de la semana", { back: "Comida", sub: "Una rotación de tus opciones. Toca un día para usarlo hoy." })}
+  return `${nav("Menú de la semana", { back: "Comida", sub: "Toca un día para usarlo hoy." })}
   <div class="group">${DAYN.map((dn, d) => {
     const rest = d === restIdx, names = MEAL_BASE().filter(m => !(rest && m.slot === "Pre-entreno")).map(m => { const si = MEAL_BASE().indexOf(m); return m.opts[(d + si) % m.opts.length].name; });
     return `<button class="row top" data-menu="${d}"><div class="main"><div class="title">${dn}${rest ? ' <span class="pill">descanso</span>' : ""}</div><div class="meta">${names.map(esc).join(" · ")}</div></div>${I.chev}</button>`;
@@ -685,8 +681,7 @@ function vMenu() {
   <div class="group">
     <button class="row" data-go="#/imprimir"><div class="main"><div class="title">Versión para imprimir</div><div class="meta">Menú y compras ordenados; guárdalo como PDF</div></div>${I.chev}</button>
     <button class="row" data-act="csv"><div class="main"><div class="title">Descargar para Excel (CSV)</div><div class="meta">Tabla con comidas, ingredientes y macros</div></div></button>
-  </div>
-  <p class="note">La lista de compras sale de esta rotación. Al elegir un día, tus comidas de hoy cambian a esas opciones; puedes cambiarlas una por una cuando quieras.</p>`;
+  </div>`;
 }
 function vFoodGuide(id) {
   const g = C.foodGuide, T = { semaforo: "Qué comer", evitar: "Qué evitar", cambios: "Cambios inteligentes", ideas: "Ideas de comidas", fuera: "Comer fuera", etiquetas: "Etiquetas y porciones", prep: "Meal prep y ahorro", alt: "Alternativas" }[id];
@@ -706,12 +701,11 @@ function vSlot(i) {
   const m = MEALS()[+i]; if (!m) return vFood();
   const sel = S.picks[m.slot] ?? 0;
   const tail = m.slot === "Pre-entreno" ? "Entre 60 y 90 minutos antes de entrenar, bajo en grasa para digerir bien." : m.slot.startsWith("Cena") ? "Después de entrenar. Si entrenas el fin de semana por la mañana, la comida fuerte hace de post-entreno." : m.slot === "Snack" ? "Úsalo a media tarde o noche si te falta proteína o tienes hambre." : "";
-  return `${nav(m.slot, { back: "Comida", sub: `Elige una opción · ${m.time}` })}
-  <div class="group" role="radiogroup" aria-label="Opciones de ${esc(m.slot)}">${m.opts.map(optView).map((o, j) => `<button class="row top" data-pick="${j}" data-slot="${esc(m.slot)}" role="radio" aria-checked="${j === sel}"><span class="opt-radio ${j === sel ? "on" : ""}"></span><div class="main"><div class="title">${esc(o.name)}</div><div class="meta">${o.m.kcal} kcal · P ${o.m.p} · C ${o.m.c} · G ${o.m.g}</div><ul class="ing">${o.items.map(t => `<li>${esc(t)}</li>`).join("")}</ul>${o.tip ? `<div class="meta" style="margin-top:6px">${esc(o.tip)}</div>` : ""}</div></button>`).join("")}</div>
-  ${tail ? `<p class="note">${tail}</p>` : ""}`;
+  return `${nav(m.slot, { back: "Comida", sub: m.time })}
+  <div class="group" role="radiogroup" aria-label="Opciones de ${esc(m.slot)}">${m.opts.map(optView).map((o, j) => `<button class="row top" data-pick="${j}" data-slot="${esc(m.slot)}" role="radio" aria-checked="${j === sel}"><span class="opt-radio ${j === sel ? "on" : ""}"></span><div class="main"><div class="title">${esc(o.name)}</div><div class="meta">${o.m.kcal} kcal · P ${o.m.p} · C ${o.m.c} · G ${o.m.g}</div><ul class="ing">${o.items.map(t => `<li>${esc(t)}</li>`).join("")}</ul>${o.tip ? `<div class="meta" style="margin-top:6px">${esc(o.tip)}</div>` : ""}</div></button>`).join("")}</div>`;
 }
 function vSnacks() {
-  return `${nav("Snacks", { back: "Comida", sub: "Cuando necesites algo extra. Rico en proteína y barato." })}
+  return `${nav("Snacks", { back: "Comida", sub: "Con proteína" })}
   <div class="group">${(isVeg() ? D.SNACKS_VEG : D.SNACKS).map(optView).map(o => `<div class="row top"><div class="main"><div class="title">${esc(o.name)}</div><div class="meta">${o.m.kcal} kcal · P ${o.m.p} g · C ${o.m.c} g · G ${o.m.g} g</div><ul class="ing">${o.items.map(t => `<li>${esc(t)}</li>`).join("")}</ul></div></div>`).join("")}</div>`;
 }
 function vFoodRules() {
@@ -729,7 +723,7 @@ function vPrint() {
     <tbody>${d.meals.map(x => `<tr><td><b>${esc(x.slot)}</b><br><small>${esc(x.time)}</small></td><td class="dish">${esc(x.v.name)}</td><td class="ing">${x.v.items.map(esc).join(" · ")}</td><td class="n">${x.v.m.kcal}</td><td class="n">${x.v.m.p}</td><td class="n">${x.v.m.c}</td><td class="n">${x.v.m.g}</td></tr>`).join("")}</tbody>
     <tfoot><tr><td colspan="3">Total del día</td><td class="n">${num(d.tot.kcal)}</td><td class="n">${d.tot.p}</td><td class="n">${d.tot.c}</td><td class="n">${d.tot.g}</td></tr></tfoot></table></section>`).join("");
   const shop = shopData().map(([t, it]) => `<div class="pd-col"><h4>${esc(t)}</h4><ul>${it.map(([n, q]) => `<li><i></i><span>${esc(n)}</span><b>${esc(q)}</b></li>`).join("")}</ul></div>`).join("");
-  return `${nav("Imprimir menú", { back: "Comida", to: "#/comida/menu", sub: "Se ve igual en papel. En el iPhone: Imprimir → pellizca la vista previa para guardar como PDF. En Android: Imprimir → Guardar como PDF." })}
+  return `${nav("Imprimir menú", { back: "Comida", to: "#/comida/menu", sub: "Elige “Guardar como PDF” al imprimir" })}
   <div class="btn-wrap noprint"><button class="btn" data-act="print">Imprimir o guardar PDF</button></div>
   <article class="print-doc"><header class="pd-head"><div><p class="pd-kicker">Reto 90 · Plan de alimentación</p><h2>Menú semanal${who ? "<br><span>" + who + "</span>" : ""}</h2></div><p class="pd-meta">${esc(g.name)}<br>${hoy}</p></header>
   <div class="pd-stats">${stat(num(c.train.kcal), "kcal en día de entreno")}${stat(num(c.rest.kcal), "kcal en descanso")}${stat(c.train.p + " g", "proteína")}${stat(c.train.c + " g", "carbohidratos")}${stat(c.train.g + " g", "grasas")}</div>
@@ -749,10 +743,8 @@ function vShop() {
     if (k === "aceite") txt = "1 botella chica"; if (k === "whey") txt = "opcional (2 scoops)";
     return `<div class="row"><div class="main"><div class="title">${esc(f.name.charAt(0).toUpperCase() + f.name.slice(1))}</div></div><span class="val">${txt}</span></div>`;
   };
-  return `${nav("Compras", { back: "Comida", sub: "Para 7 días con tu rotación de opciones." })}
-  ${grp.map(([t, ks]) => `<h2 class="sec">${t}</h2><div class="group">${ks.map(line).join("")}</div>`).join("")}
-  <h2 class="sec">Despensa</h2><div class="group"><div class="prose"><p>Sal, especias, limón, cebolla, cilantro, chile, salsa casera, mostaza, aceite en aerosol, té verde, gelatina sin azúcar, agua mineral.</p></div></div>
-  <p class="note">Ahorro: compra pollo y res en cortes grandes y congélalos por porciones. Tortilla, arroz, frijol y huevo son tus bases baratas.</p>`;
+  return `${nav("Compras", { back: "Comida", sub: "Para 7 días" })}
+  ${grp.map(([t, ks]) => `<h2 class="sec">${t}</h2><div class="group">${ks.map(line).join("")}</div>`).join("")}`;
 }
 
 /* Progreso */
@@ -763,41 +755,25 @@ const activity = iso => { const c = S.checks[iso] || {}, sess = sessKeys(c).leng
 function streak() { let d = todayISO(), n = 0; if (!activity(d).any) d = addDays(d, -1); while (S.start && d >= S.start && activity(d).any) { n++; d = addDays(d, -1); } return n; }
 const totalSessions = () => Object.values(S.checks).reduce((a, c) => a + sessKeys(c).length, 0);
 function vProgress() {
-  const now = avgWeight(todayISO()), delta = weekDelta();
+  const now = avgWeight(todayISO());
   const ws = Object.entries(S.waists).sort((a, b) => a[0] < b[0] ? -1 : 1), w0 = ws[0], w1 = ws[ws.length - 1];
-  const sesDone = SESSIONS().filter(s => sessionDoneThisWeek(s.id)).length, st = streak();
   let adh = 0, dn = 0;
   for (let i = 0; i < 7; i++) { const d = addDays(todayISO(), -i); if (d < S.start) continue; dn++; const ms = mealsToday(d).filter(m => m.slot !== "Snack"), e = eatenOn(d); adh += ms.filter(m => e[m.slot]).length / ms.length; }
-  return `${nav("Progreso")}
+  const row = (h, t) => `<button class="row" data-go="${h}"><div class="main"><div class="title">${t}</div></div>${I.chev}</button>`;
+  return `${nav("Progreso", { gear: true })}
   <div class="group">
     <div class="row"><div class="main"><div class="title">Peso (promedio 7 días)</div></div><span class="val" style="color:var(--label);font-weight:600">${now ? fmt(now, 1) + " kg" : "—"}</span></div>
-    <div class="row"><div class="main"><div class="title">Cambio vs. semana pasada</div></div><span class="val">${delta !== null ? trendText(delta) : "—"}</span></div>
     <div class="row"><div class="main"><div class="title">Cintura</div></div><span class="val">${w1 ? (w0[0] !== w1[0] ? `${w0[1]} → ${w1[1]} cm` : w1[1] + " cm") : "—"}</span></div>
-    <div class="row"><div class="main"><div class="title">Entrenos esta semana</div></div><span class="val">${sesDone} / ${SESSIONS().length}</span></div>
     <div class="row"><div class="main"><div class="title">Comidas cumplidas (7 días)</div></div><span class="val">${dn ? Math.round(adh / dn * 100) + " %" : "—"}</span></div>
-    <div class="row"><div class="main"><div class="title">Racha</div></div><span class="val">${st} ${st === 1 ? "día" : "días"}</span></div>
-    <div class="row"><div class="main"><div class="title">Entrenos completados</div></div><span class="val">${totalSessions()}</span></div>
   </div>
-  <h2 class="sec">Tendencia</h2>
   ${segHtml([["peso", "Peso"], ["cintura", "Cintura"]], chartMetric, "cmetric", "Qué graficar")}
   <div style="height:8px"></div>${segHtml([[28, "4 semanas"], [84, "12 semanas"], [0, "Todo"]], chartRange, "crange", "Periodo")}
   <div class="group" style="padding:12px 8px 4px;margin-top:10px" id="chartbox">${chartSvg()}</div>
-  <h2 class="sec">Tu constancia</h2>
   <div class="group" id="calbox">${calHtml()}</div>
   <h2 class="sec">Registrar</h2>
-  <div class="group">
-    <button class="row" data-go="#/progreso/peso"><div class="main"><div class="title">Peso y cintura</div></div>${I.chev}</button>
-    <button class="row" data-go="#/progreso/medidas"><div class="main"><div class="title">Medidas del cuerpo</div><div class="meta">Pecho, brazo, muslo y cadera</div></div>${I.chev}</button>
-    <button class="row" data-go="#/progreso/fotos"><div class="main"><div class="title">Fotos de progreso</div><div class="meta">Se quedan solo en tu teléfono</div></div>${I.chev}</button>
-    <button class="row" data-go="#/progreso/revision"><div class="main"><div class="title">Revisión semanal</div><div class="meta">Preguntas y ajuste de calorías</div></div>${I.chev}</button>
-  </div>
+  <div class="group">${row("#/progreso/peso", "Peso y cintura")}${row("#/progreso/medidas", "Medidas del cuerpo")}${row("#/progreso/fotos", "Fotos")}${row("#/progreso/revision", "Revisión semanal")}</div>
   <h2 class="sec">Historial</h2>
-  <div class="group">
-    <button class="row" data-go="#/progreso/fuerza"><div class="main"><div class="title">Fuerza y récords</div><div class="meta">Tus mejores series por ejercicio</div></div>${I.chev}</button>
-    <button class="row" data-go="#/progreso/historial"><div class="main"><div class="title">Entrenos completados</div><div class="meta">Cada sesión que has terminado</div></div>${I.chev}</button>
-    <button class="row" data-go="#/progreso/datos"><div class="main"><div class="title">Mis datos y copia de seguridad</div><div class="meta">Guardado en tu teléfono, exportar, importar</div></div>${I.chev}</button>
-    <button class="row" data-go="#/progreso/guia"><div class="main"><div class="title">Qué medir y cómo interpretarlo</div><div class="meta">Agua, peso y grasa real</div></div>${I.chev}</button>
-  </div>`;
+  <div class="group">${row("#/progreso/fuerza", "Fuerza y récords")}${row("#/progreso/historial", "Entrenos completados")}${row("#/progreso/compartir", "Compartir progreso")}</div>`;
 }
 function chartSvg() {
   const isW = chartMetric === "peso", from = chartRange ? addDays(todayISO(), -chartRange) : "0000-00-00";
@@ -810,7 +786,7 @@ function chartSvg() {
   const line = avgs.map((a, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(a).toFixed(1)}`).join("");
   const change = vals[vals.length - 1] - vals[0];
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfica de ${isW ? "peso" : "cintura"}: de ${vals[0]} a ${vals[vals.length - 1]} ${unit}">${grid.join("")}${isW ? pts.map((p, i) => `<circle class="pt" cx="${X(i)}" cy="${Y(p[1])}" r="2.6"/>`).join("") : ""}<path class="avg" d="${line}" pathLength="1"/>${!isW ? pts.map((p, i) => `<circle class="dotpt" cx="${X(i)}" cy="${Y(p[1])}" r="3"/>`).join("") : ""}<text x="${pl}" y="${H - 6}">${shortDate(pts[0][0])}</text><text x="${W - pr}" y="${H - 6}" text-anchor="end">${shortDate(pts[pts.length - 1][0])}</text></svg>
-  <p class="note" style="margin:0 8px 8px">${isW ? "Puntos: cada pesada. Línea: promedio de 7 días, lo que importa. " : ""}Cambio en el periodo: <strong>${change > 0 ? "+" : ""}${fmt(change, 1)} ${unit}</strong>.</p>`;
+  <p class="note" style="margin:0 8px 8px">Cambio: <strong>${change > 0 ? "+" : ""}${fmt(change, 1)} ${unit}</strong>.</p>`;
 }
 function calHtml() {
   const t = new Date(todayISO() + "T12:00:00"); t.setDate(1); t.setMonth(t.getMonth() + calOffset);
@@ -877,25 +853,21 @@ function vStrength() {
 }
 function vData() {
   const saved = +LS.getItem(KEY + ".saved") || 0, n = Object.keys(S.weights).length, ses = totalSessions();
-  return `${nav("Mis datos", { back: "Progreso", sub: "Todo se guarda automáticamente en tu teléfono, sin cuenta ni servidor." })}
+  return `${nav("Mis datos", { back: "Progreso", sub: "Se guardan solo en este teléfono" })}
   ${storageWarn()}
   <h2 class="sec">Instalar la app</h2>${installCard()}
   <h2 class="sec">Estado</h2>
   <div class="group">
     <div class="row"><div class="main"><div class="title">Último guardado</div></div><span class="val">${saved ? new Date(saved).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}</span></div>
-    <div class="row"><div class="main"><div class="title">Copia interna de respaldo</div><div class="meta">Si el navegador borra el guardado principal, la app lo recupera sola</div></div><span class="val">${window.Store && Store.available() ? "Activa" : "No disponible"}</span></div>
-    <div class="row"><div class="main"><div class="title">Protección contra borrado</div><div class="meta">El navegador no debería limpiar estos datos cuando falte espacio</div></div><span class="val" id="d-persist">…</span></div>
-    <div class="row"><div class="main"><div class="title">Espacio usado</div></div><span class="val" id="d-usage">…</span></div>
+    <div class="row"><div class="main"><div class="title">Copia interna de respaldo</div></div><span class="val">${window.Store && Store.available() ? "Activa" : "No disponible"}</span></div>
     <div class="row"><div class="main"><div class="title">Lo que hay guardado</div></div><span class="val">${n} pesos · ${ses} entrenos</span></div>
   </div>
   <h2 class="sec">Copia de seguridad</h2>
   <div class="group">
-    <button class="row" data-act="export"><div class="main"><div class="title">Exportar copia (archivo)</div><div class="meta">Guárdala en Archivos, iCloud, Drive o envíatela por correo${S.lastExport ? " · última: " + shortDate(S.lastExport) : ""}</div></div></button>
-    <button class="row" data-act="offline"><div class="main"><div class="title">Guardar los ejercicios para usar sin internet</div><div class="meta" id="d-offline">Descarga unos 12 MB una sola vez (conviene con Wi-Fi)</div></div></button>
-    <button class="row" data-act="copydata"><div class="main"><div class="title">Copiar mis datos como texto</div><div class="meta">Pégalos en Notas o en un mensaje</div></div></button>
-    <label class="row" style="cursor:pointer"><div class="main"><div class="title">Importar copia</div><div class="meta">Restaura un archivo exportado antes</div></div><input type="file" accept=".json,application/json,text/plain,application/octet-stream" id="imp" hidden></label>
+    <button class="row" data-act="export"><div class="main"><div class="title">Exportar copia (archivo)</div><div class="meta">Un archivo con tus pesos, series y comidas</div></div></button>
+    <button class="row" data-act="offline"><div class="main"><div class="title">Guardar los ejercicios para usar sin internet</div><div class="meta" id="d-offline">Unos 12 MB, con Wi-Fi</div></div></button>
+    <label class="row" style="cursor:pointer"><div class="main"><div class="title">Importar copia</div></div><input type="file" accept=".json,application/json,text/plain,application/octet-stream" id="imp" hidden></label>
   </div>
-  <p class="note">Las fotos se guardan aparte, dentro de este dispositivo, y no entran en la copia. Si cambias de teléfono, guarda tus fotos por tu cuenta. Si borras los datos del navegador o desinstalas la app, se pierde todo.</p>
   <h2 class="sec">Zona de riesgo</h2><div class="group"><button class="row" data-act="reset"><div class="main"><div class="title" style="color:var(--bad)">Borrar todo y reiniciar</div></div></button></div>`;
 }
 function vLogWeight() {
@@ -971,27 +943,65 @@ function reviewAdvice(a) {
 }
 
 /* Plan */
-function vPlan() {
+function vHub() {
+  const row = (h, t) => `<button class="row" data-go="${h}"><div class="main"><div class="title">${t}</div></div>${I.chev}</button>`;
+  return `${nav("Ajustes", { back: "Hoy" })}
+  <h2 class="sec">Apariencia</h2>
+  <div class="group"><div class="field"><label>Tema</label>${segHtml([["auto", "Automático"], ["light", "Claro"], ["dark", "Oscuro"]], S.theme, "theme", "Tema")}</div>
+  <div class="field"><label>Color de acento</label>${segHtml([["naranja", "Naranja"], ["azul", "Azul"], ["morado", "Morado"], ["rosa", "Rosa"]], S.accent, "accent", "Color de acento")}</div></div>
+  <h2 class="sec">Tu plan</h2>
+  <div class="group">${row("#/plan/ajustes", "Perfil y equipo")}${row("#/plan/avisos", "Recordatorios y sonido")}${row("#/progreso/datos", "Mis datos y copia de seguridad")}</div>
+  <h2 class="sec">Más información</h2>
+  <div class="group">${row("#/plan/ruta", "Hoja de ruta de 90 días")}${row("#/plan/habitos", "Hábitos")}${row("#/plan/reglas", "Cuándo ajustar calorías")}${row("#/progreso/guia", "Qué medir")}${row("#/plan/fuentes", "Fuentes")}</div>`;
+}
+function vRemind() {
+  const r = S.remind;
+  return `${nav("Recordatorios", { back: "Ajustes", to: "#/plan", sub: "Se añaden a tu calendario y avisan aunque la app esté cerrada" })}
+  <div class="group">
+    <div class="field"><label for="rm-train">Hora de entrenar</label><input id="rm-train" type="time" value="${esc(r.train)}"></div>
+    <div class="field"><label for="rm-weigh">Hora de pesarte (todos los días)</label><input id="rm-weigh" type="time" value="${esc(r.weigh)}"></div>
+  </div>
+  <div class="btn-wrap"><button class="btn" data-act="ics">Añadir al calendario</button></div>
+  <h2 class="sec">Descanso</h2>
+  <div class="group"><div class="row check-row"><label for="sd-on">Sonido al terminar el descanso</label><input class="switch" id="sd-on" type="checkbox" ${S.sound ? "checked" : ""}></div></div>`;
+}
+function vShare() {
+  return `${nav("Compartir progreso", { back: "Progreso" })}
+  <canvas id="shr" class="share-canvas" width="1080" height="1350" role="img" aria-label="Imagen de tu progreso"></canvas>
+  <div class="group" style="margin-top:14px"><div class="field"><label>Incluir cambio de peso</label>${segHtml([["si", "Sí"], ["no", "No"]], shareW, "sharew", "Incluir peso")}</div></div>
+  <div class="btn-wrap"><button class="btn" data-act="share">Compartir</button></div>`;
+}
+function drawShare() {
+  const cv = $("#shr"); if (!cv) return; const g = cv.getContext("2d"), W = 1080, H = 1350;
+  const dark = document.documentElement.dataset.theme === "dark" || (document.documentElement.dataset.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+  const acc = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#bf3a06";
+  const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, "#1c1c1e"); bg.addColorStop(1, "#000"); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  const font = "-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Roboto, sans-serif"; g.textAlign = "left";
+  g.fillStyle = acc; g.font = `700 44px ${font}`; g.fillText("RETO 90", 80, 130);
+  g.fillStyle = "#fff"; g.font = `700 120px ${font}`; const n = Math.max(1, Math.min(90, dayNum()));
+  g.fillText(S.profile.name ? S.profile.name : "Mi progreso", 80, 300);
+  g.fillStyle = "#aeaeb2"; g.font = `500 54px ${font}`; g.fillText(`Día ${n} de 90`, 80, 380);
+  g.fillStyle = "rgba(255,255,255,.14)"; g.beginPath(); g.roundRect(80, 430, 920, 28, 14); g.fill();
+  g.fillStyle = acc; g.beginPath(); g.roundRect(80, 430, Math.max(28, 920 * n / 90), 28, 14); g.fill();
+  const d = weekDelta(), st = streak(), total = totalSessions();
+  const stats = [[String(st), st === 1 ? "día de racha" : "días de racha"], [String(total), "entrenos completados"]];
+  if (shareW === "si" && d !== null) stats.push([(d > 0 ? "+" : d < 0 ? "−" : "") + fmt(Math.abs(d), 1) + " kg", "peso en 7 días"]);
+  stats.forEach(([v, l], i) => { const y = 560 + i * 230; g.fillStyle = "rgba(255,255,255,.08)"; g.beginPath(); g.roundRect(80, y, 920, 190, 36); g.fill(); g.fillStyle = "#fff"; g.font = `700 100px ${font}`; g.fillText(v, 120, y + 118); g.fillStyle = "#aeaeb2"; g.font = `500 44px ${font}`; g.fillText(l, 120, y + 166); });
+  g.fillStyle = "#636366"; g.font = `500 36px ${font}`; g.fillText(location.host, 80, H - 70);
+}
+function vRoute() {
   const wk = weekNum(), n = dayNum(), ph = phaseOf(wk);
-  return `${nav("Plan", { sub: `Día ${Math.max(n, 0)} de 90 · Fase ${ph.n}: ${ph.name}` })}
-  <h2 class="sec">Esta semana</h2>
+  return `${nav("Hoja de ruta", { back: "Ajustes", to: "#/plan", sub: `Día ${Math.max(n, 0)} de 90 · Fase ${ph.n}: ${ph.name}` })}
   <div class="group"><button class="row" data-go="#/plan/semana/${wk}"><div class="main"><div class="title">Semana ${wk}</div><div class="meta">${esc(C.weekFocus[wk])}</div></div>${I.chev}</button></div>
   <h2 class="sec">Hoja de ruta</h2>
   <div class="group">${Array.from({ length: 13 }, (_, i) => i + 1).map(w => `<button class="row" data-go="#/plan/semana/${w}"><div class="main"><div class="title">Semana ${w}${w === wk ? ' <span class="badge">Actual</span>' : ""}</div><div class="meta">${esc(phaseOf(w).name)}${[4, 8].includes(w) ? " · descarga" : ""}</div></div>${I.chev}</button>`).join("")}</div>
   <h2 class="sec">Metas intermedias</h2>
-  <div class="group">${C.milestones.map(m => { const k0 = S.profile.kg, wtxt = m.pct ? `Peso −${fmt(k0 * m.pct[0] / 100, 1)} a −${fmt(k0 * m.pct[1] / 100, 1)} kg · ` : ""; return `<div class="row top"><div class="main"><div class="title">Día ${m.day} · ${esc(m.t)}</div><div class="meta">${esc(wtxt + (m.cm ? m.d.replace("{cm}", m.cm[0] + " a " + m.cm[1]) : m.d))}</div></div></div>`; }).join("")}</div>
-  <h2 class="sec">Más</h2>
-  <div class="group">
-    <button class="row" data-go="#/plan/habitos"><div class="main"><div class="title">Hábitos y reglas del día a día</div></div>${I.chev}</button>
-    <button class="row" data-go="#/plan/reglas"><div class="main"><div class="title">Cuándo ajustar calorías</div></div>${I.chev}</button>
-    <button class="row" data-go="#/plan/fuentes"><div class="main"><div class="title">Fuentes y notas honestas</div></div>${I.chev}</button>
-    <button class="row" data-go="#/plan/ajustes"><div class="main"><div class="title">Ajustes</div></div>${I.chev}</button>
-  </div>`;
+  <div class="group">${C.milestones.map(m => { const k0 = S.profile.kg, wtxt = m.pct ? `Peso −${fmt(k0 * m.pct[0] / 100, 1)} a −${fmt(k0 * m.pct[1] / 100, 1)} kg · ` : ""; return `<div class="row top"><div class="main"><div class="title">Día ${m.day} · ${esc(m.t)}</div><div class="meta">${esc(wtxt + (m.cm ? m.d.replace("{cm}", m.cm[0] + " a " + m.cm[1]) : m.d))}</div></div></div>`; }).join("")}</div>`;
 }
 function vWeek(n) {
   n = Math.min(13, Math.max(1, n || 1));
   const ph = phaseOf(n), start = addDays(S.start, (n - 1) * 7), deload = [4, 8].includes(n);
-  return `${nav("Semana " + n, { back: "Plan", sub: `Fase ${ph.n}: ${ph.name} · ${shortDate(start)} – ${shortDate(addDays(start, n === 13 ? 5 : 6))}` })}
+  return `${nav("Semana " + n, { back: "Ajustes", sub: `Fase ${ph.n}: ${ph.name} · ${shortDate(start)} – ${shortDate(addDays(start, n === 13 ? 5 : 6))}` })}
   <div class="group"><div class="prose"><p>${esc(C.weekFocus[n])}</p></div></div>
   <h2 class="sec">Esta semana</h2>
   <div class="group">
@@ -1002,23 +1012,20 @@ function vWeek(n) {
     <div class="row top"><div class="main"><div class="title">Recuperación</div><div class="meta">${deload ? "Duerme 8 h y camina; no se buscan marcas" : "Sueño 7–9 h, 2.5–3 L de agua"}</div></div></div>
     <div class="row top"><div class="main"><div class="title">Mediciones</div><div class="meta">Peso diario · cintura el domingo${[3, 5, 7, 9, 11, 13].includes(n) ? " · fotos esta semana" : ""}</div></div></div>
     <div class="row top"><div class="main"><div class="title">Revisión</div><div class="meta">${n === 4 ? "Revisión mensual: día 28–30" : n === 9 ? "Revisión de mes 2: día 56–60" : n === 13 ? "Revisión final y decisión de la siguiente fase" : "Revisión semanal el domingo"}</div></div></div>
-  </div>
-  <p class="note">Tras cada revisión la app sugiere el ajuste: esta hoja de ruta se adapta a tus datos, no a un guion fijo.</p>`;
+  </div>`;
 }
-function vHabits() { return `${nav("Hábitos", { back: "Plan", sub: "Constancia, no perfección." })}${C.habits.map(h => `<h2 class="sec">${esc(h.title)}</h2><div class="group"><div class="prose">${h.body}</div></div>`).join("")}`; }
-function vAdjust() { return `${nav("Ajustes de calorías", { back: "Plan" })}<div class="group">${C.adjustRules[S.profile.goal || "recomp"].map(r => `<div class="row top"><div class="main"><div class="title">${esc(r.when)}</div><div class="meta">${esc(r.act)}</div></div></div>`).join("")}</div><p class="note">${esc(C.adjustLimit)}</p>`; }
+function vHabits() { return `${nav("Hábitos", { back: "Ajustes", sub: "Constancia, no perfección." })}${C.habits.map(h => `<h2 class="sec">${esc(h.title)}</h2><div class="group"><div class="prose">${h.body}</div></div>`).join("")}`; }
+function vAdjust() { return `${nav("Ajustes de calorías", { back: "Ajustes" })}<div class="group">${C.adjustRules[S.profile.goal || "recomp"].map(r => `<div class="row top"><div class="main"><div class="title">${esc(r.when)}</div><div class="meta">${esc(r.act)}</div></div></div>`).join("")}</div><p class="note">${esc(C.adjustLimit)}</p>`; }
 function vSources() {
-  return `${nav("Fuentes", { back: "Plan" })}<h2 class="sec">Notas honestas</h2><div class="group"><div class="prose">${fill(C.honesty)}</div></div>
+  return `${nav("Fuentes", { back: "Ajustes" })}<h2 class="sec">Notas honestas</h2><div class="group"><div class="prose">${fill(C.honesty)}</div></div>
   <h2 class="sec">Evidencia usada</h2><div class="group">${C.sources.map(s => s.u ? `<a class="row top" href="${s.u}" target="_blank" rel="noopener"><div class="main"><div class="title">${esc(s.t)}</div><div class="meta">${esc(s.why)}</div></div>${I.chev}</a>` : `<div class="row top"><div class="main"><div class="title">${esc(s.t)}</div><div class="meta">${esc(s.why)}</div></div></div>`).join("")}</div>
   <p class="note">Las fuentes sin enlace las cité de resúmenes: verifícalas en el texto original antes de depender de ellas. Los pesos sugeridos y los valores nutricionales son estimaciones.</p>
   <h2 class="sec">Tus cálculos</h2><div class="group"><div class="prose"><p>Mantenimiento estimado: ${num(planCalc().maintLo)}–${num(planCalc().maintHi)} kcal (fórmula de Mifflin-St Jeor × actividad 1.45–1.65). ${S.profile.goal === "muscle" ? "Superávit" : "Déficit"} de ${planCalc().pct} %${planCalc().adj ? ` con un ajuste de ${planCalc().adj > 0 ? "+" : "−"}${Math.abs(planCalc().adj)} kcal` : ""}.</p>${planCalc().floorHit ? "<p><strong>Aviso:</strong> tu meta quedaría por debajo de un mínimo razonable, así que se subió. Si tu peso es bajo, no uses un déficit agresivo.</p>" : ""}</div></div>`;
 }
 function vSettings() {
-  return `${nav("Ajustes", { back: "Plan" })}
-  <h2 class="sec">Instalar la app</h2>${installCard()}
+  return `${nav("Perfil y equipo", { back: "Ajustes", to: "#/plan" })}
   <h2 class="sec">Tu perfil</h2>
   <div class="group" id="prof">${profileFields(S.profile, "pf")}</div>
-  <p class="note">Tus calorías, macros, porciones y pesos sugeridos se recalculan con estos datos y con tu peso registrado.</p>
   <h2 class="sec">Tu equipo</h2>
   <div class="group" id="eqp">
     <div class="field"><label for="eq-db">Mancuernas (si entrenas con ellas)</label><select id="eq-db">${[10, 20, 30, 40].map(v => `<option value="${v}" ${equip().dbMax === v ? "selected" : ""}>${v === 40 ? "40 kg o más cada una" : v === 10 ? "10 kg cada una o menos" : "Hasta " + v + " kg cada una"}</option>`).join("")}</select></div>
@@ -1027,32 +1034,25 @@ function vSettings() {
     <div class="field"><label for="eq-dips">Gimnasio: ¿y 5 o más fondos?</label><select id="eq-dips"><option value="si" ${equip().dips ? "selected" : ""}>Sí</option><option value="no" ${equip().dips ? "" : "selected"}>No</option></select></div>
     <div class="field"><label for="eq-bar">¿Tienes barra de dominadas? (en casa)</label><select id="eq-bar"><option value="si" ${equip().bar ? "selected" : ""}>Sí</option><option value="no" ${equip().bar ? "" : "selected"}>No</option></select></div>
   </div>
-  <p class="note">Al cambiar tu equipo, el plan en casa se ajusta y se restablecen los ejercicios que habías cambiado.</p>
-  <h2 class="sec">Apariencia</h2>
-  <div class="group"><div class="field"><label>Color de acento</label>${segHtml([["naranja", "Naranja"], ["azul", "Azul"], ["morado", "Morado"], ["rosa", "Rosa"]], S.accent, "accent", "Color de acento")}</div></div>
   <h2 class="sec">Reto</h2>
   <div class="group">
     <div class="field"><label for="se-date">Día 1 del reto</label><input id="se-date" type="date" value="${esc(S.start)}"></div>
     <div class="field"><label for="se-we">Fin de semana</label><select id="se-we"><option value="sab" ${S.weekend === "sab" ? "selected" : ""}>Entreno sábado, descanso domingo</option><option value="dom" ${S.weekend === "dom" ? "selected" : ""}>Entreno domingo, descanso sábado</option></select></div>
-  </div>
-  <h2 class="sec">Tus datos</h2>
-  <div class="group">
-    <button class="row" data-act="export"><div class="main"><div class="title">Exportar copia (JSON)</div><div class="meta">Respaldo de pesos, series y comidas</div></div></button>
-    <label class="row" style="cursor:pointer"><div class="main"><div class="title">Importar copia</div></div><input type="file" accept=".json,application/json,text/plain,application/octet-stream" id="imp" hidden></label>
-    <button class="row" data-act="reset"><div class="main"><div class="title" style="color:var(--bad)">Borrar todo y reiniciar</div></div></button>
-  </div>
-  <p class="note">Todo se guarda solo en este teléfono. Si borras los datos del navegador pierdes tu historial: exporta una copia de vez en cuando.</p>`;
+  </div>`;
 }
 
 /* ───────── Temporizador y registro ───────── */
 let restEnd = 0;
+let audioCtx = null;
+function beep() { if (!S.sound) return; try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.frequency.value = 880; g.gain.setValueAtTime(.001, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(.25, audioCtx.currentTime + .02); g.gain.exponentialRampToValueAtTime(.001, audioCtx.currentTime + .5); o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + .5); } catch (e) {} }
 function startRest(sec, label = "Descanso") {
   const el = $("#rest"); if (!el) return;
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume && audioCtx.resume(); } catch (e) {}
   clearInterval(restT); restEnd = Date.now() + sec * 1000; el.classList.add("on"); $("#rest .lbl").textContent = label;
   const tick = () => {
     restLeft = Math.max(0, Math.ceil((restEnd - Date.now()) / 1000));
     const t = $("#rest .t"); if (t) t.textContent = `${Math.floor(restLeft / 60)}:${String(restLeft % 60).padStart(2, "0")}`;
-    if (restLeft <= 0) { clearInterval(restT); vibrate([200, 100, 200]); toast(label === "Cardio" ? "Cardio terminado" : "Descanso terminado"); $("#rest")?.classList.remove("on"); }
+    if (restLeft <= 0) { clearInterval(restT); vibrate([200, 100, 200]); beep(); toast(label === "Cardio" ? "Cardio terminado" : "Descanso terminado"); $("#rest")?.classList.remove("on"); }
   };
   tick(); restT = setInterval(tick, 250);
 }
@@ -1099,6 +1099,11 @@ function bind() {
   $$("[data-eat]").forEach(b => b.addEventListener("click", () => { const e = S.eaten[todayISO()] = S.eaten[todayISO()] || {}, s = b.dataset.eat; e[s] = !e[s]; if (e[s]) popSel = `[data-eat="${s}"] .circle`; save(); vibrate(10); refresh(); }));
   $$("[data-water]").forEach(b => b.addEventListener("click", () => { const c = checksOf(todayISO()); c.water = Math.max(0, Math.min(6000, (c.water || 0) + +b.dataset.water)); save(); vibrate(8); refresh(); }));
   $("#steps")?.addEventListener("change", e => { checksOf(todayISO()).steps = +e.target.value || 0; save(); toast("Pasos guardados"); });
+  $$("button[data-theme]").forEach(b => b.addEventListener("click", () => { segMove(b); S.theme = b.dataset.theme; applyTheme(); save(); vibrate(8); }));
+  $$("button[data-sharew]").forEach(b => b.addEventListener("click", () => { segMove(b); shareW = b.dataset.sharew; drawShare(); }));
+  $("#rm-train")?.addEventListener("change", e => { if (/^\d\d:\d\d$/.test(e.target.value)) { S.remind.train = e.target.value; save(); } });
+  $("#rm-weigh")?.addEventListener("change", e => { if (/^\d\d:\d\d$/.test(e.target.value)) { S.remind.weigh = e.target.value; save(); } });
+  $("#sd-on")?.addEventListener("change", e => { S.sound = e.target.checked; save(); if (S.sound) beep(); });
   $$("button[data-accent]").forEach(b => b.addEventListener("click", () => { segMove(b); S.accent = b.dataset.accent; applyAccent(); save(); vibrate(8); }));
   $$("[data-adj]").forEach(b => { if (!b.closest("#rev-out")) b.addEventListener("click", () => adjustKcal(b.dataset.adj)); });
   $$("[data-choice]").forEach(b => b.addEventListener("click", () => { const [k, v] = b.dataset.choice.split("|"); onb.d[k] = ["days", "pct", "dbMax"].includes(k) ? +v : v; if (k === "goal") onb.d.pct = null; vibrate(8); if (b.closest(".seg")) { segMove(b); setTimeout(refresh, 240); } else refresh(); }));
@@ -1118,7 +1123,7 @@ function bind() {
   $$("[data-angle]").forEach(b => b.addEventListener("click", () => { segMove(b); phAngle = b.dataset.angle; loadPhotos(); }));
   $("#ph-file")?.addEventListener("change", async e => { const f = e.target.files[0]; if (!f) return; try { toast("Guardando foto…"); await Store.addPhoto(f, todayISO(), phAngle); toast("Foto guardada"); vibrate(10); loadPhotos(); } catch { toast("No pude guardar la foto"); } e.target.value = ""; });
   $$("[data-swap]").forEach(b => b.addEventListener("click", () => { const [sid, bi, ii] = b.dataset.swap.split("|"); const se = SESSIONS().find(x => x.id === sid), alts = altsFor(se, +bi, +ii), cur = D.EX[blocksOf(se)[+bi].items[+ii].k], key = `${sid}|${S.mode}|${bi}|${ii}`, swapped = !!(S.swaps || {})[key];
-    openSheet("Cambiar ejercicio", `<p class="note" style="margin:0 4px 10px">Ahora: <strong>${esc(cur.name)}</strong> · ${esc(cur.muscle)}</p>${alts.length ? `<div class="group">${alts.map(a => { const ex = D.EX[a.k]; return `<button class="row" data-swapto="${key}|${a.k}"><img class="thumb" loading="lazy" decoding="async" alt="" src="gifs/${ex.id}.gif" width="56" height="56"><div class="main"><div class="title">${esc(ex.name)}</div><div class="meta">${esc(ex.muscle)} · ${esc(a.fam)}</div></div>${I.chev}</button>`; }).join("")}</div><p class="note">Solo ejercicios del mismo músculo y patrón, con tu equipo. Repeticiones y peso se ajustan al nuevo ejercicio.</p>` : `<div class="group"><div class="empty">No hay alternativas equivalentes con tu equipo para este ejercicio.</div></div>`}${swapped ? `<div class="group" style="margin-top:12px"><button class="row" data-swapto="${key}|"><div class="main"><div class="title">Volver al ejercicio original</div></div></button></div>` : ""}`,
+    openSheet("Cambiar ejercicio", `${alts.length ? `<div class="group">${alts.map(a => { const ex = D.EX[a.k]; return `<button class="row" data-swapto="${key}|${a.k}"><img class="thumb" loading="lazy" decoding="async" alt="" src="gifs/${ex.id}.gif" width="56" height="56"><div class="main"><div class="title">${esc(ex.name)}</div><div class="meta">${esc(ex.muscle)} · ${esc(a.fam)}</div></div>${I.chev}</button>`; }).join("")}</div><p class="note">Solo ejercicios del mismo músculo y patrón, con tu equipo. Repeticiones y peso se ajustan al nuevo ejercicio.</p>` : `<div class="group"><div class="empty">No hay alternativas equivalentes con tu equipo para este ejercicio.</div></div>`}${swapped ? `<div class="group" style="margin-top:12px"><button class="row" data-swapto="${key}|"><div class="main"><div class="title">Volver al ejercicio original</div></div></button></div>` : ""}`,
     el => $$("[data-swapto]", el).forEach(x => x.addEventListener("click", () => { const parts = x.dataset.swapto.split("|"), k = parts.pop(), kk = parts.join("|"); S.swaps = S.swaps || {}; if (k) S.swaps[kk] = k; else delete S.swaps[kk]; save(); vibrate(10); closeSheet(); toast(k ? "Ejercicio cambiado" : "Ejercicio original"); refresh(); }))); }));
   $$("[data-menu]").forEach(b => b.addEventListener("click", () => { const d = +b.dataset.menu; MEAL_BASE().forEach((m, si) => { S.picks[m.slot] = (d + si) % m.opts.length; }); save(); vibrate(10); toast("Menú aplicado a hoy"); go("#/comida"); }));
   $$("[data-pick]").forEach(b => b.addEventListener("click", () => { S.picks[b.dataset.slot] = +b.dataset.pick; save(); $$("[data-pick]").forEach(x => { const on = x === b; x.setAttribute("aria-checked", on); x.querySelector(".opt-radio").classList.toggle("on", on); }); vibrate(8); }));
@@ -1225,6 +1230,24 @@ function act(a, el) {
   } else if (a === "install") {
     if (!installEv) return toast("Usa el menú del navegador para instalar");
     installEv.prompt(); installEv.userChoice.then(r => { installEv = null; toast(r.outcome === "accepted" ? "Instalando…" : "Cuando quieras, desde Ajustes"); refresh(); }, () => {});
+  } else if (a === "ics") {
+    const pad = n => String(n).padStart(2, "0"), ymd = d => d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()), now = new Date();
+    const stamp = now.getUTCFullYear() + pad(now.getUTCMonth() + 1) + pad(now.getUTCDate()) + "T" + pad(now.getUTCHours()) + pad(now.getUTCMinutes()) + pad(now.getUTCSeconds()) + "Z";
+    const BY = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"], hm = t => t.replace(":", "") + "00";
+    const ev = (uid, start, t, rule, name, dur) => ["BEGIN:VEVENT", `UID:${uid}@reto90`, `DTSTAMP:${stamp}`, `DTSTART:${ymd(start)}T${hm(t)}`, `DURATION:PT${dur}M`, rule, `SUMMARY:${name}`, "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${name}`, "TRIGGER:PT0M", "END:VALARM", "END:VEVENT"].filter(Boolean).join("\r\n");
+    const first = wd => { const d = new Date(); d.setHours(12, 0, 0, 0); while (d.getDay() !== wd) d.setDate(d.getDate() + 1); return d; };
+    const out = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Reto 90//ES", "CALSCALE:GREGORIAN"];
+    SESSIONS().forEach((x, i) => out.push(ev("train" + i, first(x.wd), S.remind.train, `RRULE:FREQ=WEEKLY;BYDAY=${BY[x.wd]};COUNT=13`, "Reto 90: " + x.name, 60)));
+    const t0 = new Date(); t0.setHours(12, 0, 0, 0); out.push(ev("weigh", t0, S.remind.weigh, "RRULE:FREQ=DAILY;COUNT=90", "Reto 90: pésate en ayunas", 10), "END:VCALENDAR");
+    const l = document.createElement("a"); l.href = URL.createObjectURL(new Blob([out.join("\r\n")], { type: "text/calendar;charset=utf-8" })); l.download = "reto90-recordatorios.ics"; l.click(); toast("Ábrelo para añadirlo al calendario");
+  } else if (a === "share") {
+    const cv = $("#shr"); if (!cv) return;
+    cv.toBlob(async b => {
+      if (!b) return toast("No pude crear la imagen");
+      const f = new File([b], "reto90-progreso.png", { type: "image/png" });
+      try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: "Reto 90" }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
+      const l = document.createElement("a"); l.href = URL.createObjectURL(b); l.download = "reto90-progreso.png"; l.click(); toast("Imagen guardada");
+    }, "image/png");
   } else if (a === "print") {
     try { window.print(); } catch { toast("No pude abrir la impresión"); }
   } else if (a === "csv") {
@@ -1245,8 +1268,15 @@ if (window.Store && Store.available()) {
   if (S.start) Store.persist();
 }
 if (location.hostname === "localhost" && LS.getItem("reto90.debug")) window.__reto = { get S() { return S; }, set S(v) { S = v; }, SESSIONS, planCalc, D, C, blocksOf, altsFor, suggest, equip, render };
+const applyTheme = () => {
+  const t = S.theme === "light" || S.theme === "dark" ? S.theme : null, root = document.documentElement;
+  if (t) root.dataset.theme = t; else delete root.dataset.theme;
+  const dark = t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.setAttribute("content", dark ? "#000000" : "#f2f2f7"); m.removeAttribute("media"); });
+};
 const applyAccent = () => { document.documentElement.dataset.accent = S.accent || "naranja"; };
-applyAccent();
+applyAccent(); applyTheme();
+try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme); } catch (e) {}
 let sx = 0, sy = 0, edge = false;
 document.addEventListener("touchstart", e => { const t = e.touches[0]; edge = t.clientX < 24 && !sheetEl; sx = t.clientX; sy = t.clientY; }, { passive: true });
 document.addEventListener("touchend", e => { if (!edge) return; edge = false; const t = e.changedTouches[0]; if (t.clientX - sx > 80 && Math.abs(t.clientY - sy) < 60) $("[data-to]")?.click(); }, { passive: true });
