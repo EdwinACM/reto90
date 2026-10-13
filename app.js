@@ -4,6 +4,8 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const app = $("#app"), tabsEl = $("#tabs");
 const KEY = "reto90.v1";
+const LS = (() => { const mem = {}; let ok = true; try { localStorage.setItem("_t", "1"); localStorage.removeItem("_t"); } catch (e) { ok = false; }
+  return { getItem: k => { if (ok) { try { return localStorage.getItem(k); } catch (e) {} } return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; }, setItem: (k, v) => { mem[k] = String(v); if (ok) { try { localStorage.setItem(k, v); } catch (e) {} } }, removeItem: k => { delete mem[k]; if (ok) { try { localStorage.removeItem(k); } catch (e) {} } } }; })();
 
 /* ───────── Estado ───────── */
 const todayISO = (d = new Date()) => { const z = new Date(d.getTime() - d.getTimezoneOffset() * 6e4); return z.toISOString().slice(0, 10); };
@@ -45,11 +47,11 @@ function normalizeState(raw) {
   return d;
 }
 let S;
-try { S = normalizeState(JSON.parse(localStorage.getItem(KEY) || "{}")); } catch { S = defaults(); }
+try { S = normalizeState(JSON.parse(LS.getItem(KEY) || "{}")); } catch { S = defaults(); }
 Object.values(D.ARCH).forEach(s => ["gym", "db", "home"].forEach(m => s[m].forEach((b, i) => { b.key = s.id + "-" + m + "-" + i; b.sid = s.id; b.idx = i; })));
 let backupT = null;
 const save = () => {
-  try { localStorage.setItem(KEY, JSON.stringify(S)); localStorage.setItem(KEY + ".saved", String(Date.now())); } catch {}
+  try { LS.setItem(KEY, JSON.stringify(S)); LS.setItem(KEY + ".saved", String(Date.now())); } catch {}
   clearTimeout(backupT); backupT = setTimeout(() => { if (window.Store && Store.available() && S.start) Store.setKV("backup", JSON.stringify(S)).catch(() => {}); }, 1200);
 };
 
@@ -703,12 +705,21 @@ function vFoodRules() {
   <h2 class="sec">Suplementos</h2><div class="group"><div class="prose">${C.supplements}</div></div>`;
 }
 function vPrint() {
-  const c = planCalc(), wm = weekMenu(), who = S.profile.name ? esc(S.profile.name) : "";
-  const rows = wm.map(d => `<section class="pd-day"><h3>${d.dn}${d.rest ? " · descanso" : ""}<span>${num(d.tot.kcal)} kcal · P ${d.tot.p} g · C ${d.tot.c} g · G ${d.tot.g} g</span></h3><table><thead><tr><th>Comida</th><th>Platillo</th><th>Ingredientes</th><th>kcal</th><th>P</th><th>C</th><th>G</th></tr></thead><tbody>${d.meals.map(x => `<tr><td>${esc(x.slot)}<br><small>${esc(x.time)}</small></td><td>${esc(x.v.name)}</td><td>${x.v.items.map(esc).join(", ")}</td><td>${x.v.m.kcal}</td><td>${x.v.m.p}</td><td>${x.v.m.c}</td><td>${x.v.m.g}</td></tr>`).join("")}</tbody></table></section>`).join("");
-  const shop = shopData().map(([t, it]) => `<div class="pd-col"><h4>${esc(t)}</h4><ul>${it.map(([n, q]) => `<li><span>${esc(n)}</span><b>${esc(q)}</b></li>`).join("")}</ul></div>`).join("");
-  return `${nav("Imprimir menú", { back: "Comida", to: "#/comida/menu", sub: "Se ve igual en papel. En el iPhone: Imprimir → pellizca la vista previa para guardar como PDF." })}
+  const c = planCalc(), wm = weekMenu(), who = S.profile.name ? esc(S.profile.name) : "", g = C.goals[S.profile.goal || "recomp"];
+  const hoy = new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
+  const stat = (v, l) => `<div><b>${v}</b><span>${l}</span></div>`;
+  const days = wm.map((d, i) => `<section class="pd-day${d.rest ? " rest" : ""}"><h3><em>${i + 1}</em>${d.dn}${d.rest ? "<small>Descanso</small>" : "<small>Entreno</small>"}</h3>
+    <table><thead><tr><th>Comida</th><th>Platillo</th><th>Ingredientes</th><th class="n">kcal</th><th class="n">P</th><th class="n">C</th><th class="n">G</th></tr></thead>
+    <tbody>${d.meals.map(x => `<tr><td><b>${esc(x.slot)}</b><br><small>${esc(x.time)}</small></td><td class="dish">${esc(x.v.name)}</td><td class="ing">${x.v.items.map(esc).join(" · ")}</td><td class="n">${x.v.m.kcal}</td><td class="n">${x.v.m.p}</td><td class="n">${x.v.m.c}</td><td class="n">${x.v.m.g}</td></tr>`).join("")}</tbody>
+    <tfoot><tr><td colspan="3">Total del día</td><td class="n">${num(d.tot.kcal)}</td><td class="n">${d.tot.p}</td><td class="n">${d.tot.c}</td><td class="n">${d.tot.g}</td></tr></tfoot></table></section>`).join("");
+  const shop = shopData().map(([t, it]) => `<div class="pd-col"><h4>${esc(t)}</h4><ul>${it.map(([n, q]) => `<li><i></i><span>${esc(n)}</span><b>${esc(q)}</b></li>`).join("")}</ul></div>`).join("");
+  return `${nav("Imprimir menú", { back: "Comida", to: "#/comida/menu", sub: "Se ve igual en papel. En el iPhone: Imprimir → pellizca la vista previa para guardar como PDF. En Android: Imprimir → Guardar como PDF." })}
   <div class="btn-wrap noprint"><button class="btn" data-act="print">Imprimir o guardar PDF</button></div>
-  <article class="print-doc"><header><h2>Menú semanal${who ? " de " + who : ""}</h2><p>Meta en día de entreno ≈ ${num(c.train.kcal)} kcal · proteína ${c.train.p} g · carbohidratos ${c.train.c} g · grasas ${c.train.g} g. Porciones ajustadas a tu plan.</p></header>${rows}<h2 class="pd-h">Lista de compras (7 días)</h2><div class="pd-shop">${shop}</div><footer>Son estimaciones; no sustituyen a un médico o nutriólogo. Reto 90.</footer></article>`;
+  <article class="print-doc"><header class="pd-head"><div><p class="pd-kicker">Reto 90 · Plan de alimentación</p><h2>Menú semanal${who ? "<br><span>" + who + "</span>" : ""}</h2></div><p class="pd-meta">${esc(g.name)}<br>${hoy}</p></header>
+  <div class="pd-stats">${stat(num(c.train.kcal), "kcal en día de entreno")}${stat(num(c.rest.kcal), "kcal en descanso")}${stat(c.train.p + " g", "proteína")}${stat(c.train.c + " g", "carbohidratos")}${stat(c.train.g + " g", "grasas")}</div>
+  <p class="pd-note">Porciones ajustadas a tu plan. Las cantidades de comida están en crudo. P = proteína, C = carbohidratos, G = grasas (en gramos).</p>
+  ${days}<section class="pd-shopwrap"><h2 class="pd-h">Lista de compras · 7 días</h2><div class="pd-shop">${shop}</div><p class="pd-note">Despensa: sal, especias, limón, cebolla, cilantro, chile, salsa casera, mostaza, aceite en aerosol, té verde y agua mineral.</p></section>
+  <footer>Son estimaciones; no sustituyen a un médico o nutriólogo. Generado con Reto 90.</footer></article>`;
 }
 function vShop() {
   const T = isVeg() ? D.SHOP_VEG : D.SHOP, F = D.FOODS;
@@ -849,7 +860,7 @@ function vStrength() {
   ${keys.length ? `<div class="group">${keys.map(k => { const h = S.hist[k].filter(x => x.sets.some(t => t.r)), best = h.map(x => bestOf(x)), top = h.map(x => Math.max(...x.sets.filter(t => t.r).map(t => t.w ? e1rm(t.w, t.r) : t.r))); const pr = S.prs && S.prs[k]; return `<div class="row"><div class="main"><div class="title">${esc(D.EX[k]?.name || k)}</div><div class="meta">${h.length} sesiones · inicio ${best[0]}${pr ? " · récord ≈ " + fmt(pr, 0) + " kg (1RM est.)" : ""}</div></div>${spark(top)}<span class="val" style="color:var(--label);font-weight:600">${best[best.length - 1]}</span></div>`; }).join("")}</div><p class="note">El 1RM estimado usa la fórmula de Epley (peso × (1 + repeticiones ÷ 30)); es una aproximación.</p>` : `<div class="group"><div class="empty">Marca tus vueltas en cada bloque y aquí verás tu progreso y tus récords.</div></div>`}`;
 }
 function vData() {
-  const saved = +localStorage.getItem(KEY + ".saved") || 0, n = Object.keys(S.weights).length, ses = totalSessions();
+  const saved = +LS.getItem(KEY + ".saved") || 0, n = Object.keys(S.weights).length, ses = totalSessions();
   return `${nav("Mis datos", { back: "Progreso", sub: "Todo se guarda automáticamente en tu teléfono, sin cuenta ni servidor." })}
   <h2 class="sec">Estado</h2>
   <div class="group">
@@ -1203,15 +1214,15 @@ function act(a, el) {
     const text = "\ufeff" + out.map(r => r.map(q).join(",")).join("\r\n");
     const l = document.createElement("a"); l.href = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" })); l.download = `menu-${S.profile.name ? S.profile.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" : ""}${iso}.csv`; l.click(); toast("Menú descargado (CSV)");
   } else if (a === "reset") {
-    if (confirm("¿Borrar todos tus datos y reiniciar? No se puede deshacer.")) { localStorage.removeItem(KEY); S = defaults(); go("#/inicio"); render(); }
+    if (confirm("¿Borrar todos tus datos y reiniciar? No se puede deshacer.")) { LS.removeItem(KEY); S = defaults(); go("#/inicio"); render(); }
   }
 }
 
 if (window.Store && Store.available()) {
-  if (!localStorage.getItem(KEY)) Store.getKV("backup").then(b => { if (b) { try { const n = normalizeState(JSON.parse(b)); if (!n.profile || !n.start) return; S = n; localStorage.setItem(KEY, JSON.stringify(n)); _plan = { k: "", v: null }; toast("Recuperamos tus datos"); go("#/hoy"); if (parseHash()[0] === "hoy") render(); } catch {} } }).catch(() => {});
+  if (!LS.getItem(KEY)) Store.getKV("backup").then(b => { if (b) { try { const n = normalizeState(JSON.parse(b)); if (!n.profile || !n.start) return; S = n; LS.setItem(KEY, JSON.stringify(n)); _plan = { k: "", v: null }; toast("Recuperamos tus datos"); go("#/hoy"); if (parseHash()[0] === "hoy") render(); } catch {} } }).catch(() => {});
   if (S.start) Store.persist();
 }
-if (location.hostname === "localhost" && localStorage.getItem("reto90.debug")) window.__reto = { get S() { return S; }, set S(v) { S = v; }, SESSIONS, planCalc, D, C, blocksOf, altsFor, suggest, equip, render };
+if (location.hostname === "localhost" && LS.getItem("reto90.debug")) window.__reto = { get S() { return S; }, set S(v) { S = v; }, SESSIONS, planCalc, D, C, blocksOf, altsFor, suggest, equip, render };
 const applyAccent = () => { document.documentElement.dataset.accent = S.accent || "naranja"; };
 applyAccent();
 let sx = 0, sy = 0, edge = false;
