@@ -361,7 +361,7 @@ h1.large:focus { outline: none; }
 
 /* Documento del menú (pantalla e impresión) */
 .print-doc { --pd-ink: #1c1c1e; --pd-mute: #6c6c70; --pd-line: #d9d9de; --pd-brand: #bf3a06; --pd-soft: #fbeee8; background: #fff; color: var(--pd-ink); border-radius: 14px; padding: 18px; margin-top: 8px; font-size: 13px; line-height: 1.4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.pd-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; padding-bottom: 12px; border-bottom: 3px solid var(--pd-brand); }
+.pd-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; padding-bottom: 14px; background: linear-gradient(var(--pd-brand), var(--pd-brand)) bottom / 100% 3px no-repeat; }
 .pd-kicker { margin: 0 0 4px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--pd-brand); }
 .print-doc h2 { margin: 0; font-size: 26px; line-height: 1.1; letter-spacing: -.02em; color: var(--pd-ink); } .print-doc h2 span { font-weight: 500; color: var(--pd-mute); font-size: 18px; }
 .pd-meta { margin: 0; text-align: right; font-size: 11px; color: var(--pd-mute); }
@@ -374,7 +374,7 @@ h1.large:focus { outline: none; }
 .print-doc thead th { background: #f2f2f5; color: var(--pd-mute); font-size: 10px; letter-spacing: .05em; text-transform: uppercase; } .print-doc tbody tr:nth-child(even) td { background: #fafafb; }
 .print-doc .n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; } .print-doc td.dish { font-weight: 600; } .print-doc td.ing { color: var(--pd-mute); } .print-doc small { color: var(--pd-mute); font-weight: 400; }
 .print-doc tfoot td { font-weight: 700; border-top: 1.5px solid var(--pd-ink); border-bottom: 0; background: var(--pd-soft); color: var(--pd-ink); }
-.pd-h { margin: 22px 0 10px !important; font-size: 20px !important; padding-bottom: 6px; border-bottom: 3px solid var(--pd-brand); }
+.pd-h { margin: 22px 0 10px !important; font-size: 20px !important; padding-bottom: 9px; background: linear-gradient(var(--pd-brand), var(--pd-brand)) bottom / 100% 3px no-repeat; }
 .pd-shop { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; } .pd-col h4 { margin: 0 0 6px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--pd-brand); }
 .pd-col ul { list-style: none; padding: 0; margin: 0; } .pd-col li { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: .5px solid var(--pd-line); font-size: 12px; } .pd-col li i { flex: none; width: 11px; height: 11px; border: 1.2px solid #8e8e93; border-radius: 3px; } .pd-col li span { flex: 1; } .pd-col li b { font-weight: 600; text-align: right; }
 .print-doc footer { margin-top: 18px; padding-top: 8px; border-top: .5px solid var(--pd-line); font-size: 10px; color: var(--pd-mute); }
