@@ -42,6 +42,27 @@ window.CONTENT = {
     13: "Días 85–90: marcas finales, medidas y revisión completa.",
   },
 
+  help: [
+    { q: "¿Cómo registro mi entrenamiento?", a: "Abre una sesión y entra a un bloque. Escribe kilos y repeticiones (o déjalos vacíos para usar los sugeridos) y toca el círculo de la vuelta. El descanso empieza solo." },
+    { q: "¿Qué es una vuelta, una uniserie o una biserie?", a: "Una vuelta es hacer una vez todos los ejercicios del bloque. Uniserie: un ejercicio. Biserie: dos seguidos, sin descanso entre ellos. Triserie: tres. Descansas al terminar la vuelta." },
+    { q: "¿Cuánto peso uso?", a: "El primer día la app propone un peso de prueba. Elige uno con el que te queden 1–3 repeticiones en reserva: si te sobran más de 3, sube; si no llegas al mínimo, baja. Desde la segunda sesión se ajusta con lo que registras." },
+    { q: "¿Qué significa “al fallo”?", a: "Es seguir hasta que no puedas hacer una repetición más con buena técnica. La app lo pide en la última vuelta de aislamientos y máquinas. En barra libre se dejan 1–2 repeticiones en reserva para cuidar la espalda y las articulaciones." },
+    { q: "¿Cómo cambio un ejercicio?", a: "Toca el ejercicio dentro del bloque y elige “Cambiar”. Verás opciones del mismo músculo que se pueden hacer con tu equipo. Si te duele, toca “Me duele este ejercicio” y la app lo reemplaza por uno seguro." },
+    { q: "¿Puedo entrenar sin gimnasio?", a: "Sí. En Entreno elige Gimnasio, Mancuernas o Sin equipo, y el plan se adapta. Puedes cambiar de modalidad cuando quieras." },
+    { q: "¿Cómo cambio mi nivel o empiezo de nuevo?", a: "En Ajustes: “Nivel” cambia tu nivel al instante y “Volver a comenzar” te deja empezar un reto nuevo, repetir el cuestionario o borrar todo." },
+    { q: "¿Cómo paso mis datos a otro teléfono?", a: "En Progreso → Mis datos, crea un código de transferencia y pégalo en el teléfono nuevo, en la pantalla inicial. También puedes exportar un archivo de copia e importarlo allá." },
+    { q: "¿Por qué mi peso sube y baja?", a: "Es normal: el peso cambia 0.5–2 kg de un día a otro por agua, sal y comida en el estómago. Mira el promedio de 7 días, no el número de hoy." },
+    { q: "¿Cómo instalo la app?", a: "En Progreso → Mis datos, la tarjeta “Instalar la app” te dice los pasos para tu teléfono. Instalada se abre a pantalla completa y funciona sin internet." },
+  ],
+  privacy: [
+    { t: "Dónde se guardan tus datos", d: "En este dispositivo, dentro del navegador. No hay cuentas ni servidor: tu plan, tus registros y tus medidas no se envían a ningún lado." },
+    { t: "Qué no hace la app", d: "No usa publicidad, no vende datos y no te sigue. Tu información no sale de tu teléfono salvo que tú la exportes o la compartas." },
+    { t: "Fotos de progreso", d: "Son opcionales. Se quedan solo en este teléfono, aparte de tu copia de seguridad." },
+    { t: "Permisos", d: "La app pide permiso de notificaciones solo si activas esa opción, y acceso a la cámara o a tus fotos solo cuando eliges una foto." },
+    { t: "Copias y códigos", d: "El archivo de copia y el código de transferencia contienen tus datos. Compártelos solo con quien confíes." },
+    { t: "Cómo borrar todo", d: "En Ajustes → Volver a comenzar → Borrar todo. Si desinstalas la app o limpias los datos del navegador, también se borra." },
+    { t: "Aviso de salud", d: "Las calorías, los pesos y los planes son estimaciones. No sustituyen a un médico ni a un nutriólogo. Si tienes una condición de salud, consulta antes de empezar y detente si sientes dolor o mareo." },
+  ],
   habits: [
     { title: "Un día de entreno típico", body: `<ul>
       <li><strong>Al despertar:</strong> agua (500 ml) y creatina si la usas.</li>
