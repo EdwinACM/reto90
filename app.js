@@ -562,11 +562,7 @@ function vSetup() {
   const heads = ["¿Qué quieres lograr?", "Sobre ti", "Tu entrenamiento", "Tu salud", "Tu comida y tu ritmo", "Tu plan"];
   const subs = ["Tu plan se adapta a esto.", "Para calcular tus calorías. No sale de tu teléfono.", "Para armar tu semana.", "Opcional. Adapta ejercicios y comidas.", "Porciones y ritmo.", "Tu plan está listo."];
   let body = "";
-  if (step === 0) body = radioRows("goal", Object.entries(C.goals).map(([k, g]) => [k, g.name, g.desc]), d.goal) + (onb.redo ? "" : `<h2 class="sec">¿Ya usabas la app?</h2><div class="group">
-    ${window.Acct && !Acct.ready() ? `<button class="row" data-go="#/acceso/entrar"><div class="main"><div class="title">Ya tengo una cuenta</div><div class="meta">Entrar con tu usuario y contraseña</div></div>${I.chev}</button>` : ""}
-    <label class="row" style="cursor:pointer"><div class="main"><div class="title">Restaurar copia de seguridad</div><div class="meta">Archivo exportado antes</div></div><input type="file" accept=".json,application/json,text/plain,application/octet-stream" id="imp0" hidden></label>
-    <div class="field"><label for="code0">O pega tu código de transferencia</label><textarea id="code0" rows="2" placeholder="R90G…" autocapitalize="off" autocomplete="off" spellcheck="false"></textarea></div>
-    <div class="btn-wrap"><button class="btn secondary" data-act="usecode0">Usar código</button></div></div>`);
+  if (step === 0) body = radioRows("goal", Object.entries(C.goals).map(([k, g]) => [k, g.name, g.desc]), d.goal);
   if (step === 1) body = `<h2 class="sec">Unidades</h2><div class="group"><div class="field"><label>Peso</label>${segHtml([["kg", "Kilos"], ["lb", "Libras"]], S.units.w, "unitw", "Unidades de peso")}</div><div class="field"><label>Medidas</label>${segHtml([["cm", "Centímetros"], ["in", "Pulgadas"]], S.units.l, "unitl", "Unidades de medidas")}</div></div>
 <h2 class="sec">Sexo (para estimar tus calorías)</h2>${segRow("sex", [["m", "Hombre"], ["f", "Mujer"]], d.sex)}
     <h2 class="sec">Tu nombre</h2><div class="group"><div class="field"><label for="ob-name">Nombre (opcional)</label><input id="ob-name" type="text" maxlength="30" autocomplete="given-name" autocapitalize="words" enterkeyhint="done" placeholder="Cómo te llamas" value="${esc(d.name || "")}"></div></div>
