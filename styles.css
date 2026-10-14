@@ -422,3 +422,11 @@ h1.large:focus { outline: none; }
 .navbar .nb-btn.gear { padding: 8px; color: var(--accent); }
 .share-canvas { width: 100%; height: auto; border-radius: 16px; box-shadow: var(--shadow); display: block; }
 .field textarea { width: 100%; font: inherit; font-size: 16px; color: var(--label); background: var(--fill); border: 0; border-radius: 10px; padding: 10px 12px; resize: vertical; min-height: 64px; }
+
+.opt-check { flex: none; width: 22px; height: 22px; margin-top: 1px; border: 2px solid var(--fill-2); border-radius: 7px; position: relative; transition: background .2s, border-color .2s; }
+.opt-check.on { background: var(--accent); border-color: var(--accent); }
+.opt-check.on::after { content: ""; position: absolute; left: 6px; top: 1.5px; width: 5px; height: 10px; border: solid var(--accent-text); border-width: 0 2.5px 2.5px 0; transform: rotate(45deg); }
+
+.round-head .effort { margin-left: 8px; font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 3px 9px; }
+.failbtn { display: block; margin: 6px 16px 2px; padding: 8px 14px; border: 0; border-radius: 99px; background: var(--fill); color: var(--label); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.failbtn[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
