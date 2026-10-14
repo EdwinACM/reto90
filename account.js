@@ -438,7 +438,7 @@
   const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent), standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
   const tzName = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) { return "UTC"; } };
   const u8 = b => Uint8Array.from(atob(b.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-  const defPrefs = () => { const r = R().remind(); return { train: true, streak: true, weigh: true, meals: false, water: false, review: true, admin: true, device: true, t_train: r.train, t_weigh: r.weigh, t_review: "19:00", t_meals: (R().mealTimes && R().mealTimes().length ? R().mealTimes() : ["07:30", "14:00", "20:45"]).slice(0, 6), t_water: ["11:00", "15:00", "19:00"], days: R().trainDays() }; };
+  const defPrefs = () => { const r = R().remind(); return { train: true, streak: true, weigh: true, meals: false, water: false, review: true, admin: true, device: true, t_train: r.train, t_weigh: r.weigh, t_review: R().sched().review, t_meals: (R().mealTimes && R().mealTimes().length ? R().mealTimes() : ["07:30", "14:00", "20:45"]).slice(0, 6), t_water: R().sched().water.slice(0, 6), days: R().trainDays() }; };
   let psT;
   const pushSave = () => { clearTimeout(psT); psT = setTimeout(async () => { try { await C.rpc("push_set_prefs", { p_prefs: PS.prefs, p_tz: tzName() }); } catch (e) {} }, 700); };
   async function pushEnable() {
@@ -459,7 +459,7 @@
     try {
       const st = await C.rpc("push_status"), granted = Notification.permission === "granted";
       PS.prefs = st.subscribed ? { ...defPrefs(), ...st.prefs } : defPrefs();
-      const days = defPrefs().days; if (st.subscribed && JSON.stringify(st.prefs.days) !== JSON.stringify(days)) { PS.prefs.days = days; pushSave(); } const mt = R().mealTimes ? R().mealTimes() : []; if (st.subscribed && mt.length && JSON.stringify(st.prefs.t_meals) !== JSON.stringify(mt)) { PS.prefs.t_meals = mt; pushSave(); }
+      const days = defPrefs().days; if (st.subscribed && JSON.stringify(st.prefs.days) !== JSON.stringify(days)) { PS.prefs.days = days; pushSave(); } const want = defPrefs(); ["t_train", "t_weigh", "t_review", "t_meals", "t_water"].forEach(k => { if (st.subscribed && want[k] && JSON.stringify(st.prefs[k]) !== JSON.stringify(want[k])) { PS.prefs[k] = want[k]; pushSave(); } });
       PS.on = !!st.subscribed && granted; PS.ready = true;
       if (st.subscribed && granted) { const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription(); if (!sub || sub.endpoint !== st.endpoint) await pushEnable(); }
     } catch (e) { PS.ready = true; PS.prefs = PS.prefs || defPrefs(); }
@@ -472,13 +472,15 @@
     if (!PS.ready || Date.now() - (PS.at || 0) > 30000) { PS.at = Date.now(); pushLoad(); }
     if (!PS.ready) return `${head}<div class="group"><div class="empty">Un momento…</div></div>`;
     const p = PS.prefs, me = C.state.me || {};
+    const horRow = `<button class="row" data-go="#/plan/horarios"><div class="main"><div class="title">Horarios</div><div class="meta">Los avisos salen a las horas de tu plan. Toca para cambiarlas.</div></div>${R_.I.chev}</button>`;
     const sw = (k, t, m) => `<div class="row check-row"><label for="pn-${k}">${t}${m ? `<span class="meta">${m}</span>` : ""}</label><input class="switch" id="pn-${k}" data-pn="${k}" type="checkbox" ${p[k] ? "checked" : ""}></div>`;
-    const tm = (k, t) => `<div class="field"><label for="pt-${k}">${t}</label><input id="pt-${k}" data-pt="${k}" type="time" value="${esc(p[k])}"></div>`;
+    const tm = () => "";
     const denied = Notification.permission === "denied";
     let h = `${head}<div class="group"><div class="row check-row"><label for="pn-master">Recibir notificaciones<span class="meta">${denied ? "Bloqueadas en el navegador. Actívalas en sus ajustes." : PS.on ? "Activas en este dispositivo" : "Desactivadas"}</span></label><input class="switch" id="pn-master" type="checkbox" ${PS.on ? "checked" : ""} ${denied ? "disabled" : ""}></div></div>`;
     if (PS.on) {
-      h += `<h2 class="sec">Entrenamiento</h2><div class="group">${sw("train", "Hora de entrenar", "Solo tus días de pesas y si aún no entrenaste")}${tm("t_train", "Hora")}${sw("streak", "Cuidar la racha", "Un segundo aviso a las 21:00 si no entrenaste")}</div>
-      <h2 class="sec">Cuerpo y comida</h2><div class="group">${sw("weigh", "Pesarte", "Solo si aún no registras tu peso")}${tm("t_weigh", "Hora")}${sw("meals", "Comidas", "A las horas de tus comidas: " + (p.t_meals || []).join(", "))}${sw("water", "Agua", "A las 11:00, 15:00 y 19:00 mientras no llegues a tu meta")}${sw("review", "Revisión semanal", "Domingo a las 19:00")}</div>
+      h += `<h2 class="sec">Horarios</h2><div class="group">${horRow}</div>
+      <h2 class="sec">Entrenamiento</h2><div class="group">${sw("train", "Hora de entrenar", "Solo tus días de pesas y si aún no entrenaste")}${sw("streak", "Cuidar la racha", "Un segundo aviso a las 21:00 si no entrenaste")}</div>
+      <h2 class="sec">Cuerpo y comida</h2><div class="group">${sw("weigh", "Pesarte", "Solo si aún no registras tu peso")}${sw("meals", "Comidas", "A las horas de tus comidas: " + (p.t_meals || []).join(", "))}${sw("water", "Agua", "A las 11:00, 15:00 y 19:00 mientras no llegues a tu meta")}${sw("review", "Revisión semanal", "Domingo a las 19:00")}</div>
       <h2 class="sec">Cuenta</h2><div class="group">${sw("device", "Solicitudes de dispositivo", "Cuando alguien pida entrar a tu cuenta")}${me.role === "admin" ? sw("admin", "Administración", "Cuando alguien se registra o pide cambiar de dispositivo, códigos por vencer y respaldo semanal") : ""}</div>
       <div class="btn-wrap"><button class="btn quiet" data-act="acct-pntest">Enviar notificación de prueba</button></div>
       <p class="note">La hora se toma de este teléfono (${esc(tzName())}).</p>`;
@@ -513,5 +515,5 @@
     if (r[0] === "acceso") $$("form[data-acct] input[name]").forEach(i => { if (i.type !== "password" && U.draft[i.name] != null) i.value = U.draft[i.name]; }); const f = $("form[data-acct] input:not([type=checkbox])"); if (f && r[0] === "acceso") f.focus({ preventScroll: true }); }
 
   if (ls.get("reto90.lock")) { const go = () => showLock(); if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", go); else go(); }
-  window.Acct = { hero, gate, view, act, changed, chip, after, ready, status: () => C.state.status };
+  window.Acct = { syncPrefs: () => { if (PS.on) pushLoad(); }, hero, gate, view, act, changed, chip, after, ready, status: () => C.state.status };
 })();
