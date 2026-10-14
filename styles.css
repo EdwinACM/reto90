@@ -459,7 +459,7 @@ input[type="search"] { width: 100%; font: inherit; font-size: 16px; color: var(-
 #lockscr { position: fixed; inset: 0; z-index: 99998; display: grid; place-items: center; background: var(--bg); padding: 24px; }
 #lockscr .lk-in { width: 100%; max-width: 320px; text-align: center; display: grid; gap: 12px; }
 #lockscr h1 { font-size: 30px; margin: 0; } #lockscr p { margin: 0 0 12px; color: var(--label-2); }
-.welcome { padding: calc(env(safe-area-inset-top) + 56px) 4px 24px; max-width: 420px; margin: 0 auto; }
+.welcome { padding: calc(env(safe-area-inset-top) + 20px) 4px 24px; max-width: 420px; margin: 0 auto; }
 .welcome .brand { font-size: 56px; font-weight: 800; letter-spacing: -.03em; line-height: 1; color: var(--accent); }
 .welcome .tag-l { font-size: 20px; line-height: 1.3; margin: 12px 0 28px; font-weight: 500; text-wrap: balance; }
 .welcome .pts { list-style: none; margin: 0 0 28px; padding: 0; display: grid; gap: 16px; }
@@ -492,3 +492,15 @@ input[type="search"] { width: 100%; font: inherit; font-size: 16px; color: var(-
 /* Texto justificado en párrafos largos (la última línea queda a la izquierda) */
 .prose p, .prose li, p.note, .cues li, .pd-note, .row.top:not(:has(button, input, .val, .btn)) .meta { text-align: justify; text-justify: inter-word; hyphens: auto; -webkit-hyphens: auto; }
 .welcome .pts span { text-align: left; hyphens: none; }
+
+/* Resumen del día en lista y frase de racha (sin tarjetas de datos) */
+.lead { margin: 14px 2px 4px; font-size: 16px; line-height: 1.45; color: var(--label); text-wrap: pretty; }
+.meter-row .mhead { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.meter-row .val { font-size: 14px; font-variant-numeric: tabular-nums; }
+.meter-row .bar { height: 6px; }
+
+.hero { display: block; width: 100%; height: auto; border-radius: 24px; box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 28%, transparent); }
+.hero.big { margin-bottom: 22px; }
+.hero.sm { height: 132px; margin: 4px 0 6px; }
+.welcome .brand { font-size: 44px; }
+.hero.sm, .hero.big { max-width: 440px; margin-left: auto; margin-right: auto; }

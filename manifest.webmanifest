@@ -1,7 +1,7 @@
 {
   "name": "R90",
   "short_name": "R90",
-  "description": "Plan de 90 días: perder grasa y ganar músculo. Rutina, comida y seguimiento.",
+  "description": "Rutina, comida y seguimiento para perder grasa y ganar músculo.",
   "lang": "es",
   "start_url": "./index.html",
   "scope": "./",
