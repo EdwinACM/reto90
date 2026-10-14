@@ -523,7 +523,7 @@ function withDraft(fn) { const prev = S.profile, pw = S.weights, pwe = S.weekend
 function vSetup() {
   const { step, d } = onb;
   const heads = ["¿Qué quieres lograr?", "Sobre ti", "Tu entrenamiento", "Tu salud", "Tu comida y tu ritmo", "Tu plan"];
-  const subs = ["Tu plan se adapta a esto.", "Para calcular tus calorías. Se queda en tu teléfono.", "Para armar tu semana.", "Opcional. Adapta ejercicios y comidas.", "Porciones y ritmo.", "Tu plan está listo."];
+  const subs = ["Tu plan se adapta a esto.", "Para calcular tus calorías. No sale de tu teléfono.", "Para armar tu semana.", "Opcional. Adapta ejercicios y comidas.", "Porciones y ritmo.", "Tu plan está listo."];
   let body = "";
   if (step === 0) body = radioRows("goal", Object.entries(C.goals).map(([k, g]) => [k, g.name, g.desc]), d.goal) + (onb.redo ? "" : `<h2 class="sec">¿Ya usabas la app?</h2><div class="group">
     <label class="row" style="cursor:pointer"><div class="main"><div class="title">Restaurar copia de seguridad</div><div class="meta">Archivo exportado antes</div></div><input type="file" accept=".json,application/json,text/plain,application/octet-stream" id="imp0" hidden></label>
@@ -540,7 +540,7 @@ function vSetup() {
     <h2 class="sec">Días de pesas por semana</h2>${radioRows("days", C.daysOptions, d.days)}
     <h2 class="sec">¿Dónde entrenas?</h2>${radioRows("mode", [["gym", "Gimnasio", "Máquinas, poleas, barras y mancuernas"], ["db", "En casa con mancuernas", "Tus mancuernas, con o sin banca"], ["home", "En casa, sin equipo", "Solo tu cuerpo, una mesa o silla y una mochila"]], d.mode)}
     ${d.mode === "db" ? `<h2 class="sec">Tus mancuernas pesan hasta…</h2>${radioRows("dbMax", [[10, "10 kg cada una o menos"], [20, "Hasta 20 kg cada una"], [30, "Hasta 30 kg cada una"], [40, "40 kg o más cada una"]], d.dbMax)}<h2 class="sec">¿Tienes banca?</h2>${segRow("bench", [["si", "Sí"], ["no", "No"]], d.bench)}` : ""}
-    ${d.mode === "gym" ? `<h2 class="sec">Peso corporal</h2><div class="group"><div class="field"><label>¿Puedes hacer 5 o más dominadas?</label>${segRow("pull", [["si", "Sí"], ["no", "No"]], d.pull)}</div><div class="field"><label>¿Y 5 o más fondos en paralelas?</label>${segRow("dips", [["si", "Sí"], ["no", "No"]], d.dips)}</div></div><p class="note">Si es que sí, entran en tu plan en lugar del jalón y el pushdown. Si no, quedan como alternativas (y hay máquina asistida).</p>` : ""}
+    ${d.mode === "gym" ? `<h2 class="sec">Peso corporal</h2><div class="group"><div class="field"><label>¿Puedes hacer 5 o más dominadas?</label>${segRow("pull", [["si", "Sí"], ["no", "No"]], d.pull)}</div><div class="field"><label>¿Y 5 o más fondos en paralelas?</label>${segRow("dips", [["si", "Sí"], ["no", "No"]], d.dips)}</div></div><p class="note">Si puedes, entran en tu plan en lugar del jalón al pecho y la extensión de tríceps en polea. Si no, quedan como alternativas.</p>` : ""}
     ${d.mode !== "gym" ? `<h2 class="sec">¿Tienes barra de dominadas?</h2>${segRow("bar", [["si", "Sí"], ["no", "No"]], d.bar)}` : ""}`;
   if (step === 3) body = healthBlocks(d.health);
   if (step === 4) { const g = C.goals[d.goal]; body = `<h2 class="sec">Cómo comes</h2>${radioRows("diet", Object.entries(C.diets), d.diet)}
@@ -651,7 +651,7 @@ function installCard() {
   else { t = "Instalar"; m = "En Chrome o Edge usa el icono de instalar en la barra de direcciones."; }
   return `<div class="group"><div class="row top"><div class="main"><div class="title">${t}</div><div class="meta">${m}</div></div></div>${btn ? `<div class="btn-wrap">${btn}</div>` : ""}</div>`;
 }
-const storageWarn = () => LS.persistent ? "" : `<div class="group" style="margin-top:14px"><div class="row top"><div class="main"><div class="title" style="color:var(--bad)">Este navegador no guarda tus datos</div><div class="meta">Lo que registres se perderá al cerrar. Abre la app en Chrome o Safari (no dentro de WhatsApp, Instagram o Facebook) y, si puedes, instálala. Mientras tanto exporta una copia en Progreso → Mis datos.</div></div></div></div>`;
+const storageWarn = () => LS.persistent ? "" : `<div class="group" style="margin-top:14px"><div class="row top"><div class="main"><div class="title" style="color:var(--bad)">Este navegador no guarda tus datos</div><div class="meta">Lo que registres se perderá al cerrar. Abre la app en Chrome o Safari (no dentro de WhatsApp, Instagram o Facebook) e instálala. Mientras tanto, exporta una copia en Progreso → Mis datos.</div></div></div></div>`;
 function tipHoy() {
   if (S.tips && S.tips.hoy) return "";
   return `<div class="group" style="margin-top:14px"><div class="row top"><div class="main"><div class="title">Así se usa</div><div class="meta">Toca el círculo para marcar una comida. Toca su nombre para cambiar de opción. Tu entreno está justo debajo: ahí registras cada vuelta.</div></div><button class="btn small quiet" data-act="tiphoy">Entendido</button></div></div>`;
@@ -747,7 +747,7 @@ function prepRows() {
   </div>`;
 }
 const levelTip = () => ({ nuevo: "Aprende el movimiento con pesos que dominas; la técnica antes que el peso.", medio: "Anota cada serie: más repeticiones o más peso cada semana es lo que construye músculo.", alto: "Técnica estricta, 1 s de pausa en el estiramiento y última vuelta de aislamiento al límite." })[S.profile.level || "medio"];
-const coolRow = () => `<div class="group"><div class="row top"><div class="main"><div class="title">Al terminar · 5 min</div><div class="meta">Estira lo trabajado y respira lento. El cardio de zona 2, si toca, va como bloque.</div></div></div></div>`;
+const coolRow = () => `<div class="group"><div class="row top"><div class="main"><div class="title">Al terminar · 5 min</div><div class="meta">Estira lo que trabajaste y respira lento. Si hoy toca cardio, aparece como un bloque más.</div></div></div></div>`;
 function warmup(b, bi) {
   const it = b.items[0], sg = it && suggest(it);
   if (bi !== 0 || S.mode === "home" || !sg || !sg.n) return "";
@@ -789,7 +789,7 @@ function vCardio(s, b, bi) {
     <div class="row top"><div class="main"><div class="title">${esc(k.name)}</div><div class="meta">${esc(k.how)}</div></div></div>
     <div class="row top"><div class="main"><div class="title">Ritmo</div><div class="meta">Puedes hablar frases cortas pero no cantar (6–7 de 10). Unos 115–135 latidos por minuto, orientativo.</div></div></div>
     <div class="row top"><div class="main"><div class="title">Calentamiento</div><div class="meta">Los primeros 3–5 minutos, más suave.</div></div></div>
-    ${mix ? `<div class="row top"><div class="main"><div class="title">Opcional: intervalos</div><div class="meta">5 min suave, 8 rondas de 30 s fuerte (8 de 10) + 90 s suave, 5 min suave. Si tus piernas no se recuperan, vuelve a zona 2.</div></div></div>` : ""}
+    ${mix ? `<div class="row top"><div class="main"><div class="title">Opcional: intervalos</div><div class="meta">5 min suave · 8 rondas de 30 s fuerte (8 de 10) + 90 s suave · 5 min suave. Si tus piernas no se recuperan, vuelve a zona 2.</div></div></div>` : ""}
     ${b.note ? `<div class="row top"><div class="main"><div class="meta">${esc(b.note)}</div></div></div>` : ""}
   </div>
   <div class="btn-wrap"><button class="btn quiet" data-ctimer="${mins * 60}">Iniciar temporizador · ${mins}:00</button></div>
@@ -799,7 +799,7 @@ function vWhy(kind) {
   const list = C.why[kind].filter(x => !x.only || x.only.includes(S.profile.goal || "recomp")), used = [];
   const vol = {}; SESSIONS().forEach(se => blocksOf(se).forEach(b => b.items.forEach(it => { const g = D.MUSCLE[it.k]; vol[g] = (vol[g] || 0) + b.rounds; })));
   const order = ["pecho", "espalda", "hombro", "hombro posterior", "bíceps", "tríceps", "cuádriceps", "femoral", "glúteo", "pantorrilla", "abdomen"];
-  const volTable = kind === "train" ? `<h2 class="sec">Series directas por semana</h2><div class="group">${order.filter(m => vol[m]).map(m => `<div class="row"><div class="main"><div class="title">${esc(m.charAt(0).toUpperCase() + m.slice(1))}</div></div><span class="val" style="color:var(--label);font-weight:600">${vol[m]}</span></div>`).join("")}</div><p class="note">Cuenta solo las series que apuntan a ese músculo. Los press de pecho y hombro también trabajan el tríceps, y los jalones y remos trabajan el bíceps, así que su volumen real es mayor. El rango habitual para hipertrofia es 10–20.</p>` : "";
+  const volTable = kind === "train" ? `<h2 class="sec">Series directas por semana</h2><div class="group">${order.filter(m => vol[m]).map(m => `<div class="row"><div class="main"><div class="title">${esc(m.charAt(0).toUpperCase() + m.slice(1))}</div></div><span class="val" style="color:var(--label);font-weight:600">${vol[m]}</span></div>`).join("")}</div><p class="note">Son series directas. Los press también trabajan el tríceps y los jalones y remos el bíceps, así que su trabajo real es mayor. Rango habitual para hipertrofia: 10–20.</p>` : "";
   return `${nav(kind === "train" ? "Por qué este plan" : "Por qué esta dieta", { back: kind === "train" ? "Entreno" : "Comida", to: kind === "train" ? "#/entreno" : "#/comida" })}
   ${volTable}
   <h2 class="sec">${kind === "train" ? "Decisiones" : "Cómo se calcula"}</h2>
@@ -917,7 +917,7 @@ function vSlot(i) {
   <div class="group" role="radiogroup" aria-label="Opciones de ${esc(m.slot)}">${m.opts.map(optView).map((o, j) => `<button class="row top" data-pick="${j}" data-slot="${esc(m.slot)}" role="radio" aria-checked="${j === sel}"><span class="opt-radio ${j === sel ? "on" : ""}"></span><div class="main"><div class="title">${esc(o.name)}</div><div class="meta">${o.m.kcal} kcal · P ${o.m.p} · C ${o.m.c} · G ${o.m.g}</div><ul class="ing">${o.items.map(t => `<li>${esc(t)}</li>`).join("")}</ul>${o.tip ? `<div class="meta" style="margin-top:6px">${esc(o.tip)}</div>` : ""}</div></button>`).join("")}</div>`;
 }
 function vSnacks() {
-  return `${nav("Snacks", { back: "Comida", sub: "Con proteína" })}
+  return `${nav("Snacks", { back: "Comida", sub: "Ideas con proteína" })}
   <div class="group">${(isVeg() ? D.SNACKS_VEG : D.SNACKS).map(optView).map(o => `<div class="row top"><div class="main"><div class="title">${esc(o.name)}</div><div class="meta">${o.m.kcal} kcal · P ${o.m.p} g · C ${o.m.c} g · G ${o.m.g} g</div><ul class="ing">${o.items.map(t => `<li>${esc(t)}</li>`).join("")}</ul></div></div>`).join("")}</div>`;
 }
 function vFoodRules() {
@@ -955,7 +955,7 @@ function vShop() {
     if (k === "aceite") txt = "1 botella chica"; if (k === "whey") txt = "opcional (2 scoops)";
     return `<div class="row"><div class="main"><div class="title">${esc(f.name.charAt(0).toUpperCase() + f.name.slice(1))}</div></div><span class="val">${txt}</span></div>`;
   };
-  return `${nav("Compras", { back: "Comida", sub: "Para 7 días" })}
+  return `${nav("Compras", { back: "Comida", sub: "Para toda la semana" })}
   ${grp.map(([t, ks]) => `<h2 class="sec">${t}</h2><div class="group">${ks.map(line).join("")}</div>`).join("")}`;
 }
 
@@ -988,7 +988,7 @@ function vProgress() {
   <h2 class="sec">Historial</h2>
   <div class="group">${row("#/progreso/musculos", "Músculos: series y resultados")}${row("#/progreso/fuerza", "Fuerza y récords")}${row("#/progreso/historial", "Entrenos completados")}${row("#/progreso/compartir", "Compartir progreso")}</div>
   <h2 class="sec">Guías</h2>
-  <div class="group">${row("#/progreso/guia", "Qué medir")}${row("#/progreso/habitos", "Hábitos")}${row("#/progreso/calorias", "Cuándo ajustar calorías")}</div>`;
+  <div class="group">${row("#/progreso/guia", "Qué medir y cómo")}${row("#/progreso/habitos", "Hábitos")}${row("#/progreso/calorias", "Cuándo ajustar calorías")}</div>`;
 }
 function chartSvg() {
   const isW = chartMetric === "peso", from = chartRange ? addDays(todayISO(), -chartRange) : "0000-00-00";
@@ -1293,7 +1293,7 @@ function vWeek(n) {
   <div class="group"><div class="prose"><p>${esc(C.weekFocus[n])}</p></div></div>
   <h2 class="sec">Esta semana</h2>
   <div class="group">
-    <div class="row top"><div class="main"><div class="title">Entrenamiento</div><div class="meta">${deload ? "Descarga: quita 1 vuelta por bloque y deja 3–4 repeticiones en reserva" : "6 sesiones · " + ph.rir + " repeticiones en reserva"}</div></div></div>
+    <div class="row top"><div class="main"><div class="title">Entrenamiento</div><div class="meta">${deload ? "Descarga: quita 1 vuelta por bloque y deja 3–4 repeticiones en reserva" : SESSIONS().length + " sesiones · " + ph.rir + " repeticiones en reserva"}</div></div></div>
     <div class="row top"><div class="main"><div class="title">Cardio</div><div class="meta">${ph.cardio} (zona 2)</div></div></div>
     <div class="row top"><div class="main"><div class="title">Pasos</div><div class="meta">${ph.steps.toLocaleString("es-MX")} al día</div></div></div>
     <div class="row top"><div class="main"><div class="title">Comida</div><div class="meta">Entreno ≈ ${num(planCalc().train.kcal)} kcal · descanso ≈ ${num(planCalc().rest.kcal)} kcal · proteína ≈ ${planCalc().train.p} g</div></div></div>
@@ -1465,7 +1465,7 @@ function bind() {
   const bindCal = () => { $$("[data-cal]").forEach(b => b.addEventListener("click", () => { calOffset = Math.min(0, calOffset + +b.dataset.cal); $("#calbox").innerHTML = calHtml(); bindCal(); })); $$("[data-day]").forEach(b => b.addEventListener("click", () => openSheet(longDate(b.dataset.day), dayInfoHtml(b.dataset.day)))); };
   if ($("#calbox")) bindCal();
   $$("[data-angle]").forEach(b => b.addEventListener("click", () => { segMove(b); phAngle = b.dataset.angle; loadPhotos(); }));
-  $("#ph-file")?.addEventListener("change", async e => { const f = e.target.files[0]; if (!f) return; try { toast("Guardando foto…"); await Store.addPhoto(f, todayISO(), phAngle); toast("Foto guardada"); vibrate(10); loadPhotos(); } catch { toast("No pude guardar la foto"); } e.target.value = ""; });
+  $("#ph-file")?.addEventListener("change", async e => { const f = e.target.files[0]; if (!f) return; try { toast("Guardando foto…"); await Store.addPhoto(f, todayISO(), phAngle); toast("Foto guardada"); vibrate(10); loadPhotos(); } catch { toast("No se pudo guardar la foto"); } e.target.value = ""; });
   $$("[data-swap]").forEach(b => b.addEventListener("click", () => { const [sid, bi, ii] = b.dataset.swap.split("|"); const se = SESSIONS().find(x => x.id === sid), alts = altsFor(se, +bi, +ii), cur = D.EX[blocksOf(se)[+bi].items[+ii].k], key = `${sid}|${S.mode}|${bi}|${ii}`, swapped = !!(S.swaps || {})[key];
     openSheet("Cambiar ejercicio", `${alts.length ? `<div class="group">${alts.map(a => { const ex = D.EX[a.k]; return `<button class="row" data-swapto="${key}|${a.k}"><img class="thumb" loading="lazy" decoding="async" alt="" src="gifs/${ex.id}.gif" width="56" height="56"><div class="main"><div class="title">${esc(ex.name)}</div><div class="meta">${esc(ex.muscle)} · ${esc(a.fam)}</div></div>${I.chev}</button>`; }).join("")}</div><p class="note">Solo ejercicios del mismo músculo y patrón, con tu equipo. Repeticiones y peso se ajustan al nuevo ejercicio.</p>` : `<div class="group"><div class="empty">No hay alternativas equivalentes con tu equipo para este ejercicio.</div></div>`}${swapped ? `<div class="group" style="margin-top:12px"><button class="row" data-swapto="${key}|"><div class="main"><div class="title">Volver al ejercicio original</div></div></button></div>` : ""}`,
     el => $$("[data-swapto]", el).forEach(x => x.addEventListener("click", () => { const parts = x.dataset.swapto.split("|"), k = parts.pop(), kk = parts.join("|"); S.swaps = S.swaps || {}; if (k) S.swaps[kk] = k; else delete S.swaps[kk]; save(); vibrate(10); closeSheet(); toast(k ? "Ejercicio cambiado" : "Ejercicio original"); refresh(); }))); }));
@@ -1540,7 +1540,7 @@ function act(a, el) {
     const d = onb.d;
     S.profile = { name: cleanName(d.name), health: cleanHealth(d.health), sex: d.sex, age: +d.age, h: +d.h, kg: parseFloat(d.kg), level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, adj: 0, equip: { bench: d.bench !== "no", bar: d.bar === "si", dbMax: +d.dbMax, pull: d.pull === "si", dips: d.dips === "si" } };
     const keepW = onb.redo ? S.weights : {}; S.swaps = {}; S.reviews = {}; S.picks = {}; if (!onb.redo) S.avoid = {}; const wv = parseFloat(d.waist); S.start = d.date || iso; S.weekend = d.weekend; S.mode = d.mode; S.weights = { ...keepW, [S.start]: S.profile.kg }; if (wv >= 30 && wv <= 250) S.waists[S.start] = wv; S.goalKg = suggestGoalKg(S.profile, S.profile.kg, wv >= 30 ? wv : lastWaist()).goal; _plan = { k: "", v: null };
-    save(); onb = ONB(); if (window.Store) Store.persist(); go("#/hoy"); toast("Listo: día 1");
+    save(); onb = ONB(); if (window.Store) Store.persist(); go("#/hoy"); toast("Todo listo: empieza el día 1");
   } else if (a === "saveweight") {
     const v = parseFloat($("#w-today").value);
     if (!(v > 30 && v < 300)) return toast("Escribe un peso válido (kg)");
@@ -1565,15 +1565,15 @@ function act(a, el) {
     if (!n) return toast("Escribe al menos una medida en cm");
     save(); vibrate(10); toast("Medidas guardadas"); refresh();
   } else if (a === "offline") {
-    if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return toast("Abre la app una vez más y vuelve a intentar");
+    if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return toast("Cierra y abre la app, y vuelve a intentar");
     const info = $("#d-offline"); if (info) info.textContent = "Descargando… 0 %"; navigator.serviceWorker.controller.postMessage("precache"); toast("Descargando ejercicios");
   } else if (a === "copydata") {
-    try { navigator.clipboard.writeText(JSON.stringify(S)).then(() => toast("Datos copiados"), () => toast("No pude copiar")); } catch { toast("No pude copiar"); }
+    try { navigator.clipboard.writeText(JSON.stringify(S)).then(() => toast("Datos copiados"), () => toast("No se pudo copiar")); } catch { toast("No pude copiar"); }
   } else if (a === "export") {
     const blob = new Blob([JSON.stringify(S, null, 1)], { type: "application/json" });
     const l = document.createElement("a"); l.href = URL.createObjectURL(blob); l.download = `reto90-${iso}.json`; l.click(); S.lastExport = iso; save(); toast("Copia exportada");
   } else if (a === "install") {
-    if (!installEv) return toast("Usa el menú del navegador para instalar");
+    if (!installEv) return toast("Instálala desde el menú del navegador");
     installEv.prompt(); installEv.userChoice.then(r => { installEv = null; toast(r.outcome === "accepted" ? "Instalando…" : "Cuando quieras, desde Ajustes"); refresh(); }, () => {});
   } else if (a === "hurt") {
     const k = el.dataset.k; if (!D.EX[k]) return; S.avoid[k] = true; S.swaps = {}; _plan = { k: "", v: null }; save(); vibrate(12);
@@ -1594,11 +1594,11 @@ function act(a, el) {
     const out = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Reto 90//ES", "CALSCALE:GREGORIAN"];
     SESSIONS().forEach((x, i) => out.push(ev("train" + i, first(x.wd), S.remind.train, `RRULE:FREQ=WEEKLY;BYDAY=${BY[x.wd]};COUNT=104`, "Reto 90: " + x.name, 60)));
     const t0 = new Date(); t0.setHours(12, 0, 0, 0); out.push(ev("weigh", t0, S.remind.weigh, "RRULE:FREQ=DAILY;COUNT=730", "Reto 90: pésate en ayunas", 10), "END:VCALENDAR");
-    const l = document.createElement("a"); l.href = URL.createObjectURL(new Blob([out.join("\r\n")], { type: "text/calendar;charset=utf-8" })); l.download = "reto90-recordatorios.ics"; l.click(); toast("Ábrelo para añadirlo al calendario");
+    const l = document.createElement("a"); l.href = URL.createObjectURL(new Blob([out.join("\r\n")], { type: "text/calendar;charset=utf-8" })); l.download = "reto90-recordatorios.ics"; l.click(); toast("Abre el archivo para añadirlo a tu calendario");
   } else if (a === "share") {
     const cv = $("#shr"); if (!cv) return;
     cv.toBlob(async b => {
-      if (!b) return toast("No pude crear la imagen");
+      if (!b) return toast("No se pudo crear la imagen");
       const f = new File([b], "reto90-progreso.png", { type: "image/png" });
       try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: "Reto 90" }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
       const l = document.createElement("a"); l.href = URL.createObjectURL(b); l.download = "reto90-progreso.png"; l.click(); toast("Imagen guardada");
@@ -1608,7 +1608,7 @@ function act(a, el) {
       const json = JSON.stringify(S); let code = "R90N." + btoa(unescape(encodeURIComponent(json)));
       try { if (window.CompressionStream) { const cs = new Blob([json]).stream().pipeThrough(new CompressionStream("gzip")), buf = new Uint8Array(await new Response(cs).arrayBuffer()); let bin = ""; buf.forEach(b => bin += String.fromCharCode(b)); code = "R90G." + btoa(bin); } } catch (e) {}
       try { if (navigator.share) { await navigator.share({ title: "Código Reto 90", text: code }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
-      try { await navigator.clipboard.writeText(code); toast("Código copiado: pégalo en el otro teléfono"); } catch (e) { toast("No pude copiar el código"); }
+      try { await navigator.clipboard.writeText(code); toast("Código copiado: pégalo en el otro teléfono"); } catch (e) { toast("No se pudo copiar el código"); }
     })();
   } else if (a === "level") {
     const cur = S.profile.level || "medio";
@@ -1645,10 +1645,10 @@ function act(a, el) {
     const text = dietText();
     (async () => {
       try { if (navigator.share) { await navigator.share({ title: "Mi dieta", text }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
-      try { await navigator.clipboard.writeText(text); toast("Dieta copiada: pégala donde quieras"); } catch (e) { toast("No pude compartir"); }
+      try { await navigator.clipboard.writeText(text); toast("Dieta copiada: pégala donde quieras"); } catch (e) { toast("No se pudo compartir"); }
     })();
   } else if (a === "print") {
-    try { window.print(); } catch { toast("No pude abrir la impresión"); }
+    try { window.print(); } catch { toast("No se pudo abrir la impresión"); }
   } else if (a === "csv") {
     const q = v => { let t = String(v ?? ""); if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; return '"' + t.replace(/"/g, '""') + '"'; };
     const out = [["Día", "Comida", "Horario", "Platillo", "Ingredientes", "kcal", "Proteína (g)", "Carbohidratos (g)", "Grasas (g)"]];
