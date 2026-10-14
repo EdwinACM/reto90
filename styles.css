@@ -442,3 +442,20 @@ h1.large:focus { outline: none; }
 .ed-reps { display: block; margin-top: 6px; width: 120px; font: inherit; font-size: 16px; color: var(--label); background: var(--fill); border: 0; border-radius: 8px; padding: 6px 10px; }
 .ed-actions { gap: 4px; justify-content: space-between; } .ed-actions .nb-btn:disabled { opacity: .35; }
 input[type="search"] { width: 100%; font: inherit; font-size: 16px; color: var(--label); background: var(--fill); border: 0; border-radius: 10px; padding: 10px 12px; }
+
+/* Cuenta, nube y bloqueo */
+.field input[type="text"], .field input[type="password"] { width: 100%; height: 44px; border: 0; border-radius: 10px; background: var(--surface-2); padding: 0 12px; font-size: 16px; color: var(--label); }
+.field .hint { margin: 6px 0 0; font-size: 12.5px; color: var(--label-2); line-height: 1.4; }
+.note.err, .form-err { color: var(--bad); font-weight: 500; }
+.tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); vertical-align: 1px; margin-left: 4px; }
+.tag.bad { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); } .tag.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+.sync-chip { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 8px; border: 0; background: none; color: var(--label-2); font-size: 13px; cursor: pointer; z-index: 1; }
+.sync-chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--good); }
+.sync-chip[data-s="saving"] i { background: var(--warn); animation: pulse 1s infinite alternate; }
+.sync-chip[data-s="offline"] i, .sync-chip[data-s="error"] i { background: var(--bad); }
+.navbar .sync-chip + .gear { margin-left: 0; }
+@keyframes pulse { to { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .sync-chip i { animation: none !important; } }
+#lockscr { position: fixed; inset: 0; z-index: 99998; display: grid; place-items: center; background: var(--bg); padding: 24px; }
+#lockscr .lk-in { width: 100%; max-width: 320px; text-align: center; display: grid; gap: 12px; }
+#lockscr h1 { font-size: 30px; margin: 0; } #lockscr p { margin: 0 0 12px; color: var(--label-2); }

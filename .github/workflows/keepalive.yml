@@ -1,0 +1,16 @@
+# Evita que Supabase (plan gratis) pause el proyecto por inactividad (7 días).
+name: keepalive
+on:
+  schedule: [{ cron: "17 6 */3 * *" }]
+  workflow_dispatch: {}
+permissions: {}
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tocar API y base de datos
+        run: |
+          U=https://lplmjqfkajxnapnaslsd.supabase.co
+          K=sb_publishable_Od7_-34dh94IwLNBKdCRHQ_VbFSN2Gv
+          curl -sS -o /dev/null -w "rest %{http_code}\n" "$U/rest/v1/" -H "apikey: $K"
+          curl -sS -o /dev/null -w "auth %{http_code}\n" -X POST "$U/auth/v1/token?grant_type=password" -H "apikey: $K" -H "Content-Type: application/json" -d '{"email":"keepalive@reto90.invalid","password":"no-existe"}'
