@@ -11,7 +11,7 @@ const LS = (() => { const mem = {}; let ok = true; try { localStorage.setItem("_
 const todayISO = (d = new Date()) => { const z = new Date(d.getTime() - d.getTimezoneOffset() * 6e4); return z.toISOString().slice(0, 10); };
 const addDays = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return todayISO(d); };
 const diffDays = (a, b) => Math.round((new Date(a + "T12:00:00") - new Date(b + "T12:00:00")) / 864e5);
-const defaults = () => ({ body: {}, prs: {}, lastExport: null, tips: {}, swaps: {}, accent: "naranja", photos: false, theme: "auto", sound: true, remind: { train: "18:00", weigh: "07:00" }, profile: null, cardio: {}, intro: false, start: null, weekend: "sab", mode: "gym", weights: {}, waists: {}, checks: {}, hist: {}, picks: {}, eaten: {}, reviews: {} });
+const defaults = () => ({ body: {}, prs: {}, lastExport: null, tips: {}, swaps: {}, accent: "naranja", photos: false, goalKg: null, notify: false, theme: "auto", sound: true, remind: { train: "18:00", weigh: "07:00" }, profile: null, cardio: {}, intro: false, start: null, weekend: "sab", mode: "gym", weights: {}, waists: {}, checks: {}, hist: {}, picks: {}, eaten: {}, reviews: {} });
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const isObj = o => !!o && typeof o === "object" && !Array.isArray(o);
 const okKey = k => typeof k === "string" && k.length < 80 && k !== "__proto__" && k !== "constructor" && k !== "prototype";
@@ -32,11 +32,11 @@ function normalizeState(raw) {
   d.start = d.profile && validDate(raw.start) ? raw.start : null;
   d.weekend = raw.weekend === "dom" ? "dom" : "sab"; d.mode = ["gym", "db", "home"].includes(raw.mode) ? raw.mode : "gym";
   d.accent = ["naranja", "azul", "morado", "rosa"].includes(raw.accent) ? raw.accent : "naranja";
-  d.photos = raw.photos === true; d.theme = ["auto", "light", "dark"].includes(raw.theme) ? raw.theme : "auto"; d.sound = raw.sound !== false;
+  d.photos = raw.photos === true; d.goalKg = numIn(raw.goalKg, 30, 250); d.notify = raw.notify === true; d.theme = ["auto", "light", "dark"].includes(raw.theme) ? raw.theme : "auto"; d.sound = raw.sound !== false;
   const hhmm = v => typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
   d.remind = { train: isObj(raw.remind) && hhmm(raw.remind.train) ? raw.remind.train : "18:00", weigh: isObj(raw.remind) && hhmm(raw.remind.weigh) ? raw.remind.weigh : "07:00" };
   d.weights = cleanMap(raw.weights, v => numIn(v, 20, 400)); d.waists = cleanMap(raw.waists, v => numIn(v, 30, 250));
-  d.body = cleanMap(raw.body, v => { if (!isObj(v)) return null; const o = {}; ["pecho", "brazo", "muslo", "cadera"].forEach(k => { const n = numIn(v[k], 10, 250); if (n !== null) o[k] = n; }); return o; });
+  d.body = cleanMap(raw.body, v => { if (!isObj(v)) return null; const o = {}; ["pecho", "brazo", "muslo", "cadera", "hombros", "pantorrilla"].forEach(k => { const n = numIn(v[k], 10, 250); if (n !== null) o[k] = n; }); return o; });
   d.checks = cleanMap(raw.checks, v => { if (!isObj(v)) return null; const o = {}; Object.keys(v).forEach(k => { if (!okKey(k)) return; if (k === "water") { const n = numIn(v[k], 0, 10000); if (n !== null) o[k] = n; } else if (k === "steps") { const n = numIn(v[k], 0, 100000); if (n !== null) o[k] = n; } else if (k === "sleep" || /^s_[A-Za-z]{2,12}$/.test(k)) o[k] = v[k] === true; }); return o; });
   d.eaten = cleanMap(raw.eaten, v => { if (!isObj(v)) return null; const o = {}; Object.keys(v).forEach(k => { if (SLOTS.has(k) && v[k] === true) o[k] = true; }); return o; });
   d.cardio = cleanMap(raw.cardio, v => { if (!isObj(v)) return null; const o = {}; Object.keys(v).forEach(k => { if (okKey(k) && /^[A-Za-z]{2,12}-(gym|db|home)-\d{1,2}$/.test(k) && isObj(v[k])) o[k] = { done: v[k].done === true, min: numIn(v[k].min, 0, 300) ?? 0, kind: ["cam", "eli", "run"].includes(v[k].kind) ? v[k].kind : "cam" }; }); return o; });
@@ -189,11 +189,50 @@ function applyEquip(blocks, mode) {
   if (eq.bar) blocks.forEach(b => { b.items = b.items.map(it => { const t = D.BARSWAP[it.k]; return t && !has(t) ? resolveItem(t) : it; }); });
   return blocks.filter(b => b.t === "cardio" || b.items.length).map(b => (b.t !== "cardio" && b.items.length === 1 && b.t !== "uni") ? { ...b, t: "uni" } : b);
 }
+const MUSC_MIN = { pecho: 10, espalda: 10, hombro: 8, "hombro posterior": 6, "bíceps": 8, "tríceps": 8, "cuádriceps": 10, femoral: 8, "glúteo": 6, pantorrilla: 8 };
+const MUSC_PREF = {
+  hombro: ["lat_raise"], "hombro posterior": ["rev_fly", "face"],
+  "bíceps": ["inc_curl", "hammer", "db_curl", "curl_bb", "preacher", "db_conc"],
+  "tríceps": ["oh_tri", "db_oh_tri", "tri_push", "db_kickback", "skull", "bench_dips", "pushup_cl"],
+  pecho: ["pec_deck", "db_fly", "cross", "inc_pushup", "pushup_dec"], espalda: ["row_cable", "db_row2", "inv_row", "straight_pd", "db_pullover"],
+  "cuádriceps": ["leg_ext", "split_db", "db_lunge", "bulg", "bw_lunge"], femoral: ["leg_curl", "db_rdl", "rdl"],
+  "glúteo": ["hip_thrust", "glute_br", "abductor"], pantorrilla: ["calf_st", "calf_se", "calf_one", "calf_home"],
+};
+const MUSC_REGION = { pecho: ["pecho", "hombro", "tríceps"], hombro: ["pecho", "hombro", "tríceps"], "tríceps": ["pecho", "hombro", "tríceps"], espalda: ["espalda", "bíceps", "hombro posterior"], "hombro posterior": ["espalda", "bíceps", "hombro posterior"], "bíceps": ["espalda", "bíceps", "hombro posterior"], "cuádriceps": ["cuádriceps", "femoral", "glúteo", "pantorrilla"], femoral: ["cuádriceps", "femoral", "glúteo", "pantorrilla"], "glúteo": ["cuádriceps", "femoral", "glúteo", "pantorrilla"], pantorrilla: ["cuádriceps", "femoral", "glúteo", "pantorrilla"] };
+function exAvail(k, mode) {
+  const mch = mode === "gym" ? "g" : mode === "db" ? "d" : "h", eq = equip(); let ok = false;
+  Object.values(D.FAMILIES).forEach(f => f.items.forEach(i => { if (i.k === k && i.m.includes(mch) && (!i.n || mode === "gym" || (i.n === "bench" ? eq.bench : eq.bar))) ok = true; }));
+  if (!ok) ok = Object.values(D.ARCH).some(a => (a[mode] || []).some(b => b.items.some(it => it.k === k)));
+  return ok && okLevel(k);
+}
+const volOf = (blocks, vol = {}) => { blocks.forEach(b => { if (b.t === "cardio") return; b.items.forEach(it => { const g = D.MUSCLE[it.k]; if (g) vol[g] = (vol[g] || 0) + b.rounds; }); }); return vol; };
+/* Si algún músculo queda corto en la semana, se añade un bloque de aislamiento en un día que ya trabaja esa zona */
+function balanceMuscles(ss, lv) {
+  ["gym", "db", "home"].forEach(m => {
+    const vol = {}; ss.forEach(x => volOf(x[m], vol)); const added = new Map();
+    Object.keys(MUSC_MIN).forEach(g => {
+      const need = Math.round(MUSC_MIN[g] * (lv === "nuevo" ? 0.75 : 1)), reg = MUSC_REGION[g] || [g];
+      let guard = 0;
+      while ((vol[g] || 0) < need && guard++ < 3) {
+        const cands = ss.filter(x => x[m].some(b => b.t !== "cardio" && b.items.some(it => reg.includes(D.MUSCLE[it.k]))) && (added.get(x.id) || 0) < (m === "home" ? 3 : 2)).sort((a, b) => (added.get(a.id) || 0) - (added.get(b.id) || 0) || a[m].length - b[m].length);
+        let done = false;
+        for (const x of cands) {
+          const present = new Set(x[m].flatMap(b => b.items.map(i => i.k))), k = (MUSC_PREF[g] || []).find(e => !present.has(e) && exAvail(e, m)); if (!k) continue;
+          const nb = { t: "uni", rounds: 3, rest: 60, items: [resolveItem(k)], key: x.id + "-" + m + "-f" + (added.get(x.id) || 0), sid: x.id };
+          let at = x[m].findIndex(b => b.t === "cardio" || b.items.every(it => ABS.has(it.k))); if (at < 0) at = x[m].length;
+          x[m].splice(at, 0, nb); x[m].forEach((b, i) => { b.idx = i; }); added.set(x.id, (added.get(x.id) || 0) + 1); vol[D.MUSCLE[k]] = (vol[D.MUSCLE[k]] || 0) + 3; done = true; break;
+        }
+        if (!done) break;
+      }
+    });
+  });
+  return ss;
+}
 function SESSIONS() {
   const p = S.profile, wkN = S.start ? weekNum() : 1, cyc = cycleIdx(wkN), dl = deloadWeek(wkN), k = [p.goal, p.days, p.level, S.weekend, p.sex, JSON.stringify(p.equip || {}), cyc, dl].join("|");
   if (_plan.k === k) return _plan.v;
   const d = SPLITS[p.days] ? p.days : 6, wds = d === 3 ? [1, 3, 5] : d === 4 ? [1, 2, 4, 5] : d === 5 ? [1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, S.weekend === "sab" ? 6 : 0];
-  _plan = { k, v: SPLITS[d].map((id, i) => adaptSession(D.ARCH[id], wds[i], p.goal || "recomp", p.level || "medio", d, p.sex, cyc, dl)) };
+  _plan = { k, v: balanceMuscles(SPLITS[d].map((id, i) => adaptSession(D.ARCH[id], wds[i], p.goal || "recomp", p.level || "medio", d, p.sex, cyc, dl)), p.level || "medio") };
   return _plan.v;
 }
 const sessMin = s => Math.round((8 + blocksOf(s).reduce((a, b) => a + (b.t === "cardio" ? b.min : b.rounds * (b.items.length * 0.75 + b.rest / 60)), 0)) / 5) * 5;
@@ -354,7 +393,6 @@ const TABOF = { hoy: "hoy", entreno: "entreno", bloque: "entreno", ej: "entreno"
 
 function render(o) {
   const keep = !!(o && o.keep), y0 = scrollY;
-  clearInterval(restT);
   const r = parseHash();
   if ((!S.start || !S.profile) && r[0] !== "inicio") return go("#/inicio");
   let html, hasCta = false;
@@ -367,7 +405,7 @@ function render(o) {
     case "ej": html = vExercise(r[1], r[2]); break;
     case "cambiar": html = vSwap(r[1], +r[2], +r[3]); break;
     case "comida": html = r[1] === "dieta" ? vDiet() : r[1] === "guias" ? vFoodGuides() : r[1] === "guia" ? vFoodGuide(r[2]) : r[1] === "menu" ? vMenu() : r[1] === "compras" ? vShop() : r[1] === "snacks" ? vSnacks() : r[1] === "reglas" ? vFoodRules() : r[1] === "porque" ? vWhy("diet") : r[1] === "slot" ? vSlot(r[2]) : vFood(); break;
-    case "progreso": html = r[1] === "habitos" ? vHabits() : r[1] === "calorias" ? vAdjust() : r[1] === "compartir" ? vShare() : r[1] === "medidas" ? vBodyMeasures() : r[1] === "fotos" ? vPhotos() : r[1] === "historial" ? vHistory() : r[1] === "datos" ? vData() : r[1] === "revision" ? vReview() : r[1] === "peso" ? vLogWeight() : r[1] === "fuerza" ? vStrength() : r[1] === "guia" ? vMeasureGuide() : vProgress(); break;
+    case "progreso": html = r[1] === "meta" ? vWeightGoal() : r[1] === "musculos" ? vMuscles() : r[1] === "habitos" ? vHabits() : r[1] === "calorias" ? vAdjust() : r[1] === "compartir" ? vShare() : r[1] === "medidas" ? vBodyMeasures() : r[1] === "fotos" ? vPhotos() : r[1] === "historial" ? vHistory() : r[1] === "datos" ? vData() : r[1] === "revision" ? vReview() : r[1] === "peso" ? vLogWeight() : r[1] === "fuerza" ? vStrength() : r[1] === "guia" ? vMeasureGuide() : vProgress(); break;
     case "plan": html = r[1] === "ajustes" ? vSettings() : r[1] === "avisos" ? vRemind() : vHub(); break;
     default: html = vToday();
   }
@@ -663,7 +701,6 @@ function vBlock(id, bi) {
   <h2 class="sec">Vueltas · ${p} de ${b.rounds}</h2>
   <div class="group">${rounds.join("")}</div>
   <input type="hidden" id="blk-ctx" value="${id}|${bi}">
-  <div id="rest" role="timer" aria-live="off"><span class="lbl">Descanso</span><span class="t">0:00</span><button data-rest="add">+15 s</button><button data-rest="stop">Listo</button></div>
   ${cta(next ? `<button class="btn ${p === b.rounds ? "" : "quiet"}" data-go="#/bloque/${id}/${bi + 1}">Siguiente bloque</button>` : `<button class="btn ${p === b.rounds ? "" : "quiet"}" data-go="#/entreno/${id}">Terminar y ver resumen</button>`)}`;
 }
 
@@ -682,7 +719,6 @@ function vCardio(s, b, bi) {
     ${b.note ? `<div class="row top"><div class="main"><div class="meta">${esc(b.note)}</div></div></div>` : ""}
   </div>
   <div class="btn-wrap"><button class="btn quiet" data-ctimer="${mins * 60}">Iniciar temporizador · ${mins}:00</button></div>
-  <div id="rest" role="timer" aria-live="off"><span class="lbl">Cardio</span><span class="t">0:00</span><button data-rest="add">+15 s</button><button data-rest="stop">Parar</button></div>
   ${cta(`<button class="btn ${done ? "secondary" : ""}" data-cdone="${b.key}|${mins}|${s.id}">${done ? "Cardio completado" : "Marcar cardio hecho"}</button>`)}`;
 }
 function vWhy(kind) {
@@ -861,6 +897,7 @@ function vProgress() {
   for (let i = 0; i < 7; i++) { const d = addDays(todayISO(), -i); if (d < S.start) continue; dn++; const ms = mealsToday(d).filter(m => m.slot !== "Snack"), e = eatenOn(d); adh += ms.filter(m => e[m.slot]).length / ms.length; }
   const row = (h, t) => `<button class="row" data-go="${h}"><div class="main"><div class="title">${t}</div></div>${I.chev}</button>`;
   return `${nav("Progreso", { gear: true })}
+  <div class="group"><button class="row" data-go="#/progreso/meta"><div class="main"><div class="title">Meta de peso</div></div><span class="val">${goalText()}</span>${I.chev}</button></div>
   <div class="group">
     <div class="row"><div class="main"><div class="title">Peso (promedio 7 días)</div></div><span class="val" style="color:var(--label);font-weight:600">${now ? fmt(now, 1) + " kg" : "—"}</span></div>
     <div class="row"><div class="main"><div class="title">Cintura</div></div><span class="val">${w1 ? (w0[0] !== w1[0] ? `${w0[1]} → ${w1[1]} cm` : w1[1] + " cm") : "—"}</span></div>
@@ -873,7 +910,7 @@ function vProgress() {
   <h2 class="sec">Registrar</h2>
   <div class="group">${row("#/progreso/peso", "Peso y cintura")}${row("#/progreso/medidas", "Medidas del cuerpo")}${S.photos ? row("#/progreso/fotos", "Fotos de progreso") : ""}${row("#/progreso/revision", "Revisión semanal")}</div>
   <h2 class="sec">Historial</h2>
-  <div class="group">${row("#/progreso/fuerza", "Fuerza y récords")}${row("#/progreso/historial", "Entrenos completados")}${row("#/progreso/compartir", "Compartir progreso")}</div>
+  <div class="group">${row("#/progreso/musculos", "Músculos: series y resultados")}${row("#/progreso/fuerza", "Fuerza y récords")}${row("#/progreso/historial", "Entrenos completados")}${row("#/progreso/compartir", "Compartir progreso")}</div>
   <h2 class="sec">Guías</h2>
   <div class="group">${row("#/progreso/guia", "Qué medir")}${row("#/progreso/habitos", "Hábitos")}${row("#/progreso/calorias", "Cuándo ajustar calorías")}</div>`;
 }
@@ -910,7 +947,7 @@ function dayInfoHtml(iso) {
   return `<div class="group">${row("Peso", S.weights[iso] ? fmt(S.weights[iso], 1) + " kg" : "—")}${row("Entreno", sess.length ? esc(sess.join(", ")) : "—")}${sets ? row("Series completadas", sets) : ""}${row("Comidas marcadas", e.length ? e.length : "—")}${row("Agua", c.water ? fmt(c.water / 1000, 1) + " L" : "—")}${row("Pasos", c.steps ? num(c.steps) : "—")}${row("Dormí 7 h o más", c.sleep ? "Sí" : "—")}</div>${e.length ? `<p class="note">${esc(e.join(" · "))}</p>` : ""}`;
 }
 function vBodyMeasures() {
-  const iso = todayISO(), F = [["cintura", "Cintura (a la altura del ombligo)"], ["pecho", "Pecho (a la altura de las tetillas)"], ["brazo", "Brazo flexionado (la parte más ancha)"], ["muslo", "Muslo (a medio camino de la rodilla)"], ["cadera", "Cadera (la parte más ancha)"]];
+  const iso = todayISO(), F = [["cintura", "Cintura (a la altura del ombligo)"], ["pecho", "Pecho (a la altura de las tetillas)"], ["brazo", "Brazo flexionado (la parte más ancha)"], ["muslo", "Muslo (a medio camino de la rodilla)"], ["cadera", "Cadera (la parte más ancha)"], ["hombros", "Hombros (alrededor, sobre los deltoides)"], ["pantorrilla", "Pantorrilla (la parte más ancha)"]];
   const get = (k, d) => k === "cintura" ? S.waists[d] : (S.body || {})[d]?.[k];
   const dates = [...new Set([...Object.keys(S.waists), ...Object.keys(S.body || {})])].sort();
   const delta = F.map(([k, l]) => { const ds = dates.filter(d => get(k, d)); return ds.length >= 2 ? `<div class="row"><div class="main"><div class="title">${esc(l.split(" (")[0])}</div><div class="meta">${get(k, ds[0])} → ${get(k, ds[ds.length - 1])} cm</div></div><span class="val" style="font-weight:600;color:var(--label)">${(get(k, ds[ds.length - 1]) - get(k, ds[0])) > 0 ? "+" : ""}${fmt(get(k, ds[ds.length - 1]) - get(k, ds[0]), 1)} cm</span></div>` : ""; }).join("");
@@ -1068,7 +1105,61 @@ function vHub() {
   </div>
   <div class="btn-wrap"><button class="btn" data-act="ics">Añadir al calendario</button></div>
   <h2 class="sec">Descanso</h2>
-  <div class="group"><div class="row check-row"><label for="sd-on">Sonido al terminar el descanso</label><input class="switch" id="sd-on" type="checkbox" ${S.sound ? "checked" : ""}></div></div>`;
+  <div class="group"><div class="row check-row"><label for="sd-on">Sonido al terminar el descanso</label><input class="switch" id="sd-on" type="checkbox" ${S.sound ? "checked" : ""}></div>
+  <div class="row check-row"><label for="nt-on">Notificación si la app está en segundo plano</label><input class="switch" id="nt-on" type="checkbox" ${S.notify ? "checked" : ""}></div></div>`;
+}
+const MUSC_NAMES = [["pecho", "Pecho"], ["espalda", "Espalda"], ["hombro", "Hombros"], ["hombro posterior", "Hombro posterior"], ["bíceps", "Bíceps"], ["tríceps", "Tríceps"], ["cuádriceps", "Cuádriceps"], ["femoral", "Femoral"], ["glúteo", "Glúteo"], ["pantorrilla", "Pantorrilla"], ["abdomen", "Abdomen"]];
+const MUSC_MEAS = { pecho: "pecho", "bíceps": "brazo", "tríceps": "brazo", "cuádriceps": "muslo", femoral: "muslo", "glúteo": "cadera", hombro: "hombros", pantorrilla: "pantorrilla", abdomen: "cintura" };
+function muscleStrength(g) {
+  const ch = [];
+  Object.keys(S.hist).forEach(k => {
+    if (D.MUSCLE[k] !== g) return;
+    const ses = S.hist[k].map(x => { const v = x.sets.filter(t => t.done && t.r).map(t => t.w ? e1rm(t.w, t.r) : t.r); return v.length ? { d: x.d, v: Math.max(...v) } : null; }).filter(Boolean).sort((a, b) => a.d < b.d ? -1 : 1);
+    if (ses.length < 2) return; const last = ses.slice(-2).reduce((a, x) => a + x.v, 0) / Math.min(2, ses.length);
+    ch.push((last / ses[0].v - 1) * 100);
+  });
+  return ch.length ? ch.reduce((a, b) => a + b, 0) / ch.length : null;
+}
+function muscleMeasure(g) {
+  const k = MUSC_MEAS[g]; if (!k) return null;
+  const get = d => k === "cintura" ? S.waists[d] : (S.body || {})[d]?.[k];
+  const ds = [...new Set([...Object.keys(S.waists), ...Object.keys(S.body || {})])].filter(d => get(d)).sort();
+  return ds.length >= 2 ? get(ds[ds.length - 1]) - get(ds[0]) : null;
+}
+function vMuscles() {
+  const vol = {}; SESSIONS().forEach(x => volOf(blocksOf(x), vol)); const sg = v => (v > 0 ? "+" : v < 0 ? "−" : "") + fmt(Math.abs(v), v % 1 ? 1 : 0);
+  return `${nav("Músculos", { back: "Progreso", sub: "Series por semana y cambio desde que empezaste" })}
+  <div class="group">${MUSC_NAMES.map(([g, n]) => {
+    const st = muscleStrength(g), me = muscleMeasure(g), parts = [st !== null ? `fuerza ${sg(Math.round(st))} %` : "", me !== null ? `${sg(Math.round(me * 10) / 10)} cm` : ""].filter(Boolean);
+    return `<div class="row"><div class="main"><div class="title">${n}</div><div class="meta">${vol[g] || 0} series por semana</div></div><span class="val" style="${st !== null && st > 0 ? "color:var(--good);font-weight:600" : ""}">${parts.join(" · ") || "—"}</span></div>`;
+  }).join("")}</div>`;
+}
+function goalInfo() {
+  const c = planCalc(), kg = currentKg(), ws = sortedWeights(), start = ws.length ? ws[0][1] : S.profile.kg, dir = c.goal === "muscle" ? 1 : -1;
+  const pr = c.goal === "fat" ? [.0035, .008] : c.goal === "recomp" ? [.001, .004] : [.0025, .005], lo = kg * pr[0], hi = kg * pr[1];
+  const a = avgWeight(todayISO(), 7), b = avgWeight(addDays(todayISO(), -21), 7), real = a && b ? (a - b) / 3 : null;
+  const goal = S.goalKg, left = goal ? (goal - kg) * dir : null; // kg que faltan en la dirección del objetivo
+  const total = goal ? (goal - start) * dir : null, prog = goal && total > 0 ? clamp((kg - start) * dir / total, 0, 1) : null;
+  const mid = (lo + hi) / 2, speed = real !== null && real * dir > 0.02 ? Math.abs(real) : mid;
+  const weeks = goal && left > 0 ? Math.ceil(left / speed) : 0;
+  return { c, kg, start, dir, lo, hi, real, goal, left, prog, weeks, eta: goal && left > 0 ? addDays(todayISO(), weeks * 7) : null, usingReal: speed !== mid };
+}
+const goalText = () => { const g = goalInfo(); return !g.goal ? "Definir" : g.left <= 0 ? "Alcanzada" : `${g.dir < 0 ? "Faltan" : "Suben"} ${fmt(g.left, 1)} kg`; };
+function vWeightGoal() {
+  const g = goalInfo(), c = g.c, ph = phaseOf(weekNum()), kgF = x => fmt(x, 1) + " kg", verb = g.dir < 0 ? "bajar" : "subir";
+  const sug = g.dir < 0 ? g.kg * (c.goal === "fat" ? 0.94 : 0.98) : g.kg * 1.03;
+  const row = (t, v, meta) => `<div class="row"><div class="main"><div class="title">${t}</div>${meta ? `<div class="meta">${meta}</div>` : ""}</div><span class="val" style="color:var(--label);font-weight:600">${v}</span></div>`;
+  return `${nav("Meta de peso", { back: "Progreso", sub: g.goal ? "" : "Elige un peso al que quieras llegar" })}
+  <div class="group"><div class="input-line"><input id="goal-kg" type="number" inputmode="decimal" step="0.1" min="30" max="250" placeholder="${Math.round(sug * 10) / 10} kg" aria-label="Peso meta en kilogramos" value="${esc(g.goal || "")}"><button class="btn" data-act="savegoal">Guardar</button></div></div>
+  ${g.goal ? `<div class="group">
+    ${row("Inicio", kgF(g.start))}${row("Ahora (promedio 7 días)", kgF(g.kg))}${row("Meta", kgF(g.goal))}${row(g.left <= 0 ? "Meta alcanzada" : "Falta para " + verb, g.left <= 0 ? "✓" : kgF(g.left))}
+    ${g.prog !== null ? `<div class="row"><div class="bar" style="margin:0;width:100%" role="progressbar" aria-label="Avance hacia tu meta" aria-valuenow="${Math.round(g.prog * 100)}" aria-valuemin="0" aria-valuemax="100"><i style="--p:${g.prog}"></i></div></div>` : ""}
+  </div>
+  <h2 class="sec">Ritmo</h2>
+  <div class="group">${row("Recomendado", `${fmt(g.lo, 1)}–${fmt(g.hi, 1)} kg por semana`)}${row("El tuyo (3 semanas)", g.real === null ? "—" : `${g.real > 0 ? "+" : g.real < 0 ? "−" : ""}${fmt(Math.abs(g.real), 2)} kg por semana`)}${g.eta ? row("Fecha estimada", shortDate(g.eta), g.usingReal ? "Con tu ritmo real" : "Con el ritmo recomendado") : ""}</div>` : ""}
+  <h2 class="sec">Tu plan para ${g.dir < 0 ? "bajar grasa" : "subir"}</h2>
+  <div class="group">${row("Calorías", `${num(c.train.kcal)} / ${num(c.rest.kcal)}`, "Día de entreno / descanso")}${row("Proteína", c.train.p + " g", "Protege el músculo")}${row("Pasos", ph.steps.toLocaleString("es-MX"), "Al día")}${g.dir < 0 ? row("Cardio", ph.cardio.split("·")[0].trim(), "Zona 2, al terminar las pesas") : ""}</div>
+  ${g.goal ? `<div class="btn-wrap"><button class="btn secondary" data-act="delgoal">Quitar meta</button></div>` : ""}`;
 }
 function vShare() {
   return `${nav("Compartir progreso", { back: "Progreso" })}
@@ -1142,20 +1233,46 @@ function vSettings() {
 }
 
 /* ───────── Temporizador y registro ───────── */
-let restEnd = 0;
+const REST_KEY = "reto90.rest";
+let restEnd = 0, restLabel = "Descanso";
 let audioCtx = null;
 function beep() { if (!S.sound) return; try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.frequency.value = 880; g.gain.setValueAtTime(.001, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(.25, audioCtx.currentTime + .02); g.gain.exponentialRampToValueAtTime(.001, audioCtx.currentTime + .5); o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + .5); } catch (e) {} }
-function startRest(sec, label = "Descanso") {
-  const el = $("#rest"); if (!el) return;
-  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume && audioCtx.resume(); } catch (e) {}
-  clearInterval(restT); restEnd = Date.now() + sec * 1000; el.classList.add("on"); $("#rest .lbl").textContent = label;
-  const tick = () => {
-    restLeft = Math.max(0, Math.ceil((restEnd - Date.now()) / 1000));
-    const t = $("#rest .t"); if (t) t.textContent = `${Math.floor(restLeft / 60)}:${String(restLeft % 60).padStart(2, "0")}`;
-    if (restLeft <= 0) { clearInterval(restT); vibrate([200, 100, 200]); beep(); toast(label === "Cardio" ? "Cardio terminado" : "Descanso terminado"); $("#rest")?.classList.remove("on"); }
-  };
-  tick(); restT = setInterval(tick, 250);
+/* El descanso es una barra global: guarda la hora de fin, así sigue contando al cambiar de pantalla, de pestaña o al cerrar la app */
+function ensureRestEl() {
+  let el = $("#rest"); if (el) return el;
+  el = document.createElement("div"); el.id = "rest"; el.setAttribute("role", "timer"); el.setAttribute("aria-live", "off");
+  el.innerHTML = '<span class="lbl">Descanso</span><span class="t">0:00</span><button data-rest="add">+15 s</button><button data-rest="stop">Listo</button>';
+  document.body.appendChild(el);
+  $("[data-rest=add]", el).addEventListener("click", () => { restEnd += 15000; persistRest(); tickRest(); });
+  $("[data-rest=stop]", el).addEventListener("click", stopRest);
+  return el;
 }
+function persistRest() { LS.setItem(REST_KEY, JSON.stringify({ end: restEnd, label: restLabel })); }
+function stopRest() { clearInterval(restT); restEnd = 0; LS.removeItem(REST_KEY); ensureRestEl().classList.remove("on"); }
+function finishRest() {
+  const label = restLabel; stopRest(); vibrate([200, 100, 200]); beep(); toast(label === "Cardio" ? "Cardio terminado" : "Descanso terminado");
+  try { if (S.notify && document.hidden && "Notification" in window && Notification.permission === "granted" && navigator.serviceWorker) navigator.serviceWorker.ready.then(r => r.showNotification("Reto 90", { body: label === "Cardio" ? "Cardio terminado" : "Descanso terminado", tag: "rest", vibrate: [200, 100, 200] })); } catch (e) {}
+}
+function tickRest() {
+  if (!restEnd) return; const el = ensureRestEl();
+  restLeft = Math.max(0, Math.ceil((restEnd - Date.now()) / 1000));
+  $(".t", el).textContent = `${Math.floor(restLeft / 60)}:${String(restLeft % 60).padStart(2, "0")}`;
+  if (restLeft <= 0) finishRest();
+}
+function startRest(sec, label = "Descanso") {
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume && audioCtx.resume(); } catch (e) {}
+  const el = ensureRestEl(); clearInterval(restT); restLabel = label; restEnd = Date.now() + sec * 1000;
+  $(".lbl", el).textContent = label; el.classList.add("on"); persistRest(); tickRest(); restT = setInterval(tickRest, 250);
+}
+function resumeRest() {
+  let st = null; try { st = JSON.parse(LS.getItem(REST_KEY) || "null"); } catch (e) {}
+  if (!st || !isFinite(st.end)) return;
+  restEnd = st.end; restLabel = st.label === "Cardio" ? "Cardio" : "Descanso"; const el = ensureRestEl(); $(".lbl", el).textContent = restLabel;
+  if (restEnd <= Date.now()) return finishRest();
+  el.classList.add("on"); clearInterval(restT); tickRest(); restT = setInterval(tickRest, 250);
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) resumeRest(); });
+window.addEventListener("pageshow", resumeRest);
 function blockCtx() { const c = $("#blk-ctx"); if (!c) return null; const [id, bi] = c.value.split("|"), s = SESSIONS().find(x => x.id === id); return { s, b: blocksOf(s)[+bi], id, bi: +bi }; }
 function saveRound(r, setDone) {
   const ctx = blockCtx(); if (!ctx) return;
@@ -1204,6 +1321,7 @@ function bind() {
   $$("button[data-sharew]").forEach(b => b.addEventListener("click", () => { segMove(b); shareW = b.dataset.sharew; drawShare(); }));
   $("#rm-train")?.addEventListener("change", e => { if (/^\d\d:\d\d$/.test(e.target.value)) { S.remind.train = e.target.value; save(); } });
   $("#rm-weigh")?.addEventListener("change", e => { if (/^\d\d:\d\d$/.test(e.target.value)) { S.remind.weigh = e.target.value; save(); } });
+  $("#nt-on")?.addEventListener("change", async e => { if (e.target.checked) { try { const p = "Notification" in window ? await Notification.requestPermission() : "denied"; S.notify = p === "granted"; if (!S.notify) { e.target.checked = false; toast("Permiso de notificaciones denegado"); } } catch (er) { S.notify = false; e.target.checked = false; } } else S.notify = false; save(); });
   $("#sd-on")?.addEventListener("change", e => { S.sound = e.target.checked; save(); if (S.sound) beep(); });
   $$("button[data-accent]").forEach(b => b.addEventListener("click", () => { segMove(b); S.accent = b.dataset.accent; applyAccent(); save(); vibrate(8); }));
   $$("[data-adj]").forEach(b => { if (!b.closest("#rev-out")) b.addEventListener("click", () => adjustKcal(b.dataset.adj)); });
@@ -1248,7 +1366,6 @@ function bind() {
     const s = SESSIONS().find(x => x.id === sid); if (on) checkSessionComplete(s); else if (sessionDoneOn(iso, sid)) { checksOf(iso)["s_" + sid] = false; save(); }
     toast(on ? "Cardio registrado" : "Desmarcado"); go(`#/entreno/${sid}`);
   }));
-  $$("[data-rest]").forEach(b => b.addEventListener("click", () => { if (b.dataset.rest === "add") restEnd += 15000; else { clearInterval(restT); $("#rest").classList.remove("on"); } }));
   $("#imp0")?.addEventListener("change", async e => { const f = e.target.files[0]; if (!f) return; try { adoptState(await stateFromFile(f)); toast("Copia restaurada"); go("#/hoy"); } catch { toast("Archivo no válido"); } e.target.value = ""; });
   $("#imp")?.addEventListener("change", async e => { const f = e.target.files[0]; if (!f) return; try { if (f.size > 5e6) throw new Error("grande"); const n = normalizeState(JSON.parse(await f.text())); if (!n.profile || !n.start) throw new Error("vacío"); S = n; _plan = { k: "", v: null }; save(); toast("Copia importada"); go("#/hoy"); } catch { toast("Archivo no válido"); } e.target.value = ""; });
   [["st", "#st-goal"], ["pf", "#pf-goal"]].forEach(([ids, sel]) => $(sel)?.addEventListener("change", e => { $("#" + ids + "-pct").innerHTML = paceOptions(e.target.value); }));
@@ -1302,7 +1419,7 @@ function act(a, el) {
   } else if (a === "saveweight") {
     const v = parseFloat($("#w-today").value);
     if (!(v > 30 && v < 300)) return toast("Escribe un peso válido (kg)");
-    S.weights[iso] = v; save(); toast("Peso guardado"); render();
+    S.weights[iso] = v; save(); toast(S.goalKg && ((S.profile.goal === "muscle" ? v >= S.goalKg : v <= S.goalKg)) ? "¡Meta de peso alcanzada!" : "Peso guardado"); render();
   } else if (a === "savewaist") {
     const v = parseFloat($("#waist").value);
     if (!(v > 40 && v < 200)) return toast("Escribe la cintura en cm");
@@ -1318,7 +1435,7 @@ function act(a, el) {
     $("#rev-out").scrollIntoView({ behavior: "smooth", block: "start" });
   } else if (a === "tiphoy") { S.tips = S.tips || {}; S.tips.hoy = true; save(); refresh();
   } else if (a === "savebody") {
-    const keys = ["cintura", "pecho", "brazo", "muslo", "cadera"]; S.body = S.body || {}; let n = 0;
+    const keys = ["cintura", "pecho", "brazo", "muslo", "cadera", "hombros", "pantorrilla"]; S.body = S.body || {}; let n = 0;
     keys.forEach(k => { const v = parseFloat($("#m-" + k)?.value); if (v >= 10 && v <= 250) { n++; if (k === "cintura") S.waists[iso] = v; else (S.body[iso] = S.body[iso] || {})[k] = v; } });
     if (!n) return toast("Escribe al menos una medida en cm");
     save(); vibrate(10); toast("Medidas guardadas"); refresh();
@@ -1333,6 +1450,10 @@ function act(a, el) {
   } else if (a === "install") {
     if (!installEv) return toast("Usa el menú del navegador para instalar");
     installEv.prompt(); installEv.userChoice.then(r => { installEv = null; toast(r.outcome === "accepted" ? "Instalando…" : "Cuando quieras, desde Ajustes"); refresh(); }, () => {});
+  } else if (a === "savegoal") {
+    const v = parseFloat($("#goal-kg").value); if (!(v >= 30 && v <= 250)) return toast("Escribe un peso válido (kg)");
+    S.goalKg = v; save(); vibrate(10); toast("Meta guardada"); refresh();
+  } else if (a === "delgoal") { S.goalKg = null; save(); toast("Meta quitada"); refresh();
   } else if (a === "ics") {
     const pad = n => String(n).padStart(2, "0"), ymd = d => d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()), now = new Date();
     const stamp = now.getUTCFullYear() + pad(now.getUTCMonth() + 1) + pad(now.getUTCDate()) + "T" + pad(now.getUTCHours()) + pad(now.getUTCMinutes()) + pad(now.getUTCSeconds()) + "Z";
@@ -1422,7 +1543,7 @@ const applyTheme = () => {
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.setAttribute("content", dark ? "#000000" : "#f2f2f7"); m.removeAttribute("media"); });
 };
 const applyAccent = () => { document.documentElement.dataset.accent = S.accent || "naranja"; };
-applyAccent(); applyTheme();
+applyAccent(); applyTheme(); ensureRestEl(); resumeRest();
 try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme); } catch (e) {}
 let sx = 0, sy = 0, edge = false;
 document.addEventListener("touchstart", e => { const t = e.touches[0]; edge = t.clientX < 24 && !sheetEl; sx = t.clientX; sy = t.clientY; }, { passive: true });
