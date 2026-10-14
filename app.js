@@ -64,6 +64,12 @@ function normalizeState(raw) {
   d.badges = {}; if (isObj(raw.badges)) Object.keys(raw.badges).forEach(k => { if (/^[a-z0-9]{2,8}$/.test(k) && validDate(raw.badges[k])) d.badges[k] = raw.badges[k]; }); d.badgesInit = raw.badgesInit === true; d.wake = raw.wake !== false; d.avoid = {}; if (isObj(raw.avoid)) Object.keys(raw.avoid).forEach(k => { if (okKey(k) && D.EX[k] && raw.avoid[k] === true) d.avoid[k] = true; }); d.autoDl = validDate(raw.autoDl) ? raw.autoDl : null; d.calAt = validDate(raw.calAt) ? raw.calAt : null; d.fb = {}; if (isObj(raw.fb)) Object.keys(raw.fb).sort().slice(-60).forEach(k => { const v = raw.fb[k]; if (validDate(k) && isObj(v) && ["bien", "carg", "dolor"].includes(v.v)) d.fb[k] = { v: v.v }; }); d.goalKg = numIn(raw.goalKg, 30, 250); d.notify = raw.notify === true; d.theme = ["auto", "light", "dark"].includes(raw.theme) ? raw.theme : "auto"; d.sound = raw.sound !== false;
   const hhmm = v => typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
   d.remind = { train: isObj(raw.remind) && hhmm(raw.remind.train) ? raw.remind.train : "18:00", weigh: isObj(raw.remind) && hhmm(raw.remind.weigh) ? raw.remind.weigh : "07:00" };
+  d.sched = { meals: {}, water: ["11:00", "15:00", "19:00"], review: "19:00" };
+  if (isObj(raw.sched)) {
+    if (isObj(raw.sched.meals)) Object.keys(raw.sched.meals).forEach(k => { if (SLOTS.has(k) && hhmm(raw.sched.meals[k])) d.sched.meals[k] = raw.sched.meals[k]; });
+    if (Array.isArray(raw.sched.water)) { const w = raw.sched.water.filter(hhmm).slice(0, 6); if (w.length) d.sched.water = w; }
+    if (hhmm(raw.sched.review)) d.sched.review = raw.sched.review;
+  }
   d.weights = cleanMap(raw.weights, v => numIn(v, 20, 400)); d.waists = cleanMap(raw.waists, v => numIn(v, 30, 250));
   d.body = cleanMap(raw.body, v => { if (!isObj(v)) return null; const o = {}; ["pecho", "brazo", "muslo", "cadera", "hombros", "pantorrilla"].forEach(k => { const n = numIn(v[k], 10, 250); if (n !== null) o[k] = n; }); return o; });
   d.checks = cleanMap(raw.checks, v => { if (!isObj(v)) return null; const o = {}; Object.keys(v).forEach(k => { if (!okKey(k)) return; if (k === "water") { const n = numIn(v[k], 0, 10000); if (n !== null) o[k] = n; } else if (k === "steps") { const n = numIn(v[k], 0, 100000); if (n !== null) o[k] = n; } else if (k === "sleep" || /^s_[A-Za-z]{2,12}$/.test(k)) o[k] = v[k] === true; }); return o; });
@@ -185,7 +191,7 @@ function levelize(blocks, mode, lv, dl) {
   }
   return blocks;
 }
-function adaptSession(a, wd, goal, lv, days, sex, cyc = 0, dl = false) {
+function adaptSession(a, wd, goal, lv, days, sex, cyc = 0, dl = false, drv = { cardio: 0, heavy: 0 }) {
   const s = JSON.parse(JSON.stringify(a)); s.wd = wd; s.day = WD_NAME[wd];
   // Selección por sexo: más énfasis de glúteo en mujeres; sin abductor (poco valor) en hombres
   ["gym", "db", "home"].forEach(m => { s[m].forEach(b => {
@@ -193,11 +199,13 @@ function adaptSession(a, wd, goal, lv, days, sex, cyc = 0, dl = false) {
     if (sex !== "f" && b.items.some(it => it.k === "abductor")) { b.items = b.items.filter(it => it.k !== "abductor"); b.t = b.items.length > 1 ? b.t : "uni"; b.rounds = Math.min(5, b.rounds + 1); }
   }); });
   ["gym", "db", "home"].forEach(m => s[m].forEach((b, i) => {
-    if (b.t === "cardio") { b.min = Math.max(10, Math.round(b.min * (goal === "muscle" ? 0.5 : 1) / 5) * 5) + (goal === "fat" && days <= 4 ? 10 : 0); return; }
+    if (b.t === "cardio") { b.min = Math.max(10, Math.round(b.min * (goal === "muscle" ? 0.5 : 1) / 5) * 5) + (goal === "fat" && days <= 4 ? 10 : 0); b.min = Math.min(60, b.min + (drv.cardio || 0)); return; }
     const abs = b.items.every(it => ABS.has(it.k));
     if (goal === "muscle" && i > 0 && !abs && b.rounds === 3) b.rounds += 1;
     if (lv === "nuevo" && i > 1 && b.rounds >= 3 && !abs) b.rounds -= 1;
     if (lv === "alto" && i === 0) b.rounds = Math.min(5, b.rounds + 1);
+    if (drv.heavy >= 1 && i < 2 && !abs) b.rounds = Math.min(5, b.rounds + 1);
+    if (drv.heavy >= 2 && i >= 2 && i < 4 && !abs) b.rounds = Math.min(5, b.rounds + 1);
   }));
   s.gym = applySkills(s.gym); s.db = applyEquip(s.db, "db"); s.home = applyEquip(s.home, "home");
   ["gym", "db", "home"].forEach(m => {
@@ -291,11 +299,23 @@ function balanceMuscles(ss, lv) {
   });
   return ss;
 }
+/* La meta de peso decide el empuje: para bajar mucho, más cardio; para subir mucho, más trabajo pesado */
+function drive() {
+  const none = { cardio: 0, heavy: 0, note: "", gap: 0 }, p = S.profile; if (!p) return none;
+  let g; try { g = goalInfo(); } catch (e) { return none; }
+  if (!g || !g.goal || !(g.left > 0) || !g.kg) return none;
+  const gap = g.left / g.kg, mode = p.goal || "recomp", sf = safety(g.kg); let cardio = 0, heavy = 0, note = "";
+  if (mode === "muscle") { heavy = gap > 0.08 ? 2 : gap > 0.03 ? 1 : 0; if (heavy) note = `Te faltan ${fwt(g.left, 1)} para tu meta de peso, así que el plan lleva más trabajo pesado: una vuelta extra en los primeros bloques${heavy === 2 ? " y en los siguientes" : ""}.`; }
+  else { cardio = gap > 0.15 ? 15 : gap > 0.08 ? 10 : gap > 0.03 ? 5 : 0; if (mode === "recomp") cardio = Math.min(cardio, 10); if (cardio) note = `Te faltan ${fwt(g.left, 1)} para tu meta de peso, así que el cardio sube ${cardio} min en cada sesión que lo lleva.`; }
+  if (cons() || sf.minor || sf.senior || sf.preg) { cardio = Math.min(cardio, 5); heavy = 0; note = cardio ? `Por tu salud, el cardio solo sube ${cardio} min aunque tu meta esté lejos.` : ""; }
+  return { cardio, heavy, note, gap };
+}
+const driveBox = () => { const d = drive(); return d.note ? `<h2 class="sec">Ajustado a tu meta</h2><div class="group"><div class="row top"><div class="main"><div class="meta" style="margin:0;color:var(--label)">${esc(d.note)}</div></div></div></div>` : ""; };
 function SESSIONS() {
-  const p = S.profile, wkN = S.start ? weekNum() : 1, cyc = cycleIdx(wkN), dl = deloadWeek(wkN) || autoDlOn(), k = [p.goal, p.days, p.level, S.weekend, p.sex, JSON.stringify(p.equip || {}), cyc, dl, JSON.stringify(health()), Object.keys(S.avoid || {}).join(",")].join("|");
+  const p = S.profile, wkN = S.start ? weekNum() : 1, cyc = cycleIdx(wkN), dl = deloadWeek(wkN) || autoDlOn(), drv = drive(), k = [drv.cardio, drv.heavy, p.goal, p.days, p.level, S.weekend, p.sex, JSON.stringify(p.equip || {}), cyc, dl, JSON.stringify(health()), Object.keys(S.avoid || {}).join(",")].join("|");
   if (_plan.k === k) return _plan.v;
   const d = SPLITS[p.days] ? p.days : 6, wds = d === 3 ? [1, 3, 5] : d === 4 ? [1, 2, 4, 5] : d === 5 ? [1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, S.weekend === "sab" ? 6 : 0];
-  _plan = { k, v: balanceMuscles(SPLITS[d].map((id, i) => adaptSession(D.ARCH[id], wds[i], p.goal || "recomp", effLevel(), d, p.sex, cyc, dl)), effLevel()) };
+  _plan = { k, v: balanceMuscles(SPLITS[d].map((id, i) => adaptSession(D.ARCH[id], wds[i], p.goal || "recomp", effLevel(), d, p.sex, cyc, dl, drv)), effLevel()) };
   return _plan.v;
 }
 const sessMin = s => Math.round((8 + blocksOf(s).reduce((a, b) => a + (b.t === "cardio" ? b.min : b.rounds * (b.items.length * 0.75 + b.rest / 60)), 0)) / 5) * 5;
@@ -485,12 +505,12 @@ const tMin = t => { const [h, m] = String(t).split(":").map(Number); return isNa
 let _slotCache = { k: "", v: null };
 /* Comidas del día: según cuántas haces, cada una recibe su parte de las calorías (entreno o descanso) y se escala su porción */
 function MEALS() {
-  const c = planCalc(), N = MEAL_N(), tr = tMin((S.remind && S.remind.train) || "18:00"), k = [isVeg(), [...blockedFoods()].join(","), N, c.train.kcal, c.rest.kcal, tr].join("|");
+  const c = planCalc(), N = MEAL_N(), tr = tMin((S.remind && S.remind.train) || "18:00"), k = [isVeg(), [...blockedFoods()].join(","), N, c.train.kcal, c.rest.kcal, tr, JSON.stringify((S.sched && S.sched.meals) || {})].join("|");
   if (_slotCache.k === k) return _slotCache.v;
   const base = MEAL_BASE(), by = Object.fromEntries(base.map(m => [m.slot, m])), sn = snackList(), slots = new Map();
   const hm = m => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`, r5m = m => Math.round(m / 5) * 5;
   const when = (slot, time) => slot === "Pre-entreno" ? hm(clamp(r5m(tr - 75), 330, 1260)) : slot === "Cena (post-entreno)" ? hm(Math.min(1410, Math.max(tMin(time), r5m(tr + 100)))) : time;
-  const add = (kind, [slot, time0, share], n) => { const time = when(slot, time0); const src = by[slot] ? by[slot].opts : sn; let m = slots.get(slot); if (!m) { m = { slot, time, opts: src }; slots.set(slot, m); } const day = kind === "t" ? c.train : c.rest, ps = share * 0.6 + 0.4 / n; m[kind === "t" ? "fT" : "fR"] = { Kt: share * day.kcal, Pt: ps * day.p }; };
+  const add = (kind, [slot, time0, share], n) => { const time = (S.sched && S.sched.meals && S.sched.meals[slot]) || when(slot, time0); const src = by[slot] ? by[slot].opts : sn; let m = slots.get(slot); if (!m) { m = { slot, opts: src, times: {} }; Object.defineProperty(m, "time", { enumerable: true, get() { const t = isTrainDay(todayISO()) ? (this.times.t || this.times.r) : (this.times.r || this.times.t); return t; } }); slots.set(slot, m); } m.times[kind] = time; const day = kind === "t" ? c.train : c.rest, ps = share * 0.6 + 0.4 / n; m[kind === "t" ? "fT" : "fR"] = { Kt: share * day.kcal, Pt: ps * day.p }; };
   MPLAN[N].t.forEach(x => add("t", x, N)); MPLAN[N].r.forEach(x => add("r", x, N));
   const v = [...slots.values()].sort((a, b) => tMin(a.time) - tMin(b.time));
   _slotCache = { k, v }; return v;
@@ -550,7 +570,7 @@ function render(o) {
     case "cambiar": html = vSwap(r[1], +r[2], +r[3]); break;
     case "comida": html = r[1] === "dieta" ? vDiet() : r[1] === "guias" ? vFoodGuides() : r[1] === "guia" ? vFoodGuide(r[2]) : r[1] === "menu" ? vMenu() : r[1] === "compras" ? vShop() : r[1] === "snacks" ? vSnacks() : r[1] === "reglas" ? vFoodRules() : r[1] === "porque" ? vWhy("diet") : r[1] === "slot" ? vSlot(r[2]) : vFood(); break;
     case "progreso": html = r[1] === "logros" ? vBadges() : r[1] === "resumen" ? vRecap() : r[1] === "sesion" ? vPast(r[2], r[3]) : r[1] === "meta" ? vWeightGoal() : r[1] === "musculos" ? vMuscles() : r[1] === "habitos" ? vHabits() : r[1] === "calorias" ? vAdjust() : r[1] === "compartir" ? vShare() : r[1] === "medidas" ? vBodyMeasures() : r[1] === "fotos" ? vPhotos() : r[1] === "historial" ? vHistory() : r[1] === "datos" ? vData() : r[1] === "revision" ? vReview() : r[1] === "peso" ? vLogWeight() : r[1] === "fuerza" ? vStrength() : r[1] === "guia" ? vMeasureGuide() : vProgress(); break;
-    case "plan": html = r[1] === "cuenta" ? Acct.view("cuenta") : r[1] === "notificaciones" ? Acct.view("notif") : r[1] === "admin" ? Acct.view("admin") : r[1] === "ayuda" ? vHelp() : r[1] === "privacidad" ? vPrivacy() : r[1] === "ajustes" ? vSettings() : r[1] === "salud" ? vHealth() : r[1] === "avisos" ? vRemind() : vHub(); break;
+    case "plan": html = r[1] === "horarios" ? vSched() : r[1] === "cuenta" ? Acct.view("cuenta") : r[1] === "notificaciones" ? Acct.view("notif") : r[1] === "admin" ? Acct.view("admin") : r[1] === "ayuda" ? vHelp() : r[1] === "privacidad" ? vPrivacy() : r[1] === "ajustes" ? vSettings() : r[1] === "salud" ? vHealth() : r[1] === "avisos" ? vRemind() : vHub(); break;
     default: html = vToday();
   }
   const back = r.length < lastDepth, tabNow = TABOF[r[0]] || "hoy", swap = !keep && !back && r.length === 1 && lastDepth === 1 && lastTab && lastTab !== tabNow; lastDepth = r.length;
@@ -693,6 +713,7 @@ function vToday() {
     ${stats3()}
     ${calCard()}
     ${nowCard(iso)}
+    ${sugBox(iso)}
     <h2 class="sec">Resumen del día</h2><div class="group">${ringsHtml(iso)}</div>
     ${sesBlock}
     <h2 class="sec">Comidas</h2>
@@ -712,6 +733,20 @@ function vToday() {
 const backupDue = () => dayNum() >= 7 && (Object.keys(S.weights).length >= 3 || totalSessions() >= 3) && (!S.lastExport || diffDays(todayISO(), S.lastExport) >= 14);
 const slotName = (m, iso) => m.slot === "Cena (post-entreno)" && !isTrainDay(iso) ? "Cena" : m.slot;
 /* "Ahora" sigue los horarios de la persona: su hora de entrenar, la de pesarse y las de sus comidas */
+function suggestions(iso) {
+  const now = new Date(), hr = now.getHours() + now.getMinutes() / 60, T = targetFor(iso), t = eatenTotals(iso), ck = S.checks[iso] || {}, water = ck.water || 0, out = [];
+  const needP = Math.round(T.p - t.p), needK = Math.round(T.kcal - t.kcal), L = x => fmt(x / 1000, 1);
+  if (hr >= 12 && needP >= 30 && needK > 150) {
+    const goal = Math.min(needP, 45), best = snackList().map(o => optView(o)).filter(o => o.m.kcal <= Math.max(350, needK)).sort((a, b) => Math.abs(a.m.p - goal) - Math.abs(b.m.p - goal))[0];
+    if (best) out.push(`Te faltan ${needP} g de proteína hoy. Una opción: ${best.name}, con ${best.m.p} g de proteína y ${best.m.kcal} kcal.`);
+  }
+  const expected = clamp((hr - 7) / 14, 0, 1) * 2800;
+  if (hr >= 10 && water < expected - 500) out.push(`Llevas ${L(water)} L de agua y a esta hora conviene ir en ${L(expected)} L. Toma un vaso ahora.`);
+  if (hr >= 20 && needK > 500) out.push(`Hoy llevas ${num(t.kcal)} de ${num(T.kcal)} kcal. Si te queda una comida, hazla completa para no quedarte corto de energía mañana.`);
+  const d = weekDelta(); if (d !== null && hr < 12 && out.length < 2) { const g = S.profile.goal || "recomp"; if (g === "fat" && d > 0.5) out.push(`Tu peso subió ${fmt(wd(d), 1)} ${wU()} en 7 días. Revisa porciones y sal de los últimos días; si sigue así, abre “Ajustes de calorías”.`); if (g === "muscle" && d < -0.3) out.push(`Tu peso bajó ${fmt(wd(Math.abs(d)), 1)} ${wU()} en 7 días y quieres subir. Agrega una comida o porciones un poco más grandes.`); }
+  return out.slice(0, 2);
+}
+const sugBox = iso => { const l = suggestions(iso); return l.length ? `<h2 class="sec">Sugerencias para hoy</h2><div class="group">${l.map(x => `<div class="row top"><div class="main"><div class="meta" style="margin:0;color:var(--label)">${esc(x)}</div></div></div>`).join("")}</div>` : ""; };
 function nextAction(iso) {
   const now = new Date(), mins = now.getHours() * 60 + now.getMinutes(), ses = sessionFor(iso), ck = S.checks[iso] || {}, e = eatenOn(iso), all = MEALS();
   const done = ses && sessionDoneOn(iso, ses.id), trainAt = tMin((S.remind && S.remind.train) || "18:00"), weighAt = tMin((S.remind && S.remind.weigh) || "07:00");
@@ -811,7 +846,7 @@ function trendText(d) {
 function vTrain() {
   const iso = todayISO(), todayId = sessionFor(iso)?.id, doneN = SESSIONS().filter(s => sessionDoneThisWeek(s.id)).length;
   return `${nav("Entreno", { sub: `${doneN} de ${SESSIONS().length} sesiones esta semana`, gear: true })}
-  ${modeSeg()}
+  ${modeSeg()}${driveBox()}
   <div class="group">${SESSIONS().map(s => {
     const done = sessionDoneThisWeek(s.id), isT = s.id === todayId;
     return `<button class="row" data-go="#/entreno/${s.id}"><span class="daycol">${s.day}</span><div class="main"><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.focus)}</div></div>${done ? '<span class="badge good">Hecho</span>' : isT ? '<span class="badge">Hoy</span>' : ""}${I.chev}</button>`;
@@ -1367,7 +1402,7 @@ function vHub() {
   <h2 class="sec">Cuenta</h2>
   <div class="group">${row("#/plan/cuenta", "Cuenta y dispositivo")}${row("#/plan/notificaciones", "Notificaciones")}</div>
   <h2 class="sec">General</h2>
-  <div class="group">${row("#/plan/ajustes", "Perfil y equipo")}${row("#/plan/salud", "Salud y alergias")}<button class="row" data-act="level"><div class="main"><div class="title">Nivel</div></div><span class="val">${esc(C.levels[S.profile.level || "medio"].name)}</span>${I.chev}</button>${row("#/plan/avisos", "Recordatorios y sonido")}${row("#/progreso/datos", "Mis datos y copia de seguridad")}
+  <div class="group">${row("#/plan/ajustes", "Perfil y equipo")}${row("#/plan/horarios", "Horarios")}${row("#/plan/salud", "Salud y alergias")}<button class="row" data-act="level"><div class="main"><div class="title">Nivel</div></div><span class="val">${esc(C.levels[S.profile.level || "medio"].name)}</span>${I.chev}</button>${row("#/plan/avisos", "Recordatorios y sonido")}${row("#/progreso/datos", "Mis datos y copia de seguridad")}
   <div class="row check-row"><label for="ph-on">Fotos de progreso (opcional)</label><input class="switch" id="ph-on" type="checkbox" ${S.photos ? "checked" : ""}></div>
   <button class="row" data-act="restart"><div class="main"><div class="title">Volver a comenzar</div></div>${I.chev}</button></div>
   <h2 class="sec">Información</h2>
@@ -1384,12 +1419,24 @@ function vHelp() {
 function vPrivacy() {
   return `${nav("Privacidad", { back: "Ajustes", to: "#/plan", sub: "Tus datos son tuyos" })}<div class="group">${C.privacy.map(h => `<div class="row top"><div class="main"><div class="title">${esc(h.t)}</div><div class="meta" style="margin-top:4px">${esc(h.d)}</div></div></div>`).join("")}</div>`;
 }
+function vSched() {
+  const r = S.remind, sc = S.sched, ms = MEALS().filter(m => tMin(m.time) !== 9999);
+  const note = m => m.slot === "Pre-entreno" ? "Solo en días de pesas." : m.slot === "Merienda" ? "Solo en días de descanso." : m.slot.startsWith("Cena") ? "Después de entrenar si ese día hay pesas." : "";
+  return `${nav("Horarios", { back: "Ajustes", to: "#/plan", sub: "Tu plan, el botón “Ahora” y tus avisos siguen estos horarios." })}
+  <h2 class="sec">Entrenar y pesarte</h2><div class="group">
+    <div class="field"><label for="rm-train">Hora de entrenar</label><input id="rm-train" type="time" value="${esc(r.train)}"></div>
+    <div class="field"><label for="rm-weigh">Hora de pesarte, en ayunas</label><input id="rm-weigh" type="time" value="${esc(r.weigh)}"></div></div>
+  <h2 class="sec">Comidas</h2><div class="group">${ms.map(m => { const t = m.time.padStart(5, "0"); return `<div class="field"><label for="sm-${esc(m.slot)}">${esc(m.slot.startsWith("Cena") ? "Cena" : m.slot)}</label><input id="sm-${esc(m.slot)}" data-sm="${esc(m.slot)}" type="time" value="${t}">${note(m) ? `<p class="hint">${note(m)}</p>` : ""}</div>`; }).join("")}</div>
+  <p class="note">Tienes ${MEAL_N()} comidas al día. Puedes cambiar cuántas en Ajustes, Perfil y equipo.</p>
+  <h2 class="sec">Agua</h2><div class="group">${sc.water.map((t, i) => `<div class="field"><label for="sw-${i}">Recordatorio ${i + 1}</label><input id="sw-${i}" data-sw="${i}" type="time" value="${esc(t)}"></div>`).join("")}</div>
+  <h2 class="sec">Revisión semanal</h2><div class="group"><div class="field"><label for="sc-review">Hora de la revisión del domingo</label><input id="sc-review" type="time" value="${esc(sc.review)}"></div></div>
+  <div class="btn-wrap"><button class="btn quiet" data-act="schedreset">Volver a los horarios sugeridos</button></div>`;
+}
 function vRemind() {
   const r = S.remind;
   return `${nav("Recordatorios", { back: "Ajustes", to: "#/plan", sub: "Se añaden a tu calendario y avisan aunque la app esté cerrada" })}
   <div class="group">
-    <div class="field"><label for="rm-train">Hora de entrenar</label><input id="rm-train" type="time" value="${esc(r.train)}"></div>
-    <div class="field"><label for="rm-weigh">Hora de pesarte (todos los días)</label><input id="rm-weigh" type="time" value="${esc(r.weigh)}"></div>
+    <button class="row" data-go="#/plan/horarios"><div class="main"><div class="title">Horarios</div><div class="meta">Entrenar a las ${esc(r.train)}, pesarte a las ${esc(r.weigh)}. Toca para cambiarlos.</div></div>${I.chev}</button>
   </div>
   <div class="btn-wrap"><button class="btn" data-act="ics">Añadir al calendario</button></div>
   <h2 class="sec">Descanso</h2>
@@ -1716,8 +1763,11 @@ function bind() {
   $$("[data-rec]").forEach(b => b.addEventListener("click", () => { recapOff = Math.min(0, recapOff + +b.dataset.rec); refresh(); }));
   $$("[data-kind]").forEach(b => b.addEventListener("click", () => { shareKind = b.dataset.kind; }, true));
   $$("button[data-sharew]").forEach(b => b.addEventListener("click", () => { segMove(b); shareW = b.dataset.sharew; drawShare(); }));
-  $("#rm-train")?.addEventListener("change", e => { if (/^\d\d:\d\d$/.test(e.target.value)) { S.remind.train = e.target.value; save(); } });
-  $("#rm-weigh")?.addEventListener("change", e => { if (/^\d\d:\d\d$/.test(e.target.value)) { S.remind.weigh = e.target.value; save(); } });
+  $("#rm-train")?.addEventListener("change", e => { if (/^\d\d:\d\d$/.test(e.target.value)) { S.remind.train = e.target.value; save(); window.Acct && Acct.syncPrefs && Acct.syncPrefs(); } });
+  $$("[data-sm]").forEach(i => i.addEventListener("change", () => { if (/^\d\d:\d\d$/.test(i.value)) { S.sched.meals[i.dataset.sm] = i.value; save(); window.Acct && Acct.syncPrefs && Acct.syncPrefs(); toast("Horario guardado"); } }));
+  $$("[data-sw]").forEach(i => i.addEventListener("change", () => { if (/^\d\d:\d\d$/.test(i.value)) { S.sched.water[+i.dataset.sw] = i.value; save(); window.Acct && Acct.syncPrefs && Acct.syncPrefs(); toast("Horario guardado"); } }));
+  $("#sc-review")?.addEventListener("change", e => { if (/^\d\d:\d\d$/.test(e.target.value)) { S.sched.review = e.target.value; save(); window.Acct && Acct.syncPrefs && Acct.syncPrefs(); toast("Horario guardado"); } });
+  $("#rm-weigh")?.addEventListener("change", e => { if (/^\d\d:\d\d$/.test(e.target.value)) { S.remind.weigh = e.target.value; save(); window.Acct && Acct.syncPrefs && Acct.syncPrefs(); } });
   $("#wk-on")?.addEventListener("change", e => { S.wake = e.target.checked; save(); syncWake(); });
   $("#nt-on")?.addEventListener("change", async e => { if (e.target.checked) { try { const p = "Notification" in window ? await Notification.requestPermission() : "denied"; S.notify = p === "granted"; if (!S.notify) { e.target.checked = false; toast("Permiso de notificaciones denegado"); } } catch (er) { S.notify = false; e.target.checked = false; } } else S.notify = false; save(); });
   $("#sd-on")?.addEventListener("change", e => { S.sound = e.target.checked; save(); if (S.sound) beep(); });
@@ -1984,6 +2034,8 @@ function act(a, el) {
     shopData().forEach(([t, it]) => it.forEach(([n, qty]) => out.push([t, n, qty])));
     const text = "\ufeff" + out.map(r => r.map(q).join(",")).join("\r\n");
     const l = document.createElement("a"); l.href = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" })); l.download = `menu-${S.profile.name ? S.profile.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" : ""}${iso}.csv`; l.click(); toast("Menú descargado");
+  } else if (a === "schedreset") {
+    S.sched = { meals: {}, water: ["11:00", "15:00", "19:00"], review: "19:00" }; save(); window.Acct && Acct.syncPrefs && Acct.syncPrefs(); toast("Horarios sugeridos"); render();
   } else if (a === "reset") {
     if (confirm("¿Borrar todos tus datos y reiniciar? No se puede deshacer.")) { LS.removeItem(KEY); S = defaults(); go("#/inicio"); render(); }
   }
@@ -1993,7 +2045,7 @@ if (window.Store && Store.available()) {
   if (!LS.getItem(KEY)) Store.getKV("backup").then(b => { if (b) { try { const n = normalizeState(JSON.parse(b)); if (!n.profile || !n.start) return; S = n; LS.setItem(KEY, JSON.stringify(n)); _plan = { k: "", v: null }; toast("Recuperamos tus datos"); go("#/hoy"); if (parseHash()[0] === "hoy") render(); } catch {} } }).catch(() => {});
   if (S.start) Store.persist();
 }
-if (location.hostname === "localhost" && LS.getItem("reto90.debug")) window.__reto = { nextAction, get S() { return S; }, set S(v) { S = v; }, MEALS, weekMenu, shopData, avoidSet, ALG, cons, SESSIONS, planCalc, D, C, blocksOf, altsFor, suggest, equip, render };
+if (location.hostname === "localhost" && LS.getItem("reto90.debug")) window.__reto = { nextAction, suggestions, drive, get S() { return S; }, set S(v) { S = v; }, MEALS, weekMenu, shopData, avoidSet, ALG, cons, SESSIONS, planCalc, D, C, blocksOf, altsFor, suggest, equip, render };
 const applyTheme = () => {
   const t = S.theme === "light" || S.theme === "dark" ? S.theme : null, root = document.documentElement;
   if (t) root.dataset.theme = t; else delete root.dataset.theme;
@@ -2014,7 +2066,7 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 }
 window.R90 = {
   nav, toast, go, refresh, render: () => render(), openSheet, closeSheet, I, seg: segHtml,
-  hasPlan: () => !!(S.start && S.profile), remind: () => S.remind, mealTimes: () => { try { return dayMeals(false).map(m => m.time).filter(t => /^\d/.test(t)).map(t => t.padStart(5, "0")); } catch { return []; } }, trainDays: () => { try { return [...new Set(SESSIONS().map(x => x.wd).filter(d => d >= 0))]; } catch { return []; } },
+  hasPlan: () => !!(S.start && S.profile), remind: () => S.remind, sched: () => S.sched, mealTimes: () => { try { return dayMeals(false).map(m => m.time).filter(t => /^\d/.test(t)).map(t => t.padStart(5, "0")); } catch { return []; } }, trainDays: () => { try { return [...new Set(SESSIONS().map(x => x.wd).filter(d => d >= 0))]; } catch { return []; } },
   snapshot: () => JSON.parse(JSON.stringify(S)),
   adopt: raw => { S = normalizeState(raw); _plan = { k: "", v: null }; try { LS.setItem(KEY, JSON.stringify(S)); LS.setItem(KEY + ".saved", String(Date.now())); } catch {} applyTheme(); applyAccent(); if (S.start && window.Store) Store.setKV("backup", JSON.stringify(S)).catch(() => {}); render(); },
   wipe: async () => {
