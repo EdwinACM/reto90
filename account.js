@@ -119,6 +119,10 @@
   }
 
   /* ---------- formularios ---------- */
+  async function loadPending() {
+    try { U.pending = await C.pendingSignups(); } catch (e) { U.pending = []; }
+    if (/^#\/acceso\/crear/.test(location.hash)) R().render();
+  }
   const pwHint = "10 caracteres o más, con mayúscula, minúscula, número y símbolo.";
   const err = (f, m) => { const e = $(".form-err", f); if (e) { e.textContent = m; e.hidden = !m; e.classList.remove("shake"); if (m) { void e.offsetWidth; e.classList.add("shake"); } } };
   const busy = (f, on) => { const b = $("button[type=submit]", f); if (b) { b.disabled = on; b.dataset.t = b.dataset.t || b.textContent; b.textContent = on ? "Un momento…" : b.dataset.t; } };
@@ -149,10 +153,14 @@
     }
     if (sub === "crear") {
       if (st === "ok") { setTimeout(() => R().go("#/hoy")); return ""; }
-      return `${nav("Crea tu cuenta", "Escribe tu código y elige tu usuario y tu contraseña.")}
+      if (!U.pending || Date.now() - (U.pendAt || 0) > 60000) { U.pendAt = Date.now(); loadPending(); }
+      if (!U.pending) return `${nav("Crea tu cuenta", "Buscando tu usuario…")}<div class="group"><div class="empty">Un momento…</div></div>`;
+      if (!U.pending.length) return `${nav("Crea tu cuenta", "Todavía no hay ningún usuario esperando registro.")}<div class="group"><div class="prose"><p>Pide a quien administra la app que cree tu usuario. Te enviará un código para que termines aquí.</p></div></div><div class="btn-wrap"><button class="btn" data-act="acct-refreshpend">Revisar de nuevo</button></div>`;
+      return `${nav("Crea tu cuenta", "Elige tu usuario y escribe el código que te enviaron.")}
       <form data-acct="signup" novalidate><div class="group">
-        <div class="field"><label for="i">Código de invitación</label><input id="i" name="i" type="text" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" enterkeyhint="next" required></div>
-        ${userField(true)}${pwField("p", "Contraseña", "new-password", pwHint)}${showPw}</div>
+        <div class="field"><label for="u">Tu usuario</label><select id="u" name="u" required><option value="" disabled selected>Elige tu usuario</option>${U.pending.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("")}</select></div>
+        <div class="field"><label for="i">Tu código</label><input id="i" name="i" type="text" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="XXXXX-XXXXX" maxlength="14" enterkeyhint="next" required></div>
+        ${pwField("p", "Crea tu contraseña", "new-password", pwHint)}${showPw}</div>
       <p class="form-err note err" role="alert" hidden></p>
       <div class="btn-wrap"><button class="btn" type="submit">Crear cuenta</button></div></form>
       <p class="note">Al crearla aceptas que tus datos de entrenamiento, comidas y medidas se guarden en tu cuenta (<a href="#/plan/privacidad">ver privacidad</a>). Las fotos nunca se suben.</p>`;
@@ -203,7 +211,7 @@
       }
       if (kind === "signup") {
         const u = v("u").trim().toLowerCase(), p = v("p");
-        if (!v("i").trim()) return err(f, "Escribe tu código de invitación.");
+        if (!u) return err(f, "Elige tu usuario de la lista."); if (!v("i").trim()) return err(f, "Escribe tu código.");
         if (!C.userOk(u)) return err(f, "El usuario debe tener 3 a 20 letras minúsculas, números o guion bajo.");
         const pp = C.pwProblem(p); if (pp) return err(f, pp + ".");
         busy(f, true);
@@ -259,19 +267,24 @@
     let body = "";
     const bk = +ls.get("reto90.bk") || 0, bkDays = bk ? Math.floor((Date.now() - bk) / 864e5) : null, admins = AD.users.filter(u => u.role === "admin" && !u.blocked).length;
     const warn = (bkDays === null || bkDays >= 7 ? `<div class="group" style="margin-bottom:12px"><div class="row top"><div class="main"><div class="title">Respaldo pendiente</div><div class="meta">${bkDays === null ? "Aún no descargas ningún respaldo." : "Hace " + bkDays + " días del último."} Es tu única copia fuera de la nube.</div></div><button class="btn small" data-act="acct-backup">Respaldar</button></div></div>` : "")
-      + (AD.users.length && admins < 2 ? `<div class="group" style="margin-bottom:12px"><div class="row top"><div class="main"><div class="title">Cuenta de recuperación</div><div class="meta">Solo hay un administrador. Crea una invitación para un segundo, por si pierdes este teléfono.</div></div><button class="btn small" data-act="acct-recinv">Crear</button></div></div>` : "");
-    if (t === "users") body = (AD.users.length ? `<div class="group">${AD.users.map(u => `<button class="row" data-act="acct-user" data-id="${esc(u.id)}"><div class="main"><div class="title">${esc(u.username)}${u.role === "admin" ? ' <span class="tag">Admin</span>' : ""}${u.blocked ? ' <span class="tag bad">Bloqueado</span>' : ""}${u.pending ? ' <span class="tag warn">Pide cambio</span>' : ""}</div><div class="meta">${esc(u.device_name || "Sin dispositivo")}, visto ${ago(u.last_seen)}</div></div>${R_.I.chev}</button>`).join("")}</div>` : `<div class="group"><div class="empty">Sin usuarios.</div></div>`);
-    if (t === "invites") body = `<div class="group"><div class="field"><label for="iv-note">Para quién (nota opcional)</label><input id="iv-note" type="text" maxlength="80" autocomplete="off"></div>
-      <div class="field"><label for="iv-days">Vigencia</label><select id="iv-days"><option value="1">1 día</option><option value="3">3 días</option><option value="7" selected>7 días</option><option value="30">30 días</option></select></div>
-      <div class="field"><label for="iv-role">Rol</label><select id="iv-role"><option value="user">Usuario</option><option value="admin">Administrador</option></select></div></div>
-      <div class="btn-wrap"><button class="btn" data-act="acct-newinv">Crear invitación</button></div>
-      ${AD.code ? `<div class="group" style="margin-top:14px"><div class="row top"><div class="main"><div class="title" style="font-variant-numeric:tabular-nums;letter-spacing:.02em;word-break:break-all">${esc(AD.code)}</div><div class="meta">Cópiala ahora: no se vuelve a mostrar.</div></div><button class="btn small" data-act="acct-copy">Copiar</button></div></div>` : ""}
-      <h2 class="sec">Creadas</h2>${AD.invites.length ? `<div class="group">${AD.invites.map(i => `<div class="row top"><div class="main"><div class="title">${esc(i.note || "Sin nota")} <span class="tag">${i.role === "admin" ? "Admin" : "Usuario"}</span></div><div class="meta">${i.used_by ? "Usada por " + esc(i.used_by) + ", " + dt(i.used_at) : (new Date(i.expires_at) < new Date() ? "Vencida" : "Vence " + dt(i.expires_at))}</div></div>${i.used_by ? "" : `<button class="nb-btn" data-act="acct-revinv" data-id="${esc(i.id)}">Revocar</button>`}</div>`).join("")}</div>` : `<div class="group"><div class="empty">Aún no hay invitaciones.</div></div>`}`;
+      ;
+    const act_admins = AD.users.filter(u => u.role === "admin" && !u.blocked), meName = (C.state.me || {}).username;
+    const recov = !AD.users.length ? "" : act_admins.length >= 2
+      ? `<div class="group" style="margin-bottom:12px"><div class="row top"><div class="main"><div class="title">Cuenta de recuperación <span class="tag ok">Atendido</span></div><div class="meta">Ya hay otro administrador que puede entrar si tú pierdes el acceso.</div></div></div></div>`
+      : `<div class="group" style="margin-bottom:12px"><div class="row top"><div class="main"><div class="title">Cuenta de recuperación</div><div class="meta">Solo hay un administrador activo. Crea un segundo, o dale permisos a un usuario que ya tengas.</div></div><button class="btn small" data-act="acct-recinv">Crear</button></div></div>`;
+    const adminsBox = !AD.users.length ? "" : `<h2 class="sec">Administradores activos (${act_admins.length})</h2><div class="group">${act_admins.map(u => `<button class="row" data-act="acct-user" data-id="${esc(u.id)}"><div class="main"><div class="title">${esc(u.username)}${u.username === meName ? " (tú)" : ""}</div><div class="meta">${esc(u.device_name || "Sin dispositivo")}, visto ${ago(u.last_seen)}</div></div>${R_.I.chev}</button>`).join("")}</div>`;
+    if (t === "users") body = adminsBox + (AD.users.length ? `<h2 class="sec">Todos los usuarios</h2>` : "") + (AD.users.length ? `<div class="group">${AD.users.map(u => `<button class="row" data-act="acct-user" data-id="${esc(u.id)}"><div class="main"><div class="title">${esc(u.username)}${u.role === "admin" ? ' <span class="tag">Admin</span>' : ""}${u.blocked ? ' <span class="tag bad">Bloqueado</span>' : ""}${u.pending ? ' <span class="tag warn">Pide cambio</span>' : ""}</div><div class="meta">${esc(u.device_name || "Sin dispositivo")}, visto ${ago(u.last_seen)}</div></div>${R_.I.chev}</button>`).join("")}</div>` : `<div class="group"><div class="empty">Sin usuarios.</div></div>`);
+    if (t === "invites") body = `<div class="group"><div class="field"><label for="iv-user">Usuario nuevo</label><input id="iv-user" type="text" maxlength="20" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="por ejemplo: ana" value="${esc(AD.draftUser || "")}"><p class="hint">Es el nombre con el que entrará. De 3 a 20 letras minúsculas, números o guion bajo.</p></div>
+      <div class="field"><label for="iv-role">Tipo de cuenta</label><select id="iv-role"><option value="user" ${AD.role === "admin" ? "" : "selected"}>Usuario</option><option value="admin" ${AD.role === "admin" ? "selected" : ""}>Administrador</option></select></div>
+      <div class="field"><label for="iv-days">El código sirve durante</label><select id="iv-days"><option value="1">1 día</option><option value="3">3 días</option><option value="7" selected>7 días</option><option value="30">30 días</option></select></div></div>
+      <div class="btn-wrap"><button class="btn" data-act="acct-newinv">Crear usuario y código</button></div>
+      ${AD.code ? `<div class="group" style="margin-top:14px"><div class="row top"><div class="main"><div class="title">Código para ${esc(AD.codeUser)}</div><div class="code" aria-label="Código">${esc(AD.code)}</div><div class="meta">Envíaselo a esa persona. Para entrar elegirá su usuario en “Crear mi cuenta” y escribirá este código. No se vuelve a mostrar.</div></div></div><div class="btn-wrap" style="display:flex;gap:8px;padding:0 16px 14px"><button class="btn" data-act="acct-share">Enviar</button><button class="btn quiet" data-act="acct-copy">Copiar código</button></div></div>` : ""}
+      <h2 class="sec">Esperando registro y registrados</h2>${AD.invites.length ? `<div class="group">${AD.invites.map(i => { const exp = new Date(i.expires_at) < new Date(), st = i.used_by ? `Registrado el ${dt(i.used_at)}` : exp ? "El código venció" : `Esperando registro, vence ${dt(i.expires_at)}`; return `<div class="row top"><div class="main"><div class="title">${esc(i.username || "Sin usuario")} <span class="tag">${i.role === "admin" ? "Admin" : "Usuario"}</span></div><div class="meta">${st}</div></div>${i.used_by ? "" : `<button class="nb-btn" data-act="acct-revinv" data-id="${esc(i.id)}">Quitar</button>`}</div>`; }).join("")}</div>` : `<div class="group"><div class="empty">Aún no has creado usuarios nuevos.</div></div>`}`;
     if (t === "audit") body = `${AD.audit.length ? `<div class="group">${AD.audit.map(a => `<div class="row top"><div class="main"><div class="title">${esc(EVT[a.event] || a.event)}</div><div class="meta">${esc(a.user || "—")}, ${dt(a.at)}</div></div></div>`).join("")}</div>` : `<div class="group"><div class="empty">Sin eventos.</div></div>`}
       <h2 class="sec">Respaldo</h2><div class="group"><button class="row" data-act="acct-backup"><div class="main"><div class="title">Descargar respaldo cifrado</div><div class="meta">Los datos de todos, cifrados con tu frase. Hazlo cada semana.</div></div>${R_.I.chev}</button></div>`;
-    return `${R_.nav("Administración", { back: "Cuenta", to: "#/plan/cuenta" })}${seg}<div style="height:12px"></div>${warn}${body}`;
+    return `${R_.nav("Administración", { back: "Cuenta", to: "#/plan/cuenta" })}${seg}<div style="height:12px"></div>${warn}${t === "users" ? recov : ""}${body}`;
   }
-  const EVT = { signup: "Registro", login: "Inicio de sesión", device_registered: "Dispositivo registrado", device_change_requested: "Pidió cambio de dispositivo", device_change_approved: "Cambio de dispositivo aprobado", device_change_rejected: "Cambio rechazado", invite_created: "Invitación creada", invite_revoked: "Invitación revocada", blocked: "Cuenta bloqueada", unblocked: "Cuenta desbloqueada", password_reset_by_admin: "Contraseña restablecida", password_changed: "Contraseña cambiada", account_deleted: "Cuenta eliminada", user_deleted_by_admin: "Usuario eliminado", verify_failed: "Dispositivo no coincide", locked_out: "Bloqueo por intentos" };
+  const EVT = { signup: "Registro", login: "Inicio de sesión", device_registered: "Dispositivo registrado", device_change_requested: "Pidió cambio de dispositivo", device_change_approved: "Cambio de dispositivo aprobado", device_change_rejected: "Cambio rechazado", invite_created: "Usuario nuevo creado", invite_revoked: "Invitación revocada", role_changed: "Cambio de permisos", blocked: "Cuenta bloqueada", unblocked: "Cuenta desbloqueada", password_reset_by_admin: "Contraseña restablecida", password_changed: "Contraseña cambiada", account_deleted: "Cuenta eliminada", user_deleted_by_admin: "Usuario eliminado", verify_failed: "Dispositivo no coincide", locked_out: "Bloqueo por intentos" };
   async function adminRefresh() {
     try {
       const [u, i, a] = await Promise.all([C.rpc("admin_list_users"), C.rpc("admin_list_invites"), C.rpc("admin_audit", { p_limit: 80 })]);
@@ -284,6 +297,7 @@
     R().openSheet(u.username, `<div class="group"><div class="row top"><div class="main"><div class="title">${esc(u.device_name || "Sin dispositivo")}</div><div class="meta">Alta ${dt(u.created_at)}, visto ${ago(u.last_seen)}</div></div></div></div>
       ${u.pending ? `<h2 class="sec">Solicitud de cambio</h2><div class="group"><div class="row top"><div class="main"><div class="title">${esc(u.pending)}</div><div class="meta">Aprueba solo si confirmaste con la persona que es ella.</div></div></div></div><div class="btn-wrap" style="display:flex;gap:8px"><button class="btn" data-act="acct-dec" data-id="${esc(id)}" data-ok="1">Aprobar</button><button class="btn quiet" data-act="acct-dec" data-id="${esc(id)}" data-ok="0">Rechazar</button></div>` : ""}
       ${self ? `<p class="note">Esta es tu cuenta.</p>` : `<h2 class="sec">Acciones</h2><div class="group">
+        <button class="row" data-act="acct-role" data-id="${esc(id)}" data-r="${u.role === "admin" ? "user" : "admin"}"><div class="main"><div class="title">${u.role === "admin" ? "Quitar permisos de administrador" : "Hacer administrador"}</div><div class="meta">${u.role === "admin" ? "Pasará a ser un usuario normal." : "Podrá gestionar invitaciones, dispositivos y usuarios."}</div></div></button>
         <button class="row" data-act="acct-pw" data-id="${esc(id)}"><div class="main"><div class="title">Poner contraseña temporal</div></div></button>
         <button class="row" data-act="acct-blk" data-id="${esc(id)}" data-b="${u.blocked ? 0 : 1}"><div class="main"><div class="title">${u.blocked ? "Desbloquear" : "Bloquear"} cuenta</div></div></button>
         <button class="row" data-act="acct-deluser" data-id="${esc(id)}"><div class="main"><div class="title" style="color:var(--bad)">Eliminar usuario y sus datos</div></div></button></div>`}`,
@@ -341,11 +355,12 @@
     try { await pushDisable(); } catch (e) {}
     await C.signOut(); U.pw = ""; U.asked = false; ls.del("reto90.lock"); ls.del("reto90.bio"); PS.ready = false; await R().wipe(); R().go("#/acceso/bienvenida"); R().render();
   }
-  const ADMIN_ACTS = new Set(["acct-admin", "acct-newinv", "acct-copy", "acct-revinv", "acct-user", "acct-dec", "acct-blk", "acct-deluser", "acct-pw", "acct-backup", "acct-recinv"]);
+  const ADMIN_ACTS = new Set(["acct-admin", "acct-newinv", "acct-copy", "acct-revinv", "acct-user", "acct-dec", "acct-blk", "acct-deluser", "acct-pw", "acct-backup", "acct-recinv", "acct-role", "acct-share"]);
   async function act(a, el) {
     if (ADMIN_ACTS.has(a) && !(C.state.me && C.state.me.role === "admin" && C.state.status === "ok")) return toast("No tienes permiso para esto");
     try {
-      if (a === "acct-retry") { C.state.status = "boot"; U.booting = false; R().render(); }
+      if (a === "acct-refreshpend") { U.pending = null; U.pendAt = 0; R().render(); }
+      else if (a === "acct-retry") { C.state.status = "boot"; U.booting = false; R().render(); }
       else if (a === "acct-out") { if (confirm("Se borrarán los datos de este dispositivo, incluidas las fotos (no se guardan en la nube). Tus datos siguen en tu cuenta. ¿Cerrar sesión?")) await signOut(); }
       else if (a === "acct-askdev") { U.asked = true; await C.requestChange(); C.state.status = "pending"; R().render(); }
       else if (a === "acct-cancelreq") { try { await C.rpc("cancel_my_request"); } catch (e) {} U.asked = true; C.state.status = "need_device"; R().render(); }
@@ -361,19 +376,30 @@
         else if (t) toast("El usuario no coincide");
       }
       else if (a === "acct-newinv") {
-        const r = await C.rpc("admin_create_invite", { p_note: $("#iv-note").value, p_role: $("#iv-role").value, p_days: +$("#iv-days").value });
-        AD.code = r.code; await adminRefresh();
+        const u = ($("#iv-user").value || "").trim().toLowerCase(); AD.draftUser = u; AD.role = $("#iv-role").value;
+        if (!C.userOk(u)) return toast("El usuario debe tener de 3 a 20 letras minúsculas, números o guion bajo");
+        const r = await C.rpc("admin_create_invite", { p_username: u, p_role: AD.role, p_days: +$("#iv-days").value });
+        AD.code = r.code; AD.codeUser = r.username; AD.draftUser = ""; AD.role = "user"; await adminRefresh();
       }
       else if (a === "acct-copy") { try { await navigator.clipboard.writeText(AD.code); toast("Código copiado"); } catch (e) { toast("Selecciona y copia el código"); } }
-      else if (a === "acct-revinv") { if (confirm("¿Revocar esta invitación?")) { await C.rpc("admin_revoke_invite", { p_id: el.dataset.id }); adminRefresh(); } }
+      else if (a === "acct-share") {
+        const msg = `Hola, ya puedes crear tu cuenta en R90: ${location.origin}${location.pathname.replace(/index\.html$/, "")}\nToca “Crear mi cuenta”, elige el usuario ${AD.codeUser} y escribe este código: ${AD.code}`;
+        try { if (navigator.share) await navigator.share({ text: msg }); else { await navigator.clipboard.writeText(msg); toast("Mensaje copiado"); } } catch (e) { if (e && e.name !== "AbortError") toast("No se pudo enviar. Copia el código."); }
+      }
+      else if (a === "acct-revinv") { if (confirm("¿Quitar este usuario pendiente? Su código dejará de funcionar.")) { await C.rpc("admin_revoke_invite", { p_id: el.dataset.id }); adminRefresh(); } }
       else if (a === "acct-user") userSheet(el.dataset.id);
       else if (a === "acct-dec") { if (el.dataset.ok === "1" && !(await bio())) return; await C.rpc("admin_decide_request", { p_user: el.dataset.id, p_approve: el.dataset.ok === "1" }); R().closeSheet(); toast(el.dataset.ok === "1" ? "Cambio aprobado" : "Cambio rechazado"); adminRefresh(); }
       else if (a === "acct-blk") { await C.rpc("admin_set_blocked", { p_user: el.dataset.id, p_blocked: el.dataset.b === "1" }); R().closeSheet(); toast(el.dataset.b === "1" ? "Cuenta bloqueada" : "Cuenta desbloqueada"); adminRefresh(); }
       else if (a === "acct-deluser") { const u = AD.users.find(x => x.id === el.dataset.id); if (u && prompt(`Se eliminará a ${u.username} y todos sus datos. Escribe su usuario para confirmar.`) === u.username && await bio()) { await C.rpc("admin_delete_user", { p_user: el.dataset.id }); R().closeSheet(); toast("Usuario eliminado"); adminRefresh(); } }
       else if (a === "acct-pw") { if (!(await bio())) return; R().openSheet("Contraseña temporal", `<form data-acct="adminpw" data-id="${esc(el.dataset.id)}" novalidate><div class="group">${pwField("t", "Contraseña temporal", "off", "Díctala por un canal seguro. La persona deberá cambiarla al entrar.")}</div><p class="form-err note err" role="alert" hidden></p><div class="btn-wrap"><button class="btn" type="submit">Guardar</button></div></form>`); }
       else if (a === "acct-backup") backup();
+      else if (a === "acct-role") {
+        const u = AD.users.find(x => x.id === el.dataset.id); if (!u) return; const to = el.dataset.r;
+        if (!confirm(to === "admin" ? `¿Dar permisos de administrador a ${u.username}? Podrá ver y gestionar a todos los usuarios.` : `¿Quitar los permisos de administrador a ${u.username}?`)) return;
+        if (!(await bio())) return; await C.rpc("admin_set_role", { p_user: u.id, p_role: to }); R().closeSheet(); toast(to === "admin" ? `${u.username} ahora es administrador` : `${u.username} ya no es administrador`); adminRefresh();
+      }
       else if (a === "acct-pntest") { await C.rpc("push_test"); toast("Enviada. Debe llegar en unos segundos."); }
-      else if (a === "acct-recinv") { const r = await C.rpc("admin_create_invite", { p_note: "Recuperación", p_role: "admin", p_days: 7 }); AD.code = r.code; AD.tab = "invites"; await adminRefresh(); }
+      else if (a === "acct-recinv") { AD.tab = "invites"; AD.role = "admin"; R().refresh(); setTimeout(() => { const f = $("#iv-user"); if (f) f.focus(); }, 80); toast("Escribe el usuario del nuevo administrador"); }
     } catch (e) { toast(C.human(e)); }
   }
   async function signOutKeep() { await C.boot(); R().render(); }

@@ -88,6 +88,7 @@
     correo_invalido: "Usuario no válido.", no_verificado: "Este dispositivo aún no está autorizado.", bloqueado: "Tu cuenta está bloqueada. Habla con el administrador.", demasiados_intentos: "Demasiados intentos. Espera unos minutos.",
     solo_admin: "Solo el administrador puede hacer esto.", dispositivo_existente: "Ya hay un dispositivo registrado para esta cuenta.", sin_dispositivo: "Tu cuenta aún no tiene dispositivo registrado.",
     sin_solicitud: "No hay solicitud pendiente.", estado_invalido: "Los datos no son válidos o son demasiado grandes.", no_a_ti_mismo: "No puedes hacerlo con tu propia cuenta.", contrasena_corta: "La contraseña temporal debe tener al menos 10 caracteres.",
+    usuario_existente: "Ese usuario ya existe.", usuario_inexistente: "Ese usuario ya no existe.", rol_invalido: "Tipo de cuenta no válido.", dias_invalidos: "Elige cuántos días sirve el código.",
     sin_suscripcion: "Activa las notificaciones primero.", demasiado_rapido: "Espera unos segundos antes de otra prueba.", no_autorizado: "No autorizado.",
     "Invalid login credentials": "Usuario o contraseña incorrectos.", "Database error saving new user": "No se pudo crear la cuenta. Revisa la invitación y el nombre de usuario.", "User already registered": "Ese usuario ya existe.",
     user_already_exists: "Ese usuario ya existe.", weak_password: "La contraseña no cumple los requisitos.", over_request_rate_limit: "Demasiados intentos. Espera unos minutos.", user_banned: "Tu cuenta está bloqueada. Habla con el administrador.",
@@ -140,6 +141,7 @@
     setSess(j);
     return evaluate();
   }
+  const pendingSignups = async () => { const r = await http("/rest/v1/rpc/pending_signups", { method: "POST", body: {} }); return Array.isArray(r) ? r.filter(userOk) : []; };
   async function signOut() {
     try { if (sess) await http("/auth/v1/logout", { method: "POST", token: sess.access_token }); } catch (e) {}
     clearSess(); ls.del(OK_KEY); ls.del(SYNC_KEY); state.status = "anon"; state.me = null;
@@ -164,5 +166,5 @@
     return r;
   }
 
-  window.Cloud = { state, boot, signIn, signUp, signOut, changePassword, requestChange, pollRequest, evaluate, rpc, pull, push, syncMeta, setSyncMeta, deviceToken, deviceName, pwProblem, pwned, userOk, human, hasSession: () => !!sess };
+  window.Cloud = { pendingSignups, state, boot, signIn, signUp, signOut, changePassword, requestChange, pollRequest, evaluate, rpc, pull, push, syncMeta, setSyncMeta, deviceToken, deviceName, pwProblem, pwned, userOk, human, hasSession: () => !!sess };
 })();
