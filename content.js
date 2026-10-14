@@ -13,81 +13,82 @@ window.CONTENT = {
   diets: { omni: "Como de todo", veg: "Vegetariano (huevo y lácteos)" },
 
   phases: [
-    { n: 1, name: "Base", weeks: [1, 4], rir: "3 → 2", steps: 8000, cardioAdd: 0, cardio: "20 min al terminar las pesas y 35 min en la sesión larga", goal: "Aprender la rutina, encontrar tus cargas de trabajo y fijar horarios. Semana 4 es de descarga." },
-    { n: 2, name: "Progresión", weeks: [5, 8], rir: "2 → 1", steps: 9000, cardioAdd: 5, cardio: "25 min al terminar las pesas y 40 min en la sesión larga", goal: "Subir peso o repeticiones cada semana en los básicos. Semana 8 es de descarga." },
-    { n: 3, name: "Intensificar", weeks: [9, 12], rir: "1–2 (última serie a 0–1)", steps: 10000, cardioAdd: 10, cardio: "30 min al terminar las pesas y 45 min en la sesión larga", goal: "Mejores marcas en los ejercicios principales y, si te recuperas bien, intervalos en el cardio del viernes." },
-    { n: 4, name: "Cierre", weeks: [13, 13], rir: "1–2", steps: 10000, cardioAdd: 10, cardio: "30 min al terminar las pesas y 45 min en la sesión larga", goal: "Días 85–90: marcas finales, medidas y decidir la siguiente fase." },
+    { n: 1, name: "Base", weeks: [1, 4], rir: "3 → 2", steps: 8000, cardioAdd: 0, cardio: "20 min al terminar las pesas y 35 min en la sesión larga", goal: "Aprendes la rutina, encuentras los pesos con los que trabajas bien y fijas tus horarios. La semana 4 es de descarga." },
+    { n: 2, name: "Progresión", weeks: [5, 8], rir: "2 → 1", steps: 9000, cardioAdd: 5, cardio: "25 min al terminar las pesas y 40 min en la sesión larga", goal: "Subes peso o repeticiones cada semana en los ejercicios principales. La semana 8 es de descarga." },
+    { n: 3, name: "Intensificar", weeks: [9, 12], rir: "1–2 (última serie a 0–1)", steps: 10000, cardioAdd: 10, cardio: "30 min al terminar las pesas y 45 min en la sesión larga", goal: "Buscas tus mejores marcas en los ejercicios principales. Si te recuperas bien, haces intervalos en el cardio del viernes." },
+    { n: 4, name: "Cierre", weeks: [13, 13], rir: "1–2", steps: 10000, cardioAdd: 10, cardio: "30 min al terminar las pesas y 45 min en la sesión larga", goal: "Semana 13: tus marcas finales, tus medidas y decidir qué sigue." },
   ],
 
   milestones: [
-    { day: 14, t: "Primer ajuste", d: "Con 2 semanas de datos, revisa si la tendencia de peso va en rango y ajusta calorías si hace falta." },
-    { day: 30, t: "Mes 1", pct: [1.4, 2.7], cm: [1, 3], d: "cintura −{cm} cm. Subiste carga o repeticiones en la mayoría de ejercicios." },
-    { day: 60, t: "Mes 2", pct: [3.4, 5.4], cm: [3, 5], d: "cintura −{cm} cm. Cambio visible en abdomen y cintura." },
-    { day: 90, t: "Día 90", pct: [4.7, 8], cm: [5, 8], d: "cintura −{cm} cm. Fuerza igual o mayor. Son estimaciones: tu cuerpo marca el ritmo real." },
+    { day: 14, t: "Primer ajuste", d: "Ya tienes dos semanas de datos. Mira si tu peso baja al ritmo esperado y, si no, ajusta las calorías." },
+    { day: 30, t: "Mes 1", pct: [1.4, 2.7], cm: [1, 3], d: "cintura −{cm} cm. Subes peso o repeticiones en casi todos los ejercicios." },
+    { day: 60, t: "Mes 2", pct: [3.4, 5.4], cm: [3, 5], d: "cintura −{cm} cm. El cambio ya se nota en el abdomen y la cintura." },
+    { day: 90, t: "Mes 3", pct: [4.7, 8], cm: [5, 8], d: "cintura −{cm} cm y fuerza igual o mayor. Son cálculos aproximados: cada cuerpo avanza a su ritmo." },
   ],
 
   weekFocus: {
-    1: "Aprende el orden, anota cada serie. Termina cada serie con 3 repeticiones en reserva.",
-    2: "Ajusta cargas: busca el peso con el que llegas al rango alto con buena técnica.",
-    3: "Primera subida de peso en los básicos si llegaste al máximo del rango.",
-    4: "DESCARGA: quita 1 serie a cada ejercicio y deja 3–4 repeticiones en reserva. Duerme y camina.",
-    5: "Vuelves con más carga que en la semana 3. Sube peso donde completaste todas las series.",
-    6: "Mantén la progresión. Primer chequeo de volumen: ¿algún músculo no se recupera?",
-    7: "Semana pesada. Prioriza sueño y proteína.",
-    8: "DESCARGA: quita 1 serie a cada ejercicio, mismo peso, 3 repeticiones en reserva.",
-    9: "Añade 1 serie extra a hombro lateral, bíceps y pantorrilla.",
-    10: "Mantén el volumen extra; busca marcas personales en los básicos.",
-    11: "Semana más exigente del reto. No recortes sueño ni proteína.",
-    12: "Última semana fuerte. Mismas cargas, mejor técnica y control.",
-    13: "Días 85–90: marcas finales, medidas y revisión completa.",
+    1: "Aprende el orden de los ejercicios y anota cada serie. Termina todas con 3 repeticiones en reserva.",
+    2: "Ajusta tus pesos: busca el que te deja llegar al máximo del rango con buena técnica.",
+    3: "Si llegaste al máximo del rango en los ejercicios principales, sube un poco de peso.",
+    4: "DESCARGA: haz una serie menos en cada ejercicio y deja 3 o 4 repeticiones en reserva. Duerme bien y camina.",
+    5: "Vuelves con más peso que en la semana 3. Súbelo donde completaste todas las series.",
+    6: "Sigue subiendo. Fíjate si algún músculo no se recupera entre sesiones.",
+    7: "Es una semana pesada. Cuida el sueño y la proteína.",
+    8: "DESCARGA: una serie menos en cada ejercicio, el mismo peso y 3 repeticiones en reserva.",
+    9: "Agrega una serie extra a hombro lateral, bíceps y pantorrilla.",
+    10: "Mantén esa serie extra y busca tus mejores marcas en los ejercicios principales.",
+    11: "Es la semana más exigente. No recortes sueño ni proteína.",
+    12: "Última semana fuerte. Mismos pesos, mejor técnica y más control.",
+    13: "Semana 13: marcas finales, medidas y revisión completa.",
   },
 
   help: [
-    { q: "¿Cómo registro mi entrenamiento?", a: "Abre una sesión y entra a un bloque. Escribe kilos y repeticiones (o déjalos vacíos para usar los sugeridos) y toca el círculo de la vuelta. El descanso empieza solo." },
-    { q: "¿Qué es una vuelta, una uniserie o una biserie?", a: "Una vuelta es hacer una vez todos los ejercicios del bloque. Uniserie: un ejercicio. Biserie: dos seguidos, sin descanso entre ellos. Triserie: tres. Descansas al terminar la vuelta." },
-    { q: "¿Cuánto peso uso?", a: "El primer día la app propone un peso de prueba. Elige uno con el que te queden 1–3 repeticiones en reserva: si te sobran más de 3, sube; si no llegas al mínimo, baja. Desde la segunda sesión se ajusta con lo que registras." },
-    { q: "¿Qué significa “al fallo”?", a: "Es seguir hasta que no puedas hacer una repetición más con buena técnica. La app lo pide en la última vuelta de aislamientos y máquinas. En barra libre se dejan 1–2 repeticiones en reserva para cuidar la espalda y las articulaciones." },
-    { q: "¿Cómo cambio un ejercicio?", a: "Toca el ejercicio dentro del bloque y elige “Cambiar”. Verás opciones del mismo músculo que se pueden hacer con tu equipo. Si te duele, toca “Me duele este ejercicio” y la app lo reemplaza por uno seguro." },
-    { q: "¿Puedo entrenar sin gimnasio?", a: "Sí. En Entreno elige Gimnasio, Mancuernas o Sin equipo, y el plan se adapta. Puedes cambiar de modalidad cuando quieras." },
-    { q: "¿Cómo cambio mi nivel o empiezo de nuevo?", a: "En Ajustes: “Nivel” cambia tu nivel al instante y “Volver a comenzar” te deja empezar un reto nuevo, repetir el cuestionario o borrar todo." },
-    { q: "¿Cómo paso mis datos a otro teléfono?", a: "En Progreso → Mis datos, crea un código de transferencia y pégalo en el teléfono nuevo, en la pantalla inicial. También puedes exportar un archivo de copia e importarlo allá." },
-    { q: "¿Por qué mi peso sube y baja?", a: "Es normal: el peso cambia 0.5–2 kg de un día a otro por agua, sal y comida en el estómago. Mira el promedio de 7 días, no el número de hoy." },
-    { q: "¿Cómo instalo la app?", a: "En Progreso → Mis datos, la tarjeta “Instalar la app” te dice los pasos para tu teléfono. Instalada se abre a pantalla completa y funciona sin internet." },
+    { q: "¿Cómo registro mi entrenamiento?", a: "Abre la sesión del día y entra a un bloque. Escribe los kilos y las repeticiones (si los dejas vacíos se usan los sugeridos) y toca el círculo de la vuelta. El descanso empieza solo." },
+    { q: "¿Qué es una vuelta, una uniserie o una biserie?", a: "Una vuelta es hacer una vez todos los ejercicios del bloque. En una uniserie hay un ejercicio, en una biserie dos seguidos sin descanso entre ellos, y en una triserie tres. Descansas al terminar la vuelta." },
+    { q: "¿Cuánto peso uso?", a: "El primer día la app propone un peso de prueba. Elige uno con el que te sobren de 1 a 3 repeticiones: si te sobran más, súbelo; si no llegas al mínimo, bájalo. Desde la segunda sesión se ajusta con lo que registraste." },
+    { q: "¿Qué significa “al fallo”?", a: "Es seguir hasta que ya no puedas hacer otra repetición con buena técnica. La app lo pide en la última vuelta de los ejercicios de aislamiento y de máquina. Con barra libre se deja 1 o 2 repeticiones en reserva para cuidar la espalda y las articulaciones." },
+    { q: "¿Cómo cambio un ejercicio?", a: "Toca el ejercicio dentro del bloque y elige “Cambiar”. Verás opciones para el mismo músculo que puedes hacer con tu equipo. Si algo te duele, toca “Me duele este ejercicio” y lo reemplazamos por uno más seguro." },
+    { q: "¿Puedo entrenar sin gimnasio?", a: "Sí. En Entreno elige Gimnasio, Mancuernas o Sin equipo y el plan se adapta. Puedes cambiar de modalidad cuando quieras." },
+    { q: "¿Cómo cambio mi nivel o empiezo de nuevo?", a: "En Ajustes, “Nivel” lo cambia al instante. “Volver a comenzar” te deja empezar un plan nuevo, repetir el cuestionario o borrar todo." },
+    { q: "¿Cómo paso mis datos a otro teléfono?", a: "Entra con tu usuario y tu contraseña en el teléfono nuevo y pide autorización. Cuando la apruebes desde el teléfono anterior, tus datos pasan solos. Las fotos no se mueven: se quedan en el teléfono donde las tomaste." },
+    { q: "¿Por qué mi peso sube y baja?", a: "Es normal. De un día a otro cambia entre 0.5 y 2 kg por el agua, la sal y lo que comiste. Mira el promedio de 7 días y no el número de hoy." },
+    { q: "¿Cómo instalo la app?", a: "En Progreso, Mis datos, la sección “Instalar la app” te explica los pasos para tu teléfono. Instalada se abre a pantalla completa y funciona sin internet." },
+    { q: "¿Cómo activo los avisos?", a: "En Ajustes, Notificaciones. Elige qué avisos quieres y a qué hora. En iPhone primero instala la app en la pantalla de inicio." },
   ],
   privacy: [
-    { t: "Cuenta y nube", d: "Para usar la app necesitas una cuenta por invitación. Tu plan, tus registros, tus comidas y tus medidas se guardan en la nube, ligados a tu usuario y protegidos para que nadie más pueda leerlos." },
-    { t: "Un solo dispositivo", d: "Tu cuenta solo funciona en un dispositivo a la vez. Para pasarla a otro, el nuevo pide autorización y tú la apruebas desde el anterior (o el administrador). Si alguien más conoce tu contraseña, no podrá entrar sin ese permiso." },
-    { t: "Qué ve el administrador", d: "El administrador gestiona invitaciones y dispositivos, y puede bloquear o borrar cuentas. Por cómo se guardan los datos, también podría consultarlos; los usa solo para mantener respaldos del servicio." },
-    { t: "Tu contraseña", d: "Nunca se guarda tal cual, solo una huella que no se puede revertir. Al crearla se comprueba contra listas de contraseñas filtradas sin enviarla completa." },
-    { t: "Qué no hace la app", d: "No usa publicidad, no vende datos y no te sigue. Tu información no se comparte con nadie más salvo que tú la exportes o la compartas." },
-    { t: "Notificaciones", d: "Son opcionales. Para enviarte avisos se guarda un identificador de tu dispositivo, tus horas elegidas, tu zona horaria y qué avisos activaste. Para no avisarte de lo que ya hiciste, se revisa si ya entrenaste, te pesaste o llegaste a tu meta de agua ese día. Puedes apagarlas cuando quieras y se borran al cerrar sesión." },
-    { t: "Fotos de progreso", d: "Son opcionales y nunca se suben a la nube. Se quedan solo en este dispositivo; si cierras sesión, se borran de aquí." },
-    { t: "Permisos", d: "La app pide permiso de notificaciones solo si activas esa opción, y acceso a la cámara o a tus fotos solo cuando eliges una foto. El bloqueo con huella o Face ID es opcional y se queda en tu dispositivo." },
+    { t: "Cuenta y datos", d: "Para usar la app necesitas una cuenta. Tu plan, tus registros, tus comidas y tus medidas se guardan en la nube, ligados a tu usuario, y nadie más puede leerlos." },
+    { t: "Un solo dispositivo", d: "Tu cuenta funciona en un dispositivo a la vez. Para pasarla a otro, el nuevo pide autorización y tú la apruebas desde el anterior (o el administrador). Si alguien más sabe tu contraseña, no puede entrar sin ese permiso." },
+    { t: "Qué ve el administrador", d: "El administrador revisa los dispositivos y puede bloquear o borrar cuentas. Por la forma en que se guardan los datos, también podría consultarlos. Los usa solo para mantener copias de seguridad." },
+    { t: "Tu contraseña", d: "Nunca se guarda tal cual: solo queda una huella que no se puede deshacer. Al crearla se revisa que no esté en listas de contraseñas filtradas, sin enviarla completa." },
+    { t: "Lo que no hacemos", d: "No hay publicidad, no vendemos datos y no te seguimos. Tu información no se comparte con nadie, salvo que tú la exportes o la envíes." },
+    { t: "Notificaciones", d: "Son opcionales. Para enviarlas se guarda un identificador de tu dispositivo, las horas que elegiste, tu zona horaria y qué avisos activaste. También se revisa si ya entrenaste, te pesaste o llegaste a tu meta de agua, para no avisarte de lo que ya hiciste. Puedes apagarlas cuando quieras y se borran al cerrar sesión." },
+    { t: "Fotos de progreso", d: "Son opcionales y nunca se suben. Se quedan solo en este dispositivo y se borran si cierras sesión." },
+    { t: "Permisos", d: "La app pide permiso para enviar notificaciones solo si activas esa opción, y para usar la cámara o tus fotos solo cuando eliges una. El bloqueo con huella o Face ID es opcional y se queda en tu dispositivo." },
     { t: "Copias y códigos", d: "El archivo de copia y el código de transferencia contienen tus datos. Compártelos solo con quien confíes." },
-    { t: "Cómo borrar todo", d: "En Ajustes → Cuenta → Eliminar mi cuenta se borran tu usuario y tus datos de la nube. Cerrar sesión solo borra los datos de este dispositivo." },
-    { t: "Aviso de salud", d: "Las calorías, los pesos y los planes son estimaciones. No sustituyen a un médico ni a un nutriólogo. Si tienes una condición de salud, consulta antes de empezar y detente si sientes dolor o mareo." },
+    { t: "Cómo borrar todo", d: "En Ajustes, Cuenta, “Eliminar mi cuenta” se borran tu usuario y tus datos. Cerrar sesión solo borra lo que hay en este dispositivo." },
+    { t: "Aviso de salud", d: "Las calorías, los pesos y los planes son cálculos aproximados y no sustituyen a un médico ni a un nutriólogo. Si tienes alguna condición de salud, consulta antes de empezar y detente si sientes dolor o mareo." },
   ],
   habits: [
-    { title: "Un día de entreno típico", body: `<ul>
-      <li><strong>Al despertar:</strong> agua (500 ml) y creatina si la usas.</li>
+    { title: "Un día de entreno", body: `<ul>
+      <li><strong>Al despertar:</strong> medio litro de agua, y creatina si la usas.</li>
       <li><strong>Mañana y mediodía:</strong> desayuno, media mañana y comida, con proteína en cada una.</li>
-      <li><strong>60–90 min antes de entrenar:</strong> pre-entreno ligero y bajo en grasa.</li>
+      <li><strong>De 60 a 90 minutos antes de entrenar:</strong> algo ligero y bajo en grasa.</li>
       <li><strong>Entreno:</strong> calentamiento, pesas y, al final, el cardio si toca.</li>
-      <li><strong>Después de entrenar:</strong> cena o comida fuerte con proteína.</li>
-      <li><strong>Antes de dormir:</strong> pantallas fuera, luz baja y 7–9 h de sueño.</li></ul>` },
-    { title: "Si entrenas por la mañana", body: `<p>Haz un pre-entreno ligero en lugar del desayuno completo y deja la comida fuerte como post-entreno. El día sin pesas, descansa con una caminata de 45 min.</p><ul><li>No hay “día libre”: hay <strong>una comida flexible a la semana</strong>, planeada.</li></ul>` },
+      <li><strong>Después de entrenar:</strong> una cena o comida fuerte con proteína.</li>
+      <li><strong>Antes de dormir:</strong> sin pantallas, luz baja y de 7 a 9 horas de sueño.</li></ul>` },
+    { title: "Si entrenas por la mañana", body: `<p>Come algo ligero antes de entrenar en lugar de un desayuno completo, y deja la comida fuerte para después. Los días sin pesas descansa con una caminata de 45 minutos.</p><ul><li>No hay día libre: hay <strong>una comida flexible a la semana</strong>, planeada de antemano.</li></ul>` },
     { title: "Hambre", body: `<ul>
-      <li>Primero toma agua o agua mineral con limón y espera 10 minutos.</li>
-      <li>Verduras libres, pepino, jícama, gelatina sin azúcar o té verde no rompen el plan.</li>
-      <li>Si el hambre es constante varios días, sube verdura y proteína antes de recortar más calorías.</li>
-      <li>Hambre extrema + cansancio + mal rendimiento = señal de déficit demasiado grande. Usa la revisión semanal.</li></ul>` },
-    { title: "Sueño (7–9 h)", body: `<p>Dormir poco empeora el hambre y hace que bajes más músculo y menos grasa con la misma dieta. En un estudio pequeño de 14 días (10 adultos), con 5.5 h de sueño frente a 8.5 h la pérdida de grasa fue 55 % menor y la de masa magra 60 % mayor.</p><ul><li>Hora fija de dormir y de levantarse, incluso en fin de semana.</li><li>Última comida 2 h antes de dormir; cuarto oscuro y fresco.</li><li>Cafeína máximo hasta las 15:00.</li></ul>` },
-    { title: "Hidratación", body: `<ul><li><strong>2.5–3 L al día</strong>. Medio litro extra los días de entreno.</li><li>Una botella de 1 L: termínala antes de las 11:00, 16:00 y 21:00.</li><li>Café o té sin azúcar está bien. Evita refrescos, jugos y bebidas con calorías.</li></ul>` },
-    { title: "Pasos y cardio", body: `<ul><li>Meta de pasos: 8,000 (semanas 1–4), 9,000 (5–8), 10,000 (9–13). Es una meta práctica, no un número mágico.</li><li><strong>Cardio en caminadora o elíptica, zona 2</strong>: ritmo en el que puedes hablar frases cortas (6–7 de 10), unos 115–135 latidos por minuto (orientativo).</li><li><strong>Cuándo:</strong> siempre <em>después</em> de las pesas, 20 min; en tu sesión larga, 35. En días de pierna fuerte el cardio es opcional, para que tus piernas se recuperen.</li><li>En los días sin pesas: caminata de 45–60 min.</li></ul>` },
-    { title: "Antojos", body: `<ul><li>Regla de los 10 minutos: toma agua, camina o lávate los dientes antes de decidir.</li><li>Si sigue, come una porción pequeña <em>planeada</em> (ej. 1 cuadro de chocolate amargo o fruta con yogurt).</li><li>No compensas con ayuno ni con más cardio. Sigues con la siguiente comida.</li></ul>` },
-    { title: "Comer fuera", body: `<ul><li>Elige primero la proteína: tacos de bistec, pollo o pescado; caldos, pozole sin tostadas fritas; carne asada.</li><li>Una porción de arroz, frijoles o tortillas; sin refresco; salsa libre.</li><li>Evita lo empanizado, “con queso extra”, mayonesa y todo lo que dice “crujiente”.</li><li>Si sabes que saldrás, come ligero antes (no te saltes comidas) y conserva ~30 g de proteína en cada comida.</li></ul>` },
-    { title: "Si te saltas un entreno", body: `<ul><li><strong>No se recupera</strong> duplicando después. Retomas con la siguiente sesión del calendario.</li><li>Versión mínima (20 min): 2 ejercicios básicos, 3 series cada uno. Cuenta como entreno.</li><li>Dos sesiones perdidas seguidas: haz la rutina “en casa” 2 días para no cortar el ritmo.</li><li>La meta es la constancia: 85 % de sesiones completadas ya es excelente.</li></ul>` },
-    { title: "Si te sales de la dieta", body: `<p>Retoma en la siguiente comida, sin castigo. Una comida fuera del plan casi nunca afecta la tendencia semanal. Lo que cuenta es el promedio de 7 días.</p>` },
+      <li>Toma agua o agua mineral con limón y espera 10 minutos.</li>
+      <li>Puedes comer sin límite verduras, pepino, jícama, gelatina sin azúcar o té verde.</li>
+      <li>Si el hambre dura varios días, come más verdura y proteína antes de recortar calorías.</li>
+      <li>Mucha hambre, cansancio y bajo rendimiento juntos significan que el déficit es demasiado grande. Haz la revisión semanal.</li></ul>` },
+    { title: "Sueño", body: `<p>Dormir poco aumenta el hambre y hace que pierdas más músculo y menos grasa con la misma dieta. Apunta a dormir de 7 a 9 horas.</p><ul><li>Acuéstate y levántate a la misma hora, también en fin de semana.</li><li>Haz tu última comida 2 horas antes de dormir y duerme en un cuarto oscuro y fresco.</li><li>Toma cafeína solo hasta las 15:00.</li></ul>` },
+    { title: "Agua", body: `<ul><li>Toma entre 2.5 y 3 litros al día, y medio litro más los días de entreno.</li><li>Con una botella de 1 litro, termínala antes de las 11:00, las 16:00 y las 21:00.</li><li>El café o el té sin azúcar están bien. Evita refrescos, jugos y bebidas con calorías.</li></ul>` },
+    { title: "Pasos y cardio", body: `<ul><li>Tu meta de pasos es 8,000 en las semanas 1 a 4, 9,000 en la 5 a 8 y 10,000 en la 9 a 13. Es una meta práctica, no un número mágico.</li><li><strong>El cardio es en caminadora o elíptica, a un ritmo en el que puedas hablar frases cortas</strong> (6 o 7 de 10), con unos 115 a 135 latidos por minuto como referencia.</li><li><strong>Se hace después de las pesas:</strong> 20 minutos, y 35 en tu sesión larga. En los días fuertes de pierna es opcional, para que tus piernas se recuperen.</li><li>Los días sin pesas camina de 45 a 60 minutos.</li></ul>` },
+    { title: "Antojos", body: `<ul><li>Antes de decidir, espera 10 minutos: toma agua, camina o lávate los dientes.</li><li>Si el antojo sigue, come una porción pequeña que hayas planeado, como un cuadro de chocolate amargo o fruta con yogurt.</li><li>No lo compenses con ayuno ni con más cardio. Haz tu siguiente comida normal.</li></ul>` },
+    { title: "Comer fuera", body: `<ul><li>Elige primero la proteína: tacos de bistec, pollo o pescado, caldos, pozole sin tostadas fritas o carne asada.</li><li>Pide una sola porción de arroz, frijoles o tortillas, sin refresco, y toda la salsa que quieras.</li><li>Evita lo empanizado, lo que lleva queso extra, la mayonesa y todo lo que diga “crujiente”.</li><li>Si sabes que vas a salir, come ligero antes (no te saltes comidas) y busca unos 30 g de proteína en cada comida.</li></ul>` },
+    { title: "Si te saltas un entreno", body: `<ul><li>No lo recuperes duplicando la siguiente sesión. Sigue con la que toca en el calendario.</li><li>Si tienes poco tiempo, haz una versión mínima de 20 minutos: 2 ejercicios básicos con 3 series cada uno. Cuenta como entreno.</li><li>Si pierdes dos sesiones seguidas, haz la rutina “en casa” durante 2 días para no perder el ritmo.</li><li>Lo importante es la constancia: completar el 85 % de las sesiones ya es excelente.</li></ul>` },
+    { title: "Si te sales de la dieta", body: `<p>Sigue con tu siguiente comida y sin castigarte. Una comida fuera del plan casi nunca cambia tu avance de la semana. Lo que cuenta es el promedio de 7 días.</p>` },
   ],
 
   dailyChecks: [
@@ -95,42 +96,42 @@ window.CONTENT = {
     { id: "sleep", label: "Dormí 7 h o más" },
   ],
 
-  weightFAQ: `<p><strong>Tu peso sube y baja 0.5–2 kg de un día a otro sin que cambie tu grasa.</strong> Lo que mueve la báscula a corto plazo es agua: sal, carbohidratos (cada gramo de glucógeno guarda varios gramos de agua), cuántos alimentos hay en el estómago, el entrenamiento intenso y el sueño.</p>
-  <ul><li>Pésate en ayunas, después de orinar, mismo sitio y misma ropa.</li><li>Mira el <strong>promedio de 7 días</strong>, no el número de hoy.</li><li>Pérdida real de grasa = promedio semanal que baja <em>y</em> cintura que baja <em>y</em> fuerza estable o mayor.</li><li>Si el peso sube el día después de entrenar piernas o de una comida salada, es agua.</li><li>Las fotos y la cintura detectan cambios que la báscula no ve (cuando ganas músculo y pierdes grasa a la vez).</li></ul>`,
+  weightFAQ: `<p><strong>Tu peso sube y baja entre 0.5 y 2 kg de un día a otro sin que cambie tu grasa.</strong> A corto plazo lo que mueve la báscula es el agua: la sal, los carbohidratos, lo que hay en el estómago, un entreno intenso y cómo dormiste.</p>
+  <ul><li>Pésate en ayunas, después de ir al baño, en el mismo lugar y con la misma ropa.</li><li>Mira el <strong>promedio de 7 días</strong> y no el número de hoy.</li><li>Bajaste grasa de verdad cuando el promedio semanal baja, la cintura baja <em>y</em> tu fuerza se mantiene o sube.</li><li>Si el peso sube el día después de entrenar piernas o de una comida salada, es agua.</li><li>Las fotos y la cintura muestran cambios que la báscula no ve, por ejemplo cuando ganas músculo y pierdes grasa al mismo tiempo.</li></ul>`,
 
   measureGuide: [
-    { t: "Peso", d: "Diario, en ayunas. Se evalúa el promedio de 7 días." },
-    { t: "Cintura", d: "1 vez por semana (domingo en ayunas). Cinta a la altura del ombligo, sin apretar, al final de una exhalación." },
-    { t: "Fotos (opcional)", d: "Días 1, 15, 30, 45, 60, 75 y 90. Mismo lugar, misma luz, misma hora, ropa igual, cámara a la altura del pecho. Frente, perfil y espalda, relajado." },
-    { t: "Fuerza", d: "La app guarda tus series. Busca subir peso o repeticiones en los básicos." },
-    { t: "Pasos, sueño y energía", d: "Marca en el chequeo diario. Se resume en la revisión semanal." },
+    { t: "Peso", d: "Todos los días en ayunas. Lo que cuenta es el promedio de 7 días." },
+    { t: "Cintura", d: "Una vez por semana, el domingo en ayunas. Pon la cinta a la altura del ombligo, sin apretar, al terminar de sacar el aire." },
+    { t: "Fotos (opcional)", d: "El día 1 y luego cada 2 semanas. En el mismo lugar, con la misma luz y hora y con ropa parecida. Pon la cámara a la altura del pecho y toma frente, perfil y espalda, relajado." },
+    { t: "Fuerza", d: "La app guarda tus series. Busca subir peso o repeticiones en los ejercicios principales." },
+    { t: "Pasos, sueño y energía", d: "Márcalos en el chequeo diario. Se resumen en la revisión semanal." },
   ],
 
   adjustRules: {
     fat: [
-      { when: "Bajas más de 1 % del peso por semana", act: "Sube ≈ 150 kcal. Perder tan rápido puede costar músculo." },
-      { when: "Bajas entre 0.25 % y 1 % por semana", act: "Perfecto. No cambies nada." },
-      { when: "Estable 2 semanas seguidas y la cintura no baja", act: "Revisa adherencia. Si fue ≥ 85 %, primero +1,500 pasos al día; si sigue igual otra semana, −150 kcal." },
-      { when: "Estable pero la cintura baja y la fuerza sube", act: "Recomposición funcionando: no cambies nada." },
-      { when: "Subes 2 semanas seguidas sin explicación", act: "Revisa porciones y fines de semana; si todo está bien, −150 kcal." },
-      { when: "Sueño < 6 h, energía baja, fuerza cayendo", act: "No recortes más: sube 150 kcal o haz una descarga antes." },
+      { when: "Bajas más del 1 % de tu peso por semana", act: "Sube unas 150 kcal. Bajar tan rápido puede costarte músculo." },
+      { when: "Bajas entre 0.25 % y 1 % por semana", act: "Vas bien. No cambies nada." },
+      { when: "Llevas 2 semanas estable y la cintura no baja", act: "Revisa si seguiste el plan. Si lo cumpliste al 85 % o más, primero suma 1,500 pasos al día; si sigues igual otra semana, baja 150 kcal." },
+      { when: "Estás estable, pero la cintura baja y la fuerza sube", act: "Estás recomponiendo: no cambies nada." },
+      { when: "Subes 2 semanas seguidas sin una razón clara", act: "Revisa las porciones y los fines de semana. Si todo está bien, baja 150 kcal." },
+      { when: "Duermes menos de 6 horas, tienes poca energía y tu fuerza baja", act: "No recortes más. Sube 150 kcal o haz una semana de descarga." },
     ],
     recomp: [
-      { when: "Bajas más de 0.5 % por semana", act: "Sube ≈ 150 kcal: para recomponer conviene ir más despacio." },
-      { when: "Peso estable o baja hasta 0.4 % por semana, cintura baja o fuerza sube", act: "Recomposición funcionando: no cambies nada." },
-      { when: "Peso, cintura y fuerza estancados 3 semanas", act: "Si la adherencia fue ≥ 85 %, −150 kcal y +1,000 pasos al día." },
-      { when: "Subes más de 0.25 % por semana 2 semanas seguidas", act: "−100 a −150 kcal: te estás pasando del mantenimiento." },
-      { when: "Sueño < 6 h, energía baja, fuerza cayendo", act: "Sube 150 kcal o haz una descarga antes." },
+      { when: "Bajas más del 0.5 % por semana", act: "Sube unas 150 kcal. Para recomponer conviene ir más despacio." },
+      { when: "Tu peso está estable o baja hasta 0.4 % por semana, y la cintura baja o la fuerza sube", act: "Estás recomponiendo: no cambies nada." },
+      { when: "Peso, cintura y fuerza llevan 3 semanas sin moverse", act: "Si seguiste el plan al 85 % o más, baja 150 kcal y suma 1,000 pasos al día." },
+      { when: "Subes más del 0.25 % por semana durante 2 semanas", act: "Baja de 100 a 150 kcal: te estás pasando del mantenimiento." },
+      { when: "Duermes menos de 6 horas, tienes poca energía y tu fuerza baja", act: "Sube 150 kcal o haz una semana de descarga." },
     ],
     muscle: [
-      { when: "Subes más de 0.7 % por semana", act: "Baja ≈ 150 kcal: más peso que eso suele ser sobre todo grasa." },
-      { when: "Subes entre 0.25 % y 0.5 % por semana", act: "Perfecto. No cambies nada." },
-      { when: "Subes menos de 0.1 % durante 2 semanas", act: "Si la adherencia fue ≥ 85 %, +150 kcal (≈ 35 g de carbohidratos)." },
-      { when: "La cintura sube más rápido que la fuerza", act: "Baja ≈ 150 kcal: el superávit es demasiado grande para tu nivel." },
-      { when: "Fuerza cayendo con sueño bajo o fatiga", act: "No cambies calorías: duerme más y haz una descarga." },
+      { when: "Subes más del 0.7 % por semana", act: "Baja unas 150 kcal. Subir más rápido que eso suele ser sobre todo grasa." },
+      { when: "Subes entre 0.25 % y 0.5 % por semana", act: "Vas bien. No cambies nada." },
+      { when: "Subes menos del 0.1 % durante 2 semanas", act: "Si seguiste el plan al 85 % o más, sube 150 kcal (unos 35 g de carbohidratos)." },
+      { when: "La cintura sube más rápido que la fuerza", act: "Baja unas 150 kcal: el superávit es demasiado grande para tu nivel." },
+      { when: "Tu fuerza baja y duermes poco o estás cansado", act: "No cambies las calorías: duerme más y haz una semana de descarga." },
     ],
   },
-  adjustLimit: "Cambia una sola cosa a la vez y espera 2 semanas. Nunca bajes de tu mínimo seguro: la app lo respeta al calcular tus calorías.",
+  adjustLimit: "Cambia una sola cosa a la vez y espera 2 semanas. La app nunca baja de tu mínimo seguro de calorías.",
 
   reviewQuestions: [
     { id: "adh", q: "¿Cuántos días de 7 seguiste el plan de comida?", min: 0, max: 7, def: 6 },
@@ -142,23 +143,23 @@ window.CONTENT = {
   ],
 
 
-  blocksGuide: `<p><strong>Uniserie:</strong> un solo ejercicio. Haces una serie, descansas y repites (es una <em>vuelta</em>). Es donde subes más peso.</p>
-  <p><strong>Biserie:</strong> dos ejercicios seguidos sin descanso entre ellos (A1 y A2). Al terminar A2 descansas y empieza la siguiente vuelta. Ahorra tiempo y sube el volumen.</p>
-  <p><strong>Triserie:</strong> igual, con tres ejercicios (A1, A2 y A3).</p>
+  blocksGuide: `<p><strong>Uniserie:</strong> un solo ejercicio. Haces una serie, descansas y repites; cada repetición del ciclo es una <em>vuelta</em>. Aquí es donde más peso subes.</p>
+  <p><strong>Biserie:</strong> dos ejercicios seguidos, sin descanso entre ellos (A1 y A2). Al terminar A2 descansas y empieza la siguiente vuelta. Ahorra tiempo y sube el volumen.</p>
+  <p><strong>Triserie:</strong> lo mismo, con tres ejercicios (A1, A2 y A3).</p>
   <p>El descanso que ves en cada bloque es el que tomas <strong>al terminar la vuelta completa</strong>.</p>`,
 
-  weightsGuide: `<p>Los pesos son <strong>estimaciones de partida</strong> calculadas con tu peso, tu sexo y tu nivel, y a propósito conservadoras. No conozco tu fuerza real.</p>
-  <ul><li>Elige el peso con el que terminas la serie con <strong>1–2 repeticiones en reserva</strong> (podrías hacer 1–2 más).</li>
-  <li>Si te sobran más de 3 repeticiones, sube. Si no llegas al mínimo del rango, baja.</li>
-  <li>A partir de la segunda sesión la app sugiere tu peso según lo que registraste: si completaste todas las vueltas en el máximo del rango, te propone subir.</li>
-  <li>“c/mano” = cada mancuerna. “stack” = lo que marca la máquina de placas. “total” = barra y discos juntos.</li></ul>`,
+  weightsGuide: `<p>Los pesos son <strong>puntos de partida</strong>. Se calculan con tu peso, tu sexo y tu nivel, y son conservadores a propósito porque la app no conoce tu fuerza real.</p>
+  <ul><li>Elige el peso con el que terminas la serie con <strong>1 o 2 repeticiones en reserva</strong>, es decir, podrías hacer 1 o 2 más.</li>
+  <li>Si te sobran más de 3 repeticiones, sube el peso. Si no llegas al mínimo del rango, bájalo.</li>
+  <li>Desde la segunda sesión la app sugiere el peso según lo que registraste. Si completaste todas las vueltas en el máximo del rango, te propone subir.</li>
+  <li>“c/mano” es cada mancuerna, “stack” es lo que marca la máquina de placas y “total” es la barra con los discos.</li></ul>`,
 
-  absGuide: `<p><strong>Para marcar el abdomen necesitas dos cosas a la vez:</strong> músculo abdominal desarrollado (se entrena con carga y progresión) y poca grasa encima (se logra con déficit calórico sostenido).</p>
-  <ul><li>Hacer abdominales <strong>no quema la grasa de la barriga</strong>. En un estudio aleatorizado de 6 semanas, entrenar abdomen 5 veces por semana mejoró la resistencia muscular pero no redujo grasa abdominal ni cintura.</li>
-  <li>Por eso el plan combina: abdomen con carga varias veces por semana (crunch en polea, elevaciones de piernas, rueda, plancha y oblicuos) + déficit moderado + pasos + dormir bien.</li>
-  <li>Trata los abdominales como cualquier otro músculo: sube peso o repeticiones cada semana.</li>
-  <li>Cuánta grasa necesitas perder para que se vean varía por persona (genética y dónde guardas grasa). Mide tu cintura cada semana: es mejor indicador que la báscula.</li></ul>
-  <p>Lo más probable en 90 días es ver el abdomen claramente más definido al bajar la cintura varios centímetros; los cuadritos nítidos suelen requerir bastante menos grasa y más tiempo.</p>`,
+  absGuide: `<p><strong>Para que se marque el abdomen necesitas dos cosas a la vez:</strong> un músculo desarrollado, que se logra entrenándolo con peso, y poca grasa encima, que se logra con un déficit de calorías sostenido.</p>
+  <ul><li>Hacer abdominales <strong>no quema la grasa de la barriga</strong>. En un estudio de 6 semanas, entrenar abdomen 5 veces por semana mejoró la resistencia del músculo, pero no redujo la grasa abdominal ni la cintura.</li>
+  <li>Por eso el plan combina abdomen con peso varias veces por semana (crunch en polea, elevaciones de piernas, rueda, plancha y oblicuos), un déficit moderado, pasos y buen sueño.</li>
+  <li>Trata el abdomen como cualquier otro músculo: cada semana sube peso o repeticiones.</li>
+  <li>Cuánta grasa necesitas perder para verlo cambia de una persona a otra. Mide tu cintura cada semana: te dice más que la báscula.</li></ul>
+  <p>En 90 días lo más probable es que el abdomen se vea más definido al bajar la cintura varios centímetros. Los cuadritos bien marcados suelen pedir menos grasa y más tiempo.</p>`,
 
   cardioKinds: {
     gym: [
@@ -170,20 +171,21 @@ window.CONTENT = {
       { id: "run", name: "Trote suave", gif: "Jogging_Treadmill", how: "Trote ligero en el que puedas hablar frases cortas." },
     ],
   },
-  limitedGuide: `<p>Cuando tus mancuernas ya no suben de peso, el músculo todavía puede seguir creciendo si cambias <strong>cómo</strong> las usas:</p>
-  <ol><li><strong>Más repeticiones:</strong> sube hasta 20–25 antes de buscar más peso. Las cargas ligeras llevadas cerca del fallo también hacen crecer el músculo.</li>
-  <li><strong>Baja lento:</strong> 3 segundos en la bajada y 1 segundo de pausa abajo.</li>
-  <li><strong>Pasa a una pierna o un brazo:</strong> zancadas, subidas al escalón, remo y press a una mano duplican la carga efectiva.</li>
-  <li><strong>Menos descanso:</strong> 45–60 segundos en los accesorios.</li>
-  <li><strong>Termina cerca del fallo:</strong> deja 0–2 repeticiones en reserva en la última serie.</li></ol>
-  <p>Ojo: para la <em>fuerza máxima</em> las cargas altas siguen siendo mejores; si tu objetivo es solo el tamaño del músculo, estas técnicas funcionan.</p>`,
+  limitedGuide: `<p>Cuando tus mancuernas ya no suben de peso, el músculo puede seguir creciendo si cambias <strong>cómo</strong> las usas:</p>
+  <ol><li><strong>Más repeticiones:</strong> llega hasta 20 o 25 antes de buscar más peso. Las cargas ligeras llevadas cerca del fallo también hacen crecer el músculo.</li>
+  <li><strong>Bajar lento:</strong> 3 segundos al bajar y 1 de pausa abajo.</li>
+  <li><strong>Una pierna o un brazo a la vez:</strong> zancadas, subidas al escalón, remo y press a una mano duplican la carga.</li>
+  <li><strong>Menos descanso:</strong> de 45 a 60 segundos en los ejercicios accesorios.</li>
+  <li><strong>Terminar cerca del fallo:</strong> deja de 0 a 2 repeticiones en reserva en la última serie.</li></ol>
+  <p>Ojo: para la <em>fuerza máxima</em> siguen siendo mejores las cargas altas. Si lo que buscas es solo el tamaño del músculo, estas técnicas funcionan.</p>`,
 
-  cardioGuide: `<p><strong>Objetivo:</strong> gastar calorías extra sin fatigar tus piernas para el siguiente entreno. Por eso la base es cardio suave y constante (zona 2).</p>
-  <ul><li><strong>Caminadora:</strong> inclinación 6–10 %, velocidad 5.5–6.5 km/h, sin agarrarte de los pasamanos.</li>
-  <li><strong>Elíptica:</strong> resistencia 6–8, unas 120–140 zancadas por minuto, espalda recta.</li>
-  <li><strong>Cómo saber que va bien:</strong> puedes hablar frases cortas pero no cantar. Si no puedes hablar, baja el ritmo.</li>
-  <li><strong>Calentamiento:</strong> los primeros 3–5 minutos más suaves.</li>
-  <li><strong>Intervalos (opcional, desde la semana 5, solo en tu sesión larga):</strong> 5 min suaves, luego 8 rondas de 30 s fuertes (8 de 10) + 90 s suaves, y 5 min suaves. Si tus piernas no se recuperan para el siguiente entreno, vuelve a zona 2.</li><li><strong>Por qué después de las pesas:</strong> así llegas con toda tu fuerza al entreno. Un meta-análisis de 43 estudios encontró que sumar cardio no frena la hipertrofia ni la fuerza máxima.</li></ul>
+  cardioGuide: `<p><strong>Para qué sirve:</strong> gastar calorías extra sin cansar tus piernas para el siguiente entreno. Por eso la base es un cardio suave y constante.</p>
+  <ul><li><strong>Caminadora:</strong> inclinación de 6 a 10 %, velocidad de 5.5 a 6.5 km/h y sin agarrarte de los pasamanos.</li>
+  <li><strong>Elíptica:</strong> resistencia de 6 a 8, unas 120 a 140 zancadas por minuto y la espalda recta.</li>
+  <li><strong>Cómo saber que vas bien:</strong> puedes hablar frases cortas, pero no cantar. Si no puedes hablar, baja el ritmo.</li>
+  <li><strong>Calentamiento:</strong> los primeros 3 a 5 minutos, más suaves.</li>
+  <li><strong>Intervalos (opcional, desde la semana 5 y solo en tu sesión larga):</strong> 5 minutos suaves, 8 rondas de 30 segundos fuertes (8 de 10) con 90 segundos suaves, y 5 minutos suaves. Si tus piernas no se recuperan para el siguiente entreno, vuelve al ritmo suave.</li>
+  <li><strong>Por qué después de las pesas:</strong> así llegas al entreno con toda tu fuerza. Sumar cardio no frena el crecimiento del músculo ni la fuerza máxima.</li></ul>
   <p>El cardio ayuda, pero lo que más pesa para bajar grasa es el déficit de calorías. No lo uses para “compensar” una comida.</p>`,
 
   foodRules: `<ul>
@@ -197,37 +199,37 @@ window.CONTENT = {
 
   hydrationTips: `<ul><li>2.5–3 L al día, 500 ml extra los días de entreno.</li><li>Agua mineral con limón, té verde y gelatina sin azúcar sirven para el hambre.</li><li>Una pizca de sal en el agua si sudas mucho.</li></ul>`,
 
-  supplements: `<p><strong>Creatina monohidratada</strong>, 3–5 g al día (cualquier hora, todos los días) es el suplemento con más evidencia de seguridad y eficacia para fuerza y masa magra. Omega 3, magnesio, multivitamínico y vitamina C son opcionales: no hay evidencia de que quemen grasa.</p><p>La proteína en polvo es solo comodidad; si cubres tus gramos con comida, no la necesitas.</p>`,
+  supplements: `<p><strong>La creatina monohidratada</strong> (de 3 a 5 g al día, a cualquier hora y todos los días) es el suplemento con más respaldo para ganar fuerza y masa magra. El omega 3, el magnesio, el multivitamínico y la vitamina C son opcionales, y ninguno quema grasa.</p><p>La proteína en polvo es solo una comodidad. Si llegas a tus gramos con comida, no la necesitas.</p>`,
 
 
   why: {
     train: [
-      { t: "Cómo elegimos los ejercicios", d: "Solo entran ejercicios que cumplen cuatro criterios: (1) los compuestos y más cargables van primero porque son donde más progresas; (2) cada músculo tiene al menos un ejercicio principal y uno de aislamiento; (3) el aislamiento prefiere posiciones con el músculo estirado (tríceps sobre la cabeza, curl inclinado, pulldown con brazos rectos); (4) se descartan los de poco rendimiento o que castigan las articulaciones. Por eso, por ejemplo, los hombres no hacen abductor y las mujeres tienen una vuelta extra de glúteo. En casa no hay equipo: se usan variantes de flexiones, remo invertido, sentadilla búlgara y puente de glúteo, que son las opciones más efectivas sin material.", s: ["triceps"] },
-      { t: "Cada músculo, al menos 2 veces por semana", d: "Entrenar un músculo 2 o más veces superó a 1 vez. Con las series igualadas la frecuencia pesa poco, así que el volumen se reparte en varios días para que cada sesión sea llevadera.", s: ["freq16", "freq19", "helms15"] },
-      { t: "Series suficientes en cada músculo", d: "Más series semanales se asocian con más crecimiento, con evidencia clara hasta ~10 y más débil después. Cada músculo suma entre 6 y 20 series directas por semana según su tamaño y tu nivel; si alguno queda corto, la app añade un ejercicio de aislamiento.", s: ["vol"] },
-      { t: "6–12 repeticiones en lo principal; 12–15 en aislamiento", d: "La mayoría de repeticiones va entre 6 y 12 al 70–80 % del máximo. Las cargas ligeras llevadas cerca del fallo también hacen crecer, por eso el aislamiento va más alto y es más amable con las articulaciones.", s: ["helms15", "load"] },
-      { t: "Descansos según el ejercicio", d: "Los básicos piden 90–150 s, los aislamientos 60 s y el abdomen 45 s. Un estudio en hombres entrenados vio más fuerza y más grosor muscular con 3 min que con 1 min en los básicos; las biseries ahorran tiempo en lo demás.", s: ["rest"] },
-      { t: "Ejercicios que estiran el músculo", d: "Tríceps con el brazo arriba de la cabeza, curl inclinado y pulldown con brazos rectos trabajan el músculo alargado. En el tríceps, 12 semanas de extensión sobre la cabeza hicieron crecer más la cabeza larga que la extensión en polea (estudio con personas sin entrenamiento).", s: ["triceps"] },
-      { t: "Abdomen con carga y variedad", d: "Elevación de piernas colgado, crunch en polea con peso, rodillo, planchas y oblicuos; puedes cambiar cada ejercicio por otro equivalente. Los estudios de EMG favorecen la elevación de piernas colgado, pero EMG no mide crecimiento. Y entrenar abdomen no quema la grasa de esa zona: por eso van el déficit y los pasos.", s: ["abs", "spot"] },
-      { t: "Cardio después de las pesas", d: "Sumar cardio no frena la hipertrofia ni la fuerza máxima en 43 estudios; puede atenuar la potencia. Aun así, el cardio va al final del entreno y, en días de pierna fuerte, es opcional.", s: ["concurrent"] },
-      { t: "Fallo y repeticiones en reserva", d: "La última vuelta de aislamientos y máquinas llega al fallo. En barra libre se dejan 1–2 repeticiones en reserva (fallo técnico) para cuidar la espalda y las articulaciones. Las primeras vueltas dejan 1–3 en reserva. Los principiantes calculan peor su esfuerzo, por eso empiezan con más margen.", s: ["zourdos"] },
-      { t: "Progresión doble y semanas de descarga", d: "Subes peso cuando completas el máximo del rango en todas las vueltas. Un consenso de expertos define la descarga como un periodo de menor carga para reducir la fatiga y preparar el siguiente bloque; las semanas 4 y 8 son una práctica habitual, no un resultado de estudios.", s: ["bell"] },
-      { t: "División según tus días y tu nivel", d: "Con 3 días haces cuerpo completo; con 4, torso y pierna; con 5, empuje, tirón, pierna, torso y pierna; con 6, empuje, tirón y pierna dos veces. Siempre cada músculo ≥ 2 veces por semana. Si eres principiante, el volumen baja una serie por bloque; si ya llevas más de un año, sube una en el ejercicio principal. Si tu objetivo es ganar músculo, el cardio se reduce y se añade una serie a los accesorios.", s: ["freq16", "helms15"] },
-      { t: "En casa con mancuernas o sin equipo", d: "Las cargas ligeras llevadas cerca del fallo hicieron crecer el músculo de forma similar a las pesadas en un meta-análisis de estudios con imágenes del músculo; para la fuerza máxima las cargas altas son mejores. Por eso, en casa, el plan sube repeticiones, baja lento y pasa a una pierna o un brazo antes de pedir más peso. Si no tienes banca, el plan sustituye cada ejercicio por uno equivalente (press de suelo, flexiones elevadas…), y con barra de dominadas entra el tirón vertical.", s: ["load"] },
-      { t: "Dominadas y fondos", d: "Son ejercicios compuestos con tu propio peso que trabajan muchos músculos a la vez. Si en el cuestionario dijiste que puedes hacer 5 o más, entran en tu plan en lugar del jalón al pecho y de la extensión de tríceps en polea, y progresas añadiendo repeticiones y luego peso. Si no llegas a 5, se quedan como alternativas y puedes usar el jalón al pecho y la máquina de fondos asistidos hasta lograrlo.", s: ["helms15"] },
-      { t: "Mujeres y hombres", d: "Los resúmenes consultados indican que las ganancias relativas de masa muscular son similares entre sexos y que las mujeres pueden mejorar más en fuerza relativa de tren superior; los hombres ganan más en términos absolutos. Por eso el plan es el mismo y solo cambian los pesos de partida.", s: ["sexdiff"] },
+      { t: "Cómo elegimos los ejercicios", d: "Primero van los ejercicios que más peso permiten, porque ahí es donde más progresas. Cada músculo tiene al menos un ejercicio principal y uno de aislamiento. Para el aislamiento preferimos los que estiran el músculo (tríceps sobre la cabeza, curl inclinado, jalón con brazos rectos) y dejamos fuera los que rinden poco o castigan las articulaciones. Por eso los hombres no hacen abductor y las mujeres tienen una vuelta extra de glúteo. En casa se usan flexiones, remo invertido, sentadilla búlgara y puente de glúteo, que son lo más efectivo sin equipo.", s: ["triceps"] },
+      { t: "Cada músculo, al menos dos veces por semana", d: "Entrenar un músculo dos o más veces por semana da mejores resultados que hacerlo una sola vez. Por eso el trabajo se reparte en varios días y cada sesión se mantiene llevadera.", s: ["freq16", "freq19", "helms15"] },
+      { t: "Cuántas series hace cada músculo", d: "Más series por semana ayudan a crecer, sobre todo hasta unas 10. Cada músculo recibe entre 6 y 20 series directas por semana, según su tamaño y tu nivel. Si alguno se queda corto, la app le agrega un ejercicio.", s: ["vol"] },
+      { t: "Repeticiones", d: "Los ejercicios principales van de 6 a 12 repeticiones con un peso exigente. El aislamiento va de 12 a 15, porque con pesos más ligeros cerca del fallo el músculo también crece y las articulaciones sufren menos.", s: ["helms15", "load"] },
+      { t: "Descansos", d: "Los ejercicios principales piden de 90 a 150 segundos, los de aislamiento 60 y el abdomen 45. Descansar más en los básicos permite mover más peso. Las biseries ahorran tiempo en el resto.", s: ["rest"] },
+      { t: "Ejercicios que estiran el músculo", d: "Hacer el tríceps con el brazo sobre la cabeza, el curl inclinado o el jalón con brazos rectos trabaja el músculo estirado, que es donde mejor responde. En el tríceps, la extensión sobre la cabeza hizo crecer más la cabeza larga que la extensión en polea.", s: ["triceps"] },
+      { t: "Abdomen con peso y variedad", d: "Elevación de piernas colgado, crunch en polea con peso, rueda, plancha y oblicuos. Puedes cambiar cualquiera por un ejercicio equivalente. Entrenar abdomen no quema la grasa de esa zona: para eso están el déficit de calorías y los pasos.", s: ["abs", "spot"] },
+      { t: "Cardio después de las pesas", d: "Sumar cardio no frena el crecimiento del músculo ni la fuerza máxima. Va al final del entreno y, en los días fuertes de pierna, es opcional.", s: ["concurrent"] },
+      { t: "Fallo y repeticiones en reserva", d: "La última vuelta de los ejercicios de aislamiento y de máquina llega al fallo. Con barra libre se deja 1 o 2 repeticiones en reserva para cuidar la espalda y las articulaciones. En las primeras vueltas quedan de 1 a 3 en reserva. Quien empieza calcula peor su esfuerzo, por eso arranca con más margen.", s: ["zourdos"] },
+      { t: "Cuándo subir peso y semanas de descarga", d: "Subes peso cuando completas el máximo del rango en todas las vueltas. Las semanas 4 y 8 son de descarga: bajas la carga para recuperarte y seguir progresando. Es una práctica habitual entre entrenadores, no un resultado exacto de estudios.", s: ["bell"] },
+      { t: "Cómo se reparten los días", d: "Con 3 días haces cuerpo completo, con 4 torso y pierna, con 5 empuje, tirón, pierna, torso y pierna, y con 6 empuje, tirón y pierna dos veces. Cada músculo se trabaja al menos dos veces por semana. Si empiezas, el volumen baja una serie por bloque. Si llevas más de un año, sube una serie en el ejercicio principal. Si tu objetivo es ganar músculo, hay menos cardio y una serie más en los accesorios.", s: ["freq16", "helms15"] },
+      { t: "En casa con mancuernas o sin equipo", d: "Las cargas ligeras llevadas cerca del fallo hacen crecer el músculo casi igual que las pesadas, aunque para la fuerza máxima las pesadas son mejores. Por eso en casa subes repeticiones, bajas lento y pasas a una pierna o un brazo antes de pedir más peso. Sin banca, cada ejercicio se sustituye por uno equivalente (press de suelo, flexiones elevadas) y con barra de dominadas entra el tirón vertical.", s: ["load"] },
+      { t: "Dominadas y fondos", d: "Son ejercicios con tu propio peso que trabajan muchos músculos a la vez. Si en el cuestionario dijiste que haces 5 o más, entran en tu plan en lugar del jalón al pecho y la extensión de tríceps en polea, y avanzas con repeticiones y luego con peso. Si no llegas a 5, se quedan como alternativas y puedes usar el jalón y la máquina de fondos asistidos hasta lograrlo.", s: ["helms15"] },
+      { t: "Mujeres y hombres", d: "Los estudios revisados muestran que el músculo crece de forma parecida en ambos sexos, y que las mujeres pueden mejorar más su fuerza relativa en el tren superior. Por eso el plan es el mismo y solo cambian los pesos de partida.", s: ["sexdiff"] },
     ],
     diet: [
-      { only: ["fat", "recomp"], t: "Calorías: {{GOAL_KCAL}}", d: "Con tus datos, tu mantenimiento estimado es ≈ {{MAINT}} kcal; día de entreno ≈ {{KCAL_T}} y día de descanso ≈ {{KCAL_R}}. Se busca perder 0.5–1 % del peso por semana como máximo; en un estudio con atletas, 0.7 % por semana conservó mejor la masa magra y la fuerza que 1.4 %. Con recomposición, lo esperable es ≈ {{RATE}} por semana.", s: ["helms14", "garthe", "issnDiet"] },
-      { only: ["fat", "recomp"], t: "Proteína: ≈ {{PROT}} g al día", d: "Son 2.2 g por kg de tu peso (≈ {{PROT_FFM}} g por kg de masa magra si tu grasa corporal fuera ≈ {{BF}} %; es una estimación, no una medición). El rango para entrenados en déficit es 2.3–3.1 g/kg de masa magra; para construir músculo en general, 1.4–2.0 g/kg.", s: ["issnProt", "issnDiet"] },
-      { only: ["muscle"], t: "Calorías: superávit de ≈ {{PCT}} %", d: "Con tus datos, tu mantenimiento estimado es ≈ {{MAINT}} kcal; día de entrenamiento ≈ {{KCAL_T}} y de descanso ≈ {{KCAL_R}}. Para principiantes e intermedios se sugiere un superávit de ~10–20 % y subir 0.25–0.5 % del peso por semana (≈ {{RATE}}); más conservador si ya tienes mucha experiencia. Ojo: el superávit óptimo no se conoce con certeza, y los principiantes pueden ganar músculo con poco o ningún superávit.", s: ["iraki", "slater"] },
-      { only: ["muscle"], t: "Proteína: ≈ {{PROT}} g al día", d: "Son 1.8 g por kg de tu peso. Un meta-análisis encontró que más proteína no aportó ganancias extra de masa magra por encima de ≈ 1.6 g/kg/día en promedio; 1.8 deja margen. El rango habitual para construir músculo es 1.4–2.0 g/kg.", s: ["morton", "issnProt"] },
-      { only: ["muscle"], t: "Grasas ≈ {{FAT}} g y carbohidratos ≈ {{CARB}} g", d: "Las grasas cubren ≈ {{FAT_PCT}} % de las calorías y el resto son carbohidratos, que alimentan tus entrenos. Con superávit, la mayor parte del plus va a carbohidratos.", s: ["acsm", "issnDiet"] },
-      { only: ["muscle"], t: "Qué esperar", d: "Con tu nivel ({{LEVEL}}) puedes ganar ≈ {{GAIN}} de músculo en 90 días. Parte de lo que subas en la báscula será grasa; si la cintura sube más rápido que la fuerza, baja las calorías.", s: ["iraki"] },
-      { t: "5 comidas con 25–50 g de proteína", d: "Reparte la proteína en 4 o más comidas con ≈ 0.4 g/kg cada una (≈ {{PROT_MEAL}} g para ti). Es una recomendación de una revisión; el total diario importa más que el reparto exacto. Frecuencia y horarios influyen poco en la pérdida de grasa: se eligieron por adherencia.", s: ["protMeal", "helms14"] },
-      { t: "Grasas ≈ {{FAT}} g y carbohidratos ≈ {{CARB}} g", d: "Grasas ≈ {{FAT_PCT}} % de las calorías (rango habitual 20–35 %). El resto son carbohidratos, más abundantes en el pre-entreno. Ninguna proporción de macros es superior para la composición corporal: se eligió la que te deja entrenar bien.", s: ["acsm", "issnDiet"] },
-      { t: "Creatina 3–5 g, sueño 7–9 h, pasos", d: "La creatina es el suplemento con mejor respaldo para fuerza y masa magra. Dormir poco hace perder menos grasa y más músculo con la misma dieta. Los pasos son una meta práctica, sin cifra mágica.", s: ["creatine", "sleep"] },
-      { only: ["recomp"], t: "Recomposición: expectativas", d: "Es posible en personas entrenadas, pero más lenta que perder grasa o ganar músculo por separado. Con tu nivel ({{LEVEL}}), puedes ganar ≈ {{GAIN}} de músculo en 90 días si cumples la proteína y progresas en carga.", s: ["recomp"] },
+      { only: ["fat", "recomp"], t: "Calorías: {{GOAL_KCAL}}", d: "Con tus datos, tu mantenimiento estimado es de unas {{MAINT}} kcal. Un día de entreno son unas {{KCAL_T}} y uno de descanso unas {{KCAL_R}}. La idea es bajar como máximo entre 0.5 % y 1 % de tu peso por semana: en atletas, bajar 0.7 % por semana conservó mejor el músculo y la fuerza que bajar 1.4 %. Si tu objetivo es recomponer, lo normal es cambiar unos {{RATE}} por semana.", s: ["helms14", "garthe", "issnDiet"] },
+      { only: ["fat", "recomp"], t: "Proteína: unos {{PROT}} g al día", d: "Son 2.2 g por cada kg de tu peso (unos {{PROT_FFM}} g por kg de masa magra si tu grasa corporal fuera de {{BF}} %, una estimación y no una medición). Para quien entrena y está en déficit, lo recomendado es de 2.3 a 3.1 g por kg de masa magra.", s: ["issnProt", "issnDiet"] },
+      { only: ["muscle"], t: "Calorías: superávit de ≈ {{PCT}} %", d: "Con tus datos, tu mantenimiento estimado es de unas {{MAINT}} kcal. Un día de entreno son unas {{KCAL_T}} y uno de descanso unas {{KCAL_R}}. Para quien empieza o ya tiene algo de experiencia se sugiere comer entre 10 % y 20 % más y subir entre 0.25 % y 0.5 % del peso por semana (unos {{RATE}}). Con mucha experiencia conviene ir más despacio. Nadie conoce el superávit ideal, y quien empieza puede ganar músculo con poco o ningún superávit.", s: ["iraki", "slater"] },
+      { only: ["muscle"], t: "Proteína: unos {{PROT}} g al día", d: "Son 1.8 g por kg de tu peso. Comer más proteína que unos 1.6 g por kg no dio más músculo en promedio, y 1.8 deja un poco de margen. Lo habitual para ganar músculo es de 1.4 a 2.0 g por kg.", s: ["morton", "issnProt"] },
+      { only: ["muscle"], t: "Grasas ≈ {{FAT}} g y carbohidratos ≈ {{CARB}} g", d: "Las grasas aportan cerca del {{FAT_PCT}} % de las calorías y el resto son carbohidratos, que te dan energía para entrenar. En superávit, casi todo lo extra va a carbohidratos.", s: ["acsm", "issnDiet"] },
+      { only: ["muscle"], t: "Qué esperar", d: "Con tu nivel ({{LEVEL}}) puedes ganar unos {{GAIN}} de músculo en 3 meses. Parte de lo que subas en la báscula será grasa. Si la cintura sube más rápido que tu fuerza, baja las calorías.", s: ["iraki"] },
+      { t: "Tus {{MEALS}} comidas del día", d: "Con {{MEALS}} comidas al día, cada una lleva unos {{PROT_MEAL}} g de proteína, una cantidad que el cuerpo aprovecha bien de una sola vez. Las calorías se reparten entre ellas y cambian entre un día de pesas y uno de descanso. Lo que más importa es el total del día; el número de comidas y los horarios se eligen para que puedas seguirlos.", s: ["protMeal", "helms14"] },
+      { t: "Grasas ≈ {{FAT}} g y carbohidratos ≈ {{CARB}} g", d: "Las grasas aportan cerca del {{FAT_PCT}} % de las calorías (lo habitual es entre 20 % y 35 %). El resto son carbohidratos, que se concentran antes de entrenar. Ninguna proporción es mejor que otra para cambiar tu cuerpo, así que elegimos la que te deja entrenar bien.", s: ["acsm", "issnDiet"] },
+      { t: "Creatina, sueño y pasos", d: "La creatina es el suplemento con más respaldo para ganar fuerza y masa magra. Dormir poco hace que pierdas menos grasa y más músculo con la misma dieta. Los pasos son una meta práctica, no un número mágico.", s: ["creatine", "sleep"] },
+      { only: ["recomp"], t: "Recomposición: qué esperar", d: "Funciona, pero es más lenta que bajar grasa o ganar músculo por separado. Con tu nivel ({{LEVEL}}) puedes ganar unos {{GAIN}} de músculo en 3 meses si llegas a tu proteína y subes peso con el tiempo.", s: ["recomp"] },
     ],
   },
 
@@ -297,5 +299,5 @@ window.CONTENT = {
     alt: `<ul><li><strong>Sin carne:</strong> huevo, lácteos, soya texturizada, tofu, lentejas, garbanzo y frijol combinados con arroz o tortilla. Revisa que llegues a tu proteína del día.</li><li><strong>Sin lácteos:</strong> bebida de soya sin azúcar, tofu o claras en lugar de yogurt y panela.</li><li><strong>Sin lactosa:</strong> el yogurt griego suele tolerarse mejor porque tiene menos lactosa; pruébalo en poca cantidad.</li><li><strong>Sin gluten:</strong> arroz, maíz, papa, camote y avena certificada sin gluten.</li><li><strong>Alergia al huevo:</strong> usa pollo, atún, yogurt o tofu.</li></ul><p>Si tienes una condición médica, alergias graves o estás embarazada o en lactancia, consulta a un profesional antes de seguir un déficit de calorías.</p>`,
   },
 
-  honesty: `<p>Los números de calorías y macros son <strong>estimaciones con rango</strong>, no valores exactos. Tu mantenimiento real se descubre con 2–3 semanas de datos de peso.</p><p>La recomposición (perder grasa y ganar músculo a la vez) funciona, pero la ganancia de músculo depende de tu nivel: con el tuyo ({{LEVEL}}) es ≈ {{GAIN}} en 90 días si comes la proteína y progresas en carga, pero no esperes ganar mucho músculo y perder mucha grasa al mismo ritmo. La transformación visible viene sobre todo de bajar cintura y conservar o ganar fuerza.</p><p>Esto no sustituye a un médico ni a un nutriólogo. Si tienes mareos, dolor en el pecho o lesiones, detente y consulta.</p>`,
+  honesty: `<p>Las calorías y los macros son <strong>cálculos aproximados con un rango</strong>, no valores exactos. Tu mantenimiento real lo descubres con 2 o 3 semanas de datos de peso.</p><p>La recomposición (perder grasa y ganar músculo a la vez) funciona, pero cuánto músculo ganas depende de tu nivel: con el tuyo ({{LEVEL}}) son unos {{GAIN}} en 3 meses si llegas a tu proteína y subes peso, y no conviene esperar ganar mucho músculo y perder mucha grasa al mismo ritmo. El cambio que más se ve viene de bajar la cintura y mantener o subir la fuerza.</p><p>Esto no sustituye a un médico ni a un nutriólogo. Si tienes mareos, dolor en el pecho o una lesión, detente y consulta.</p>`,
 };

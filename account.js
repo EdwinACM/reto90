@@ -11,6 +11,27 @@
   const toast = m => R().toast(m);
   const ready = () => C.state.status === "ok" || C.state.status === "offline_ok";
 
+  /* ---------- ilustración de marca (se tiñe con el color de acento) ---------- */
+  function hero(kind) {
+    const cx = 262, cy = 108, ticks = Array.from({ length: 90 }, (_, i) => { const a = (i / 90) * Math.PI * 2 - Math.PI / 2, r1 = 62, r2 = i % 10 === 0 ? 80 : 74; return `<line x1="${(cx + Math.cos(a) * r1).toFixed(1)}" y1="${(cy + Math.sin(a) * r1).toFixed(1)}" x2="${(cx + Math.cos(a) * r2).toFixed(1)}" y2="${(cy + Math.sin(a) * r2).toFixed(1)}" stroke="#fff" stroke-width="${i % 10 === 0 ? 3 : 2}" stroke-linecap="round" opacity="${i < 62 ? (i % 10 === 0 ? 1 : .92) : .28}"/>`; }).join("");
+    return `<svg class="hero ${kind || ""}" viewBox="0 0 360 216" role="img" aria-label="Ilustración: una barra con discos y un anillo de progreso" preserveAspectRatio="xMidYMid slice">
+      <defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:color-mix(in srgb, var(--accent) 82%, #fff)"/><stop offset=".55" style="stop-color:var(--accent)"/><stop offset="1" style="stop-color:color-mix(in srgb, var(--accent) 42%, #000)"/></linearGradient>
+      <radialGradient id="hl" cx=".2" cy=".1" r=".9"><stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+      <linearGradient id="hp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity=".72"/></linearGradient></defs>
+      <rect width="360" height="216" fill="url(#hg)"/><rect width="360" height="216" fill="url(#hl)"/>
+      <circle cx="${cx}" cy="${cy}" r="96" fill="#000" opacity=".12"/>
+      ${ticks}
+      <text x="${cx}" y="${cy + 15}" text-anchor="middle" font-size="42" font-weight="800" fill="#fff" font-family="-apple-system, Roboto, Helvetica, Arial, sans-serif" letter-spacing="-1.5">R90</text>
+      <g transform="rotate(-14 96 150)">
+        <rect x="10" y="146" width="176" height="9" rx="4.5" fill="url(#hp)"/>
+        <rect x="52" y="104" width="16" height="93" rx="6" fill="url(#hp)"/><rect x="34" y="118" width="14" height="65" rx="5" fill="url(#hp)" opacity=".85"/>
+        <rect x="128" y="104" width="16" height="93" rx="6" fill="url(#hp)"/><rect x="148" y="118" width="14" height="65" rx="5" fill="url(#hp)" opacity=".85"/>
+        <rect x="14" y="140" width="12" height="21" rx="4" fill="#000" opacity=".22"/><rect x="170" y="140" width="12" height="21" rx="4" fill="#000" opacity=".22"/>
+      </g>
+      <path d="M0 196 C 60 178, 110 206, 170 190 S 290 176, 360 196 L360 216 L0 216Z" fill="#000" opacity=".16"/>
+    </svg>`;
+  }
+
   /* ---------- indicador de nube ---------- */
   const SYNC_TXT = { saving: "Guardando…", ok: "Guardado", idle: "Guardado", offline: "Sin conexión", error: "Sin sincronizar" };
   const chip = () => ready() ? `<button class="sync-chip" data-go="#/plan/cuenta" data-s="${C.state.sync}" aria-label="Nube: ${SYNC_TXT[C.state.sync] || "Guardado"}"><i aria-hidden="true"></i><span>${SYNC_TXT[C.state.sync] || "Guardado"}</span></button>` : "";
@@ -113,11 +134,10 @@
     if (sub === "bloqueado") return `${nav("Cuenta bloqueada", "Habla con el administrador para recuperar el acceso.")}<div class="btn-wrap"><button class="btn quiet" data-act="acct-out">Cerrar sesión</button></div>`;
     if (sub === "bienvenida") {
       if (st === "ok") { setTimeout(() => R().go("#/hoy")); return ""; }
-      return `<div class="welcome"><div class="brand">R90</div><p class="tag-l">Tu plan de 90 días para perder grasa y ganar músculo.</p>
-      <ul class="pts"><li><b>Rutina a tu medida</b><span>Según tu nivel, tu equipo y tu salud.</span></li><li><b>Comidas y compras</b><span>Menú semanal con tus macros y sin tus alergias.</span></li><li><b>Tu progreso</b><span>Series, pesos y medidas, guardados y sincronizados.</span></li></ul>
+      return `<div class="welcome">${hero("big")}<p class="tag-l">Tu rutina y tu comida, hechas para ti.</p>
+      <ul class="pts"><li><b>Entrenas con un plan claro</b><span>Pesas y cardio según tu nivel, tu equipo y tus lesiones.</span></li><li><b>Comes sin complicarte</b><span>Menú y lista de compras según las comidas que haces al día y lo que no puedes comer.</span></li><li><b>Ves tu avance</b><span>Tus series, tu peso y tus medidas quedan guardados en tu cuenta.</span></li></ul>
       <div class="btn-wrap"><button class="btn" data-go="#/acceso/crear">Crear mi cuenta</button></div>
-      <div class="btn-wrap"><button class="btn quiet" data-go="#/acceso/entrar">Ya tengo cuenta</button></div>
-      <p class="note" style="text-align:center">Acceso solo por invitación.</p></div>`;
+      <div class="btn-wrap"><button class="btn quiet" data-go="#/acceso/entrar">Ya tengo cuenta</button></div></div>`;
     }
     if (sub === "entrar") {
       if (st === "ok") { setTimeout(() => R().go("#/hoy")); return ""; }
@@ -129,7 +149,7 @@
     }
     if (sub === "crear") {
       if (st === "ok") { setTimeout(() => R().go("#/hoy")); return ""; }
-      return `${nav("Crea tu cuenta", "Necesitas una invitación del administrador.")}
+      return `${nav("Crea tu cuenta", "Escribe tu código y elige tu usuario y tu contraseña.")}
       <form data-acct="signup" novalidate><div class="group">
         <div class="field"><label for="i">Código de invitación</label><input id="i" name="i" type="text" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" enterkeyhint="next" required></div>
         ${userField(true)}${pwField("p", "Contraseña", "new-password", pwHint)}${showPw}</div>
@@ -376,7 +396,7 @@
   const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent), standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
   const tzName = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) { return "UTC"; } };
   const u8 = b => Uint8Array.from(atob(b.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-  const defPrefs = () => { const r = R().remind(); return { train: true, streak: true, weigh: true, meals: false, water: false, review: true, admin: true, device: true, t_train: r.train, t_weigh: r.weigh, t_review: "19:00", t_meals: ["07:30", "14:00", "20:45"], t_water: ["11:00", "15:00", "19:00"], days: R().trainDays() }; };
+  const defPrefs = () => { const r = R().remind(); return { train: true, streak: true, weigh: true, meals: false, water: false, review: true, admin: true, device: true, t_train: r.train, t_weigh: r.weigh, t_review: "19:00", t_meals: (R().mealTimes && R().mealTimes().length ? R().mealTimes() : ["07:30", "14:00", "20:45"]).slice(0, 6), t_water: ["11:00", "15:00", "19:00"], days: R().trainDays() }; };
   let psT;
   const pushSave = () => { clearTimeout(psT); psT = setTimeout(async () => { try { await C.rpc("push_set_prefs", { p_prefs: PS.prefs, p_tz: tzName() }); } catch (e) {} }, 700); };
   async function pushEnable() {
@@ -416,7 +436,7 @@
     let h = `${head}<div class="group"><div class="row check-row"><label for="pn-master">Recibir notificaciones<span class="meta">${denied ? "Bloqueadas en el navegador. Actívalas en sus ajustes." : PS.on ? "Activas en este dispositivo" : "Desactivadas"}</span></label><input class="switch" id="pn-master" type="checkbox" ${PS.on ? "checked" : ""} ${denied ? "disabled" : ""}></div></div>`;
     if (PS.on) {
       h += `<h2 class="sec">Entrenamiento</h2><div class="group">${sw("train", "Hora de entrenar", "Solo tus días de pesas y si aún no entrenaste")}${tm("t_train", "Hora")}${sw("streak", "Cuidar la racha", "Un segundo aviso a las 21:00 si no entrenaste")}</div>
-      <h2 class="sec">Cuerpo y comida</h2><div class="group">${sw("weigh", "Pesarte", "Solo si aún no registras tu peso")}${tm("t_weigh", "Hora")}${sw("meals", "Comidas", "A las 7:30, 14:00 y 20:45")}${sw("water", "Agua", "A las 11:00, 15:00 y 19:00 mientras no llegues a tu meta")}${sw("review", "Revisión semanal", "Domingo a las 19:00")}</div>
+      <h2 class="sec">Cuerpo y comida</h2><div class="group">${sw("weigh", "Pesarte", "Solo si aún no registras tu peso")}${tm("t_weigh", "Hora")}${sw("meals", "Comidas", "A las horas de tus comidas: " + (p.t_meals || []).join(", "))}${sw("water", "Agua", "A las 11:00, 15:00 y 19:00 mientras no llegues a tu meta")}${sw("review", "Revisión semanal", "Domingo a las 19:00")}</div>
       <h2 class="sec">Cuenta</h2><div class="group">${sw("device", "Solicitudes de dispositivo", "Cuando alguien pida entrar a tu cuenta")}${me.role === "admin" ? sw("admin", "Administración", "Usuarios nuevos, cambios de dispositivo y respaldo semanal") : ""}</div>
       <div class="btn-wrap"><button class="btn quiet" data-act="acct-pntest">Enviar notificación de prueba</button></div>
       <p class="note">La hora se toma de este teléfono (${esc(tzName())}).</p>`;
@@ -451,5 +471,5 @@
     if (r[0] === "acceso") $$("form[data-acct] input[name]").forEach(i => { if (i.type !== "password" && U.draft[i.name] != null) i.value = U.draft[i.name]; }); const f = $("form[data-acct] input:not([type=checkbox])"); if (f && r[0] === "acceso") f.focus({ preventScroll: true }); }
 
   if (ls.get("reto90.lock")) { const go = () => showLock(); if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", go); else go(); }
-  window.Acct = { gate, view, act, changed, chip, after, ready, status: () => C.state.status };
+  window.Acct = { hero, gate, view, act, changed, chip, after, ready, status: () => C.state.status };
 })();
