@@ -5,7 +5,7 @@
   const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} }, del: k => { try { localStorage.removeItem(k); } catch (e) {} } };
-  const U = { booting: false, pushT: null, pushing: false, again: false, seenReq: "", pollT: null, hiddenAt: 0 };
+  const U = { draft: {}, pw: "", asked: false, booting: false, pushT: null, pushing: false, again: false, seenReq: "", pollT: null, hiddenAt: 0 };
   const ago = t => { if (!t) return "nunca"; const m = Math.round((Date.now() - new Date(t).getTime()) / 60000); return m < 1 ? "hace un momento" : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`; };
   const dt = t => t ? new Date(t).toLocaleDateString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
   const toast = m => R().toast(m);
@@ -81,7 +81,7 @@
     if (route === "acceso") return false;
     const to = h => { R().go(h); return true; };
     if (s === "boot") { if (!U.booting) startBoot(); return to("#/acceso/cargando"); }
-    if (s === "anon") { if (route === "inicio" && !has) return false; return to(has ? "#/acceso/crear" : "#/acceso/entrar"); }
+    if (s === "anon") return to("#/acceso/bienvenida");
     if (s === "pending" || s === "need_device") return to("#/acceso/dispositivo");
     if (s === "blocked") return to("#/acceso/bloqueado");
     if (s === "error") return to("#/acceso/error");
@@ -102,49 +102,57 @@
   const err = (f, m) => { const e = $(".form-err", f); if (e) { e.textContent = m; e.hidden = !m; } };
   const busy = (f, on) => { const b = $("button[type=submit]", f); if (b) { b.disabled = on; b.dataset.t = b.dataset.t || b.textContent; b.textContent = on ? "Un momento…" : b.dataset.t; } };
   const pwField = (id, label, auto, hint) => `<div class="field"><label for="${id}">${label}</label><input id="${id}" name="${id}" type="password" autocomplete="${auto}" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" required>${hint ? `<p class="hint">${hint}</p>` : ""}</div>`;
-  const userField = (id = "u") => `<div class="field"><label for="${id}">Usuario</label><input id="${id}" name="u" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" maxlength="20" enterkeyhint="next" required><p class="hint">3 a 20 letras minúsculas, números o guion bajo.</p></div>`;
-  const showPw = `<label class="row check-row"><span style="flex:1">Mostrar contraseña</span><input class="switch" type="checkbox" data-showpw></label>`;
+  const userField = hint => `<div class="field"><label for="u">Usuario</label><input id="u" name="u" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" maxlength="20" enterkeyhint="next" required>${hint ? '<p class="hint">3 a 20 letras minúsculas, números o guion bajo.</p>' : ""}</div>`;
+  const showPw = `<label class="row check-row"><span style="flex:1">Mostrar contraseña</span><input class="switch" type="checkbox" data-showpw aria-label="Mostrar contraseña"></label>`;
 
+  const hintLine = t => `<p class="hint" style="margin:0">${t}</p>`;
   function flow(sub) {
-    const nav = (t, s) => R().nav(t, { sub: s }), st = C.state.status;
-    if (sub === "cargando") { if (st !== "boot") { setTimeout(() => R().go("#/hoy")); return ""; } return `${nav("Conectando…", "Verificando tu cuenta")}<div class="group"><div class="empty">Un momento…</div></div>`; }
+    const nav = (t, s) => R().nav(t, { sub: s, back: sub === "entrar" || sub === "crear" ? "Inicio" : undefined, to: "#/acceso/bienvenida" }), st = C.state.status;
+    if (sub === "cargando") { if (st !== "boot") { setTimeout(() => R().go("#/hoy")); return ""; } return `<div class="welcome"><div class="brand">R90</div><p class="tag-l">Conectando…</p></div>`; }
     if (sub === "error") return `${nav("No pudimos conectar", esc(C.state.error || "Revisa tu internet."))}<div class="btn-wrap"><button class="btn" data-act="acct-retry">Reintentar</button></div>`;
     if (sub === "bloqueado") return `${nav("Cuenta bloqueada", "Habla con el administrador para recuperar el acceso.")}<div class="btn-wrap"><button class="btn quiet" data-act="acct-out">Cerrar sesión</button></div>`;
+    if (sub === "bienvenida") {
+      if (st === "ok") { setTimeout(() => R().go("#/hoy")); return ""; }
+      return `<div class="welcome"><div class="brand">R90</div><p class="tag-l">Tu plan de 90 días para perder grasa y ganar músculo.</p>
+      <ul class="pts"><li><b>Rutina a tu medida</b><span>Según tu nivel, tu equipo y tu salud.</span></li><li><b>Comidas y compras</b><span>Menú semanal con tus macros y sin tus alergias.</span></li><li><b>Tu progreso</b><span>Series, pesos y medidas, guardados y sincronizados.</span></li></ul>
+      <div class="btn-wrap"><button class="btn" data-go="#/acceso/crear">Crear mi cuenta</button></div>
+      <div class="btn-wrap"><button class="btn quiet" data-go="#/acceso/entrar">Ya tengo cuenta</button></div>
+      <p class="note" style="text-align:center">Acceso solo por invitación.</p></div>`;
+    }
     if (sub === "entrar") {
       if (st === "ok") { setTimeout(() => R().go("#/hoy")); return ""; }
-      return `${nav("Entrar", "Con tu usuario y contraseña")}
-      <form data-acct="login" novalidate><div class="group">${userField()}${pwField("p", "Contraseña", "current-password")}${showPw}</div>
+      return `${nav("Entrar", "Con tu usuario y contraseña.")}
+      <form data-acct="login" novalidate><div class="group">${userField(false)}${pwField("p", "Contraseña", "current-password")}${showPw}</div>
       <p class="form-err note err" role="alert" hidden></p>
       <div class="btn-wrap"><button class="btn" type="submit">Entrar</button></div></form>
-      <div class="btn-wrap"><button class="btn quiet" data-go="#/acceso/crear">Tengo una invitación</button></div>
-      <p class="note">Tu cuenta solo funciona en un dispositivo a la vez. Si entras desde otro, tendrás que pedir autorización.</p>`;
+      <p class="note">Tu cuenta funciona en un dispositivo a la vez. Si entras desde otro, te pediremos autorización una sola vez.</p>`;
     }
     if (sub === "crear") {
       if (st === "ok") { setTimeout(() => R().go("#/hoy")); return ""; }
-      return `${nav("Crea tu cuenta", "Para guardar tu plan y proteger tus datos. La app es solo por invitación.")}
+      return `${nav("Crea tu cuenta", "Necesitas una invitación del administrador.")}
       <form data-acct="signup" novalidate><div class="group">
         <div class="field"><label for="i">Código de invitación</label><input id="i" name="i" type="text" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" enterkeyhint="next" required></div>
-        ${userField()}${pwField("p", "Contraseña", "new-password", pwHint)}${pwField("p2", "Repite la contraseña", "new-password")}${showPw}
-        <label class="row check-row" style="align-items:flex-start"><span style="font-size:14px;line-height:1.4">Acepto que mis datos de entrenamiento, comidas y medidas se guarden en la nube de R90. <a href="#/plan/privacidad">Ver privacidad</a></span><input class="switch" name="c" type="checkbox" aria-label="Acepto guardar mis datos en la nube"></label></div>
+        ${userField(true)}${pwField("p", "Contraseña", "new-password", pwHint)}${showPw}</div>
       <p class="form-err note err" role="alert" hidden></p>
       <div class="btn-wrap"><button class="btn" type="submit">Crear cuenta</button></div></form>
-      <div class="btn-wrap"><button class="btn quiet" data-go="#/acceso/entrar">Ya tengo cuenta</button></div>
-      <p class="note">Las fotos de progreso nunca se suben: se quedan en este dispositivo. No podrás entrar desde otro dispositivo sin tu aprobación.</p>`;
+      <p class="note">Al crearla aceptas que tus datos de entrenamiento, comidas y medidas se guarden en tu cuenta (<a href="#/plan/privacidad">ver privacidad</a>). Las fotos nunca se suben.</p>`;
     }
     if (sub === "clave") {
-      return `${nav("Elige tu contraseña", "El administrador te dio una temporal. Cámbiala para continuar.")}
-      <form data-acct="forcepw" novalidate><div class="group">${pwField("c", "Contraseña temporal", "current-password")}${pwField("p", "Contraseña nueva", "new-password", pwHint)}${pwField("p2", "Repite la nueva", "new-password")}${showPw}</div>
+      const need = !U.pw;
+      return `${nav("Elige tu contraseña", "Ya entraste con la temporal del administrador. Ahora crea la tuya.")}
+      <form data-acct="forcepw" novalidate><div class="group">${need ? pwField("c", "Contraseña temporal", "current-password") : ""}${pwField("p", "Contraseña nueva", "new-password", pwHint)}${showPw}</div>
       <p class="form-err note err" role="alert" hidden></p><div class="btn-wrap"><button class="btn" type="submit">Guardar y continuar</button></div></form>`;
     }
     if (sub === "dispositivo") {
       if (st === "ok") { setTimeout(() => R().go("#/hoy")); return ""; }
       const pend = st === "pending";
-      setTimeout(() => { if (pend) pollDevice(); }, 0);
-      return `${nav(pend ? "Esperando aprobación" : "Otro dispositivo en uso", pend ? "Tu solicitud fue enviada." : "Tu cuenta está vinculada a otro dispositivo.")}
-      <div class="group"><div class="prose">${pend
-        ? `<p>Para aprobarla, abre R90 en tu dispositivo anterior (te avisará) o pide al administrador que la apruebe.</p><p>Esta pantalla se actualiza sola.</p>`
-        : `<p>Por seguridad, una cuenta solo puede usarse en un dispositivo a la vez. Pide autorización para pasar tu cuenta a <strong>este</strong> dispositivo: se mueve contigo todo tu progreso.</p>`}</div></div>
-      ${pend ? `<div class="btn-wrap"><button class="btn quiet" data-act="acct-cancelreq">Cancelar solicitud</button></div>` : `<div class="btn-wrap"><button class="btn" data-act="acct-askdev">Pedir autorización</button></div>`}
+      if (!pend && !U.asked) { U.asked = true; setTimeout(async () => { try { await C.requestChange(); C.state.status = "pending"; } catch (e) { U.asked = false; toast(C.human(e)); } R().render(); }, 0); }
+      else if (pend) setTimeout(pollDevice, 0);
+      return `${nav(pend || !U.asked ? "Esperando aprobación" : "Solicitud rechazada", pend || !U.asked ? "Ya pedimos permiso por ti." : "Puedes volver a pedirla.")}
+      <div class="group"><div class="prose">${pend || !U.asked
+        ? `<p>Tu cuenta está en otro dispositivo. Ábrela allí y aprueba esta solicitud, o pídele al administrador que lo haga.</p><p>Esta pantalla se actualiza sola cuando te aprueben.</p>`
+        : `<p>La solicitud no fue aprobada. Si fue un error, pídela de nuevo.</p>`}</div></div>
+      ${pend || !U.asked ? `<div class="btn-wrap"><button class="btn quiet" data-act="acct-cancelreq">Cancelar solicitud</button></div>` : `<div class="btn-wrap"><button class="btn" data-act="acct-askdev">Pedir de nuevo</button></div>`}
       <div class="btn-wrap"><button class="btn quiet" data-act="acct-out">Cerrar sesión</button></div>`;
     }
     return "";
@@ -156,7 +164,7 @@
       try {
         const s = await C.pollRequest();
         if (s === "approved" && C.state.status === "ok") { await onReady(); R().go("#/hoy"); R().render(); return; }
-        if (s === "rejected" || s === "none") { C.state.status = "need_device"; R().render(); return; }
+        if (s === "rejected" || s === "none") { U.asked = true; C.state.status = "need_device"; R().render(); return; }
       } catch (e) { if (e.message === "bloqueado") { C.state.status = "blocked"; R().render(); return; } }
       U.devT = setTimeout(step, 5000);
     };
@@ -171,27 +179,24 @@
     try {
       if (kind === "login") {
         const u = v("u").trim().toLowerCase(); if (!C.userOk(u) || !v("p")) return err(f, "Escribe tu usuario y tu contraseña.");
-        busy(f, true); const s = await C.signIn(u, v("p")); busy(f, false); return afterAuth(s);
+        busy(f, true); U.pw = v("p"); const s = await C.signIn(u, v("p")); busy(f, false); U.draft = {}; return afterAuth(s);
       }
       if (kind === "signup") {
         const u = v("u").trim().toLowerCase(), p = v("p");
         if (!v("i").trim()) return err(f, "Escribe tu código de invitación.");
         if (!C.userOk(u)) return err(f, "El usuario debe tener 3 a 20 letras minúsculas, números o guion bajo.");
         const pp = C.pwProblem(p); if (pp) return err(f, pp + ".");
-        if (p !== v("p2")) return err(f, "Las contraseñas no coinciden.");
-        if (!f.elements.c.checked) return err(f, "Acepta guardar tus datos en la nube para continuar.");
         busy(f, true);
         const n = await C.pwned(p); if (n > 0) { busy(f, false); return err(f, "Esa contraseña apareció en filtraciones de datos. Elige otra."); }
-        const s = await C.signUp(u, p, v("i")); busy(f, false); return afterAuth(s);
+        const s = await C.signUp(u, p, v("i")); busy(f, false); U.draft = {}; return afterAuth(s);
       }
       if (kind === "forcepw" || kind === "chpw") {
-        const p = v("p"), pp = C.pwProblem(p); if (pp) return err(f, pp + ".");
-        if (p !== v("p2")) return err(f, "Las contraseñas no coinciden.");
-        if (!v("c")) return err(f, "Escribe tu contraseña actual.");
-        if (p === v("c")) return err(f, "La contraseña nueva debe ser distinta.");
+        const p = v("p"), cur = f.elements.c ? v("c") : U.pw, pp = C.pwProblem(p); if (pp) return err(f, pp + ".");
+        if (!cur) return err(f, "Escribe tu contraseña actual.");
+        if (p === cur) return err(f, "La contraseña nueva debe ser distinta.");
         busy(f, true);
         const n = await C.pwned(p); if (n > 0) { busy(f, false); return err(f, "Esa contraseña apareció en filtraciones de datos. Elige otra."); }
-        await C.changePassword(v("c"), p); busy(f, false);
+        await C.changePassword(cur, p); busy(f, false); U.pw = "";
         if (kind === "chpw") { R().closeSheet(); toast("Contraseña actualizada"); } else { C.state.me = await C.rpc("me"); R().go("#/hoy"); R().render(); }
         return;
       }
@@ -310,23 +315,23 @@
   /* ---------- acciones ---------- */
   async function signOut() {
     try { if (C.state.status === "ok" && C.syncMeta().dirty) await pushNow(); } catch (e) {}
-    await C.signOut(); ls.del("reto90.lock"); await R().wipe(); R().go("#/acceso/entrar"); R().render();
+    await C.signOut(); U.pw = ""; U.asked = false; ls.del("reto90.lock"); await R().wipe(); R().go("#/acceso/bienvenida"); R().render();
   }
   async function act(a, el) {
     try {
       if (a === "acct-retry") { C.state.status = "boot"; U.booting = false; R().render(); }
       else if (a === "acct-out") { if (confirm("Se borrarán los datos de este dispositivo, incluidas las fotos (no se guardan en la nube). Tus datos siguen en tu cuenta. ¿Cerrar sesión?")) await signOut(); }
-      else if (a === "acct-askdev") { await C.requestChange(); C.state.status = "pending"; R().render(); }
-      else if (a === "acct-cancelreq") { try { await C.rpc("cancel_my_request"); } catch (e) {} C.state.status = "need_device"; R().render(); }
+      else if (a === "acct-askdev") { U.asked = true; await C.requestChange(); C.state.status = "pending"; R().render(); }
+      else if (a === "acct-cancelreq") { try { await C.rpc("cancel_my_request"); } catch (e) {} U.asked = true; C.state.status = "need_device"; R().render(); }
       else if (a === "acct-sync") { setSync("saving"); try { await reconcile(); poll(); } catch (e) { setSync(e.offline ? "offline" : "error"); } R().refresh(); }
       else if (a === "acct-priv") R().go("#/plan/privacidad");
       else if (a === "acct-admin") { AD.tab = "users"; R().go("#/plan/admin"); }
-      else if (a === "acct-chpw") R().openSheet("Cambiar contraseña", `<form data-acct="chpw" novalidate><div class="group">${pwField("c", "Contraseña actual", "current-password")}${pwField("p", "Contraseña nueva", "new-password", pwHint)}${pwField("p2", "Repite la nueva", "new-password")}${showPw}</div><p class="form-err note err" role="alert" hidden></p><div class="btn-wrap"><button class="btn" type="submit">Guardar</button></div></form>`);
+      else if (a === "acct-chpw") R().openSheet("Cambiar contraseña", `<form data-acct="chpw" novalidate><div class="group">${pwField("c", "Contraseña actual", "current-password")}${pwField("p", "Contraseña nueva", "new-password", pwHint)}${showPw}</div><p class="form-err note err" role="alert" hidden></p><div class="btn-wrap"><button class="btn" type="submit">Guardar</button></div></form>`);
       else if (a === "acct-approve") { await pushNow(); await C.rpc("approve_my_request"); R().closeSheet(); toast("Aprobado. Este dispositivo se desvinculó."); await signOutKeep(); }
       else if (a === "acct-reject") { await C.rpc("cancel_my_request"); R().closeSheet(); toast("Solicitud rechazada"); U.seenReq = ""; }
       else if (a === "acct-del") {
         const me = C.state.me || {}, t = prompt(`Se borrará tu cuenta y todos tus datos de la nube. No se puede deshacer.\n\nEscribe tu usuario (${me.username}) para confirmar.`);
-        if (t && t.trim().toLowerCase() === me.username) { await C.rpc("delete_my_account"); await C.signOut(); ls.del("reto90.lock"); await R().wipe(); R().go("#/acceso/crear"); R().render(); toast("Cuenta eliminada"); }
+        if (t && t.trim().toLowerCase() === me.username) { await C.rpc("delete_my_account"); await C.signOut(); ls.del("reto90.lock"); await R().wipe(); R().go("#/acceso/bienvenida"); R().render(); toast("Cuenta eliminada"); }
         else if (t) toast("El usuario no coincide");
       }
       else if (a === "acct-newinv") {
@@ -357,7 +362,9 @@
     if (name === "admin") { if (!(C.state.me && C.state.me.role === "admin") || C.state.status !== "ok") { setTimeout(() => R().go("#/plan/cuenta")); return ""; } if (!AD.users.length && !AD.loaded) { AD.loaded = true; adminRefresh(); } return admin(); }
     return flow(name);
   }
-  function after(r) { const f = $("form[data-acct] input:not([type=checkbox])"); if (f && r[0] === "acceso") f.focus({ preventScroll: true }); }
+  document.addEventListener("input", e => { const t = e.target; if (t.form && t.form.dataset && t.form.dataset.acct && t.type !== "password" && t.name) U.draft[t.name] = t.value; });
+  function after(r) {
+    if (r[0] === "acceso") $$("form[data-acct] input[name]").forEach(i => { if (i.type !== "password" && U.draft[i.name] != null) i.value = U.draft[i.name]; }); const f = $("form[data-acct] input:not([type=checkbox])"); if (f && r[0] === "acceso") f.focus({ preventScroll: true }); }
 
   if (ls.get("reto90.lock")) { const go = () => showLock(); if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", go); else go(); }
   window.Acct = { gate, view, act, changed, chip, after, ready, status: () => C.state.status };
