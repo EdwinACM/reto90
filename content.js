@@ -1,8 +1,8 @@
 window.CONTENT = {
   levels: {
-    nuevo: { name: "Principiante", sub: "menos de 3 meses entrenando", k: 0.8, gain: "1.5–3 kg" },
-    medio: { name: "Intermedio", sub: "3 a 12 meses", k: 1, gain: "1–2 kg" },
-    alto:  { name: "Avanzado", sub: "más de 1 año", k: 1.3, gain: "0.5–1 kg" },
+    nuevo: { name: "Principiante", sub: "estás empezando o vuelves después de mucho tiempo", k: 0.8, gain: "1.5–3 kg" },
+    medio: { name: "Intermedio", sub: "ya conoces los ejercicios básicos y entrenas con cierta regularidad", k: 1, gain: "1–2 kg" },
+    alto:  { name: "Avanzado", sub: "entrenas con constancia desde hace mucho y dominas la técnica", k: 1.3, gain: "0.5–1 kg" },
   },
   goals: {
     fat: { name: "Perder grasa", desc: "Bajar grasa y medidas conservando el músculo. Déficit de calorías y más cardio.", sub: "déficit de calorías, más cardio", paces: [[10, "Suave (10 %)"], [15, "Moderado (15 %)"], [20, "Firme (20 %)"]], pace: 15 },
@@ -21,9 +21,9 @@ window.CONTENT = {
 
   milestones: [
     { day: 14, t: "Primer ajuste", d: "Ya tienes dos semanas de datos. Mira si tu peso baja al ritmo esperado y, si no, ajusta las calorías." },
-    { day: 30, t: "Mes 1", pct: [1.4, 2.7], cm: [1, 3], d: "cintura −{cm} cm. Subes peso o repeticiones en casi todos los ejercicios." },
-    { day: 60, t: "Mes 2", pct: [3.4, 5.4], cm: [3, 5], d: "cintura −{cm} cm. El cambio ya se nota en el abdomen y la cintura." },
-    { day: 90, t: "Mes 3", pct: [4.7, 8], cm: [5, 8], d: "cintura −{cm} cm y fuerza igual o mayor. Son cálculos aproximados: cada cuerpo avanza a su ritmo." },
+    { day: 30, t: "Primeros resultados", pct: [1.4, 2.7], cm: [1, 3], d: "cintura −{cm} cm. Subes peso o repeticiones en casi todos los ejercicios." },
+    { day: 60, t: "Cambio visible", pct: [3.4, 5.4], cm: [3, 5], d: "cintura −{cm} cm. El cambio ya se nota en el abdomen y la cintura." },
+    { day: 90, t: "Balance de la etapa", pct: [4.7, 8], cm: [5, 8], d: "cintura −{cm} cm y fuerza igual o mayor. Son cálculos aproximados: cada cuerpo avanza a su ritmo." },
   ],
 
   weekFocus: {
@@ -214,7 +214,7 @@ window.CONTENT = {
       { t: "Cardio después de las pesas", d: "Sumar cardio no frena el crecimiento del músculo ni la fuerza máxima. Va al final del entreno y, en los días fuertes de pierna, es opcional.", s: ["concurrent"] },
       { t: "Fallo y repeticiones en reserva", d: "La última vuelta de los ejercicios de aislamiento y de máquina llega al fallo. Con barra libre se deja 1 o 2 repeticiones en reserva para cuidar la espalda y las articulaciones. En las primeras vueltas quedan de 1 a 3 en reserva. Quien empieza calcula peor su esfuerzo, por eso arranca con más margen.", s: ["zourdos"] },
       { t: "Cuándo subir peso y semanas de descarga", d: "Subes peso cuando completas el máximo del rango en todas las vueltas. Las semanas 4 y 8 son de descarga: bajas la carga para recuperarte y seguir progresando. Es una práctica habitual entre entrenadores, no un resultado exacto de estudios.", s: ["bell"] },
-      { t: "Cómo se reparten los días", d: "Con 3 días haces cuerpo completo, con 4 torso y pierna, con 5 empuje, tirón, pierna, torso y pierna, y con 6 empuje, tirón y pierna dos veces. Cada músculo se trabaja al menos dos veces por semana. Si empiezas, el volumen baja una serie por bloque. Si llevas más de un año, sube una serie en el ejercicio principal. Si tu objetivo es ganar músculo, hay menos cardio y una serie más en los accesorios.", s: ["freq16", "helms15"] },
+      { t: "Cómo se reparten los días", d: "Con 3 días haces cuerpo completo, con 4 torso y pierna, con 5 empuje, tirón, pierna, torso y pierna, y con 6 empuje, tirón y pierna dos veces. Cada músculo se trabaja al menos dos veces por semana. Si empiezas, el volumen baja una serie por bloque. Si ya tienes mucha experiencia, sube una serie en el ejercicio principal. Si tu objetivo es ganar músculo, hay menos cardio y una serie más en los accesorios.", s: ["freq16", "helms15"] },
       { t: "En casa con mancuernas o sin equipo", d: "Las cargas ligeras llevadas cerca del fallo hacen crecer el músculo casi igual que las pesadas, aunque para la fuerza máxima las pesadas son mejores. Por eso en casa subes repeticiones, bajas lento y pasas a una pierna o un brazo antes de pedir más peso. Sin banca, cada ejercicio se sustituye por uno equivalente (press de suelo, flexiones elevadas) y con barra de dominadas entra el tirón vertical.", s: ["load"] },
       { t: "Dominadas y fondos", d: "Son ejercicios con tu propio peso que trabajan muchos músculos a la vez. Si en el cuestionario dijiste que haces 5 o más, entran en tu plan en lugar del jalón al pecho y la extensión de tríceps en polea, y avanzas con repeticiones y luego con peso. Si no llegas a 5, se quedan como alternativas y puedes usar el jalón y la máquina de fondos asistidos hasta lograrlo.", s: ["helms15"] },
       { t: "Mujeres y hombres", d: "Los estudios revisados muestran que el músculo crece de forma parecida en ambos sexos, y que las mujeres pueden mejorar más su fuerza relativa en el tren superior. Por eso el plan es el mismo y solo cambian los pesos de partida.", s: ["sexdiff"] },
@@ -225,11 +225,11 @@ window.CONTENT = {
       { only: ["muscle"], t: "Calorías: superávit de ≈ {{PCT}} %", d: "Con tus datos, tu mantenimiento estimado es de unas {{MAINT}} kcal. Un día de entreno son unas {{KCAL_T}} y uno de descanso unas {{KCAL_R}}. Para quien empieza o ya tiene algo de experiencia se sugiere comer entre 10 % y 20 % más y subir entre 0.25 % y 0.5 % del peso por semana (unos {{RATE}}). Con mucha experiencia conviene ir más despacio. Nadie conoce el superávit ideal, y quien empieza puede ganar músculo con poco o ningún superávit.", s: ["iraki", "slater"] },
       { only: ["muscle"], t: "Proteína: unos {{PROT}} g al día", d: "Son 1.8 g por kg de tu peso. Comer más proteína que unos 1.6 g por kg no dio más músculo en promedio, y 1.8 deja un poco de margen. Lo habitual para ganar músculo es de 1.4 a 2.0 g por kg.", s: ["morton", "issnProt"] },
       { only: ["muscle"], t: "Grasas ≈ {{FAT}} g y carbohidratos ≈ {{CARB}} g", d: "Las grasas aportan cerca del {{FAT_PCT}} % de las calorías y el resto son carbohidratos, que te dan energía para entrenar. En superávit, casi todo lo extra va a carbohidratos.", s: ["acsm", "issnDiet"] },
-      { only: ["muscle"], t: "Qué esperar", d: "Con tu nivel ({{LEVEL}}) puedes ganar unos {{GAIN}} de músculo en 3 meses. Parte de lo que subas en la báscula será grasa. Si la cintura sube más rápido que tu fuerza, baja las calorías.", s: ["iraki"] },
+      { only: ["muscle"], t: "Qué esperar", d: "Con tu nivel ({{LEVEL}}) puedes ganar unos {{GAIN}} de músculo en esta primera etapa del plan. Parte de lo que subas en la báscula será grasa. Si la cintura sube más rápido que tu fuerza, baja las calorías.", s: ["iraki"] },
       { t: "Tus {{MEALS}} comidas del día", d: "Con {{MEALS}} comidas al día, cada una lleva unos {{PROT_MEAL}} g de proteína, una cantidad que el cuerpo aprovecha bien de una sola vez. Las calorías se reparten entre ellas y cambian entre un día de pesas y uno de descanso. Lo que más importa es el total del día; el número de comidas y los horarios se eligen para que puedas seguirlos.", s: ["protMeal", "helms14"] },
       { t: "Grasas ≈ {{FAT}} g y carbohidratos ≈ {{CARB}} g", d: "Las grasas aportan cerca del {{FAT_PCT}} % de las calorías (lo habitual es entre 20 % y 35 %). El resto son carbohidratos, que se concentran antes de entrenar. Ninguna proporción es mejor que otra para cambiar tu cuerpo, así que elegimos la que te deja entrenar bien.", s: ["acsm", "issnDiet"] },
       { t: "Creatina, sueño y pasos", d: "La creatina es el suplemento con más respaldo para ganar fuerza y masa magra. Dormir poco hace que pierdas menos grasa y más músculo con la misma dieta. Los pasos son una meta práctica, no un número mágico.", s: ["creatine", "sleep"] },
-      { only: ["recomp"], t: "Recomposición: qué esperar", d: "Funciona, pero es más lenta que bajar grasa o ganar músculo por separado. Con tu nivel ({{LEVEL}}) puedes ganar unos {{GAIN}} de músculo en 3 meses si llegas a tu proteína y subes peso con el tiempo.", s: ["recomp"] },
+      { only: ["recomp"], t: "Recomposición: qué esperar", d: "Funciona, pero es más lenta que bajar grasa o ganar músculo por separado. Con tu nivel ({{LEVEL}}) puedes ganar unos {{GAIN}} de músculo en esta primera etapa si llegas a tu proteína y subes peso con el tiempo.", s: ["recomp"] },
     ],
   },
 
@@ -299,5 +299,5 @@ window.CONTENT = {
     alt: `<ul><li><strong>Sin carne:</strong> huevo, lácteos, soya texturizada, tofu, lentejas, garbanzo y frijol combinados con arroz o tortilla. Revisa que llegues a tu proteína del día.</li><li><strong>Sin lácteos:</strong> bebida de soya sin azúcar, tofu o claras en lugar de yogurt y panela.</li><li><strong>Sin lactosa:</strong> el yogurt griego suele tolerarse mejor porque tiene menos lactosa; pruébalo en poca cantidad.</li><li><strong>Sin gluten:</strong> arroz, maíz, papa, camote y avena certificada sin gluten.</li><li><strong>Alergia al huevo:</strong> usa pollo, atún, yogurt o tofu.</li></ul><p>Si tienes una condición médica, alergias graves o estás embarazada o en lactancia, consulta a un profesional antes de seguir un déficit de calorías.</p>`,
   },
 
-  honesty: `<p>Las calorías y los macros son <strong>cálculos aproximados con un rango</strong>, no valores exactos. Tu mantenimiento real lo descubres con 2 o 3 semanas de datos de peso.</p><p>La recomposición (perder grasa y ganar músculo a la vez) funciona, pero cuánto músculo ganas depende de tu nivel: con el tuyo ({{LEVEL}}) son unos {{GAIN}} en 3 meses si llegas a tu proteína y subes peso, y no conviene esperar ganar mucho músculo y perder mucha grasa al mismo ritmo. El cambio que más se ve viene de bajar la cintura y mantener o subir la fuerza.</p><p>Esto no sustituye a un médico ni a un nutriólogo. Si tienes mareos, dolor en el pecho o una lesión, detente y consulta.</p>`,
+  honesty: `<p>Las calorías y los macros son <strong>cálculos aproximados con un rango</strong>, no valores exactos. Tu mantenimiento real lo descubres con 2 o 3 semanas de datos de peso.</p><p>La recomposición (perder grasa y ganar músculo a la vez) funciona, pero cuánto músculo ganas depende de tu nivel: con el tuyo ({{LEVEL}}) son unos {{GAIN}} en esta primera etapa si llegas a tu proteína y subes peso, y no conviene esperar ganar mucho músculo y perder mucha grasa al mismo ritmo. El cambio que más se ve viene de bajar la cintura y mantener o subir la fuerza.</p><p>Esto no sustituye a un médico ni a un nutriólogo. Si tienes mareos, dolor en el pecho o una lesión, detente y consulta.</p>`,
 };

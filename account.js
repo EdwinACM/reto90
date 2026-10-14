@@ -341,7 +341,9 @@
     try { await pushDisable(); } catch (e) {}
     await C.signOut(); U.pw = ""; U.asked = false; ls.del("reto90.lock"); ls.del("reto90.bio"); PS.ready = false; await R().wipe(); R().go("#/acceso/bienvenida"); R().render();
   }
+  const ADMIN_ACTS = new Set(["acct-admin", "acct-newinv", "acct-copy", "acct-revinv", "acct-user", "acct-dec", "acct-blk", "acct-deluser", "acct-pw", "acct-backup", "acct-recinv"]);
   async function act(a, el) {
+    if (ADMIN_ACTS.has(a) && !(C.state.me && C.state.me.role === "admin" && C.state.status === "ok")) return toast("No tienes permiso para esto");
     try {
       if (a === "acct-retry") { C.state.status = "boot"; U.booting = false; R().render(); }
       else if (a === "acct-out") { if (confirm("Se borrarán los datos de este dispositivo, incluidas las fotos (no se guardan en la nube). Tus datos siguen en tu cuenta. ¿Cerrar sesión?")) await signOut(); }
