@@ -16,7 +16,7 @@
   const chip = () => ready() ? `<button class="sync-chip" data-go="#/plan/cuenta" data-s="${C.state.sync}" aria-label="Nube: ${SYNC_TXT[C.state.sync] || "Guardado"}"><i aria-hidden="true"></i><span>${SYNC_TXT[C.state.sync] || "Guardado"}</span></button>` : "";
   function setSync(k) {
     C.state.sync = k; if (k === "ok") C.state.lastSync = Date.now();
-    $$(".sync-chip").forEach(el => { el.dataset.s = k; el.setAttribute("aria-label", "Nube: " + SYNC_TXT[k]); const s = $("span", el); if (s) s.textContent = SYNC_TXT[k]; });
+    $$(".sync-chip").forEach(el => { if (k === "ok" && el.dataset.s === "saving") { el.classList.remove("ping"); void el.offsetWidth; el.classList.add("ping"); } el.dataset.s = k; el.setAttribute("aria-label", "Nube: " + SYNC_TXT[k]); const s = $("span", el); if (s) s.textContent = SYNC_TXT[k]; });
     const a = $("#ac-sync"); if (a) a.textContent = syncLine();
   }
   const syncLine = () => C.state.sync === "saving" ? "Guardando…" : C.state.sync === "offline" ? "Sin conexión; se enviará al volver" : C.state.sync === "error" ? "No se pudo sincronizar; se reintentará" : (C.syncMeta().dirty ? "Cambios por enviar" : "Sincronizado " + ago(C.syncMeta().at));
@@ -60,7 +60,7 @@
   }
   async function onReady() {
     try { await reconcile(); } catch (e) { setSync(e.offline ? "offline" : "error"); }
-    startPoll(); checkRequest();
+    startPoll(); checkRequest(); pushLoad();
   }
   function startPoll() { clearInterval(U.pollT); U.pollT = setInterval(() => { if (document.visibilityState === "visible" && C.state.status === "ok") poll(); }, 45000); }
   async function poll() {
@@ -99,7 +99,7 @@
 
   /* ---------- formularios ---------- */
   const pwHint = "10 caracteres o más, con mayúscula, minúscula, número y símbolo.";
-  const err = (f, m) => { const e = $(".form-err", f); if (e) { e.textContent = m; e.hidden = !m; } };
+  const err = (f, m) => { const e = $(".form-err", f); if (e) { e.textContent = m; e.hidden = !m; e.classList.remove("shake"); if (m) { void e.offsetWidth; e.classList.add("shake"); } } };
   const busy = (f, on) => { const b = $("button[type=submit]", f); if (b) { b.disabled = on; b.dataset.t = b.dataset.t || b.textContent; b.textContent = on ? "Un momento…" : b.dataset.t; } };
   const pwField = (id, label, auto, hint) => `<div class="field"><label for="${id}">${label}</label><input id="${id}" name="${id}" type="password" autocomplete="${auto}" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" required>${hint ? `<p class="hint">${hint}</p>` : ""}</div>`;
   const userField = hint => `<div class="field"><label for="u">Usuario</label><input id="u" name="u" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" maxlength="20" enterkeyhint="next" required>${hint ? '<p class="hint">3 a 20 letras minúsculas, números o guion bajo.</p>' : ""}</div>`;
@@ -237,6 +237,9 @@
     const R_ = R(), t = AD.tab;
     const seg = R_.seg([["users", "Usuarios"], ["invites", "Invitaciones"], ["audit", "Registro"]], t, "adtab", "Sección");
     let body = "";
+    const bk = +ls.get("reto90.bk") || 0, bkDays = bk ? Math.floor((Date.now() - bk) / 864e5) : null, admins = AD.users.filter(u => u.role === "admin" && !u.blocked).length;
+    const warn = (bkDays === null || bkDays >= 7 ? `<div class="group" style="margin-bottom:12px"><div class="row top"><div class="main"><div class="title">Respaldo pendiente</div><div class="meta">${bkDays === null ? "Aún no descargas ningún respaldo." : "Hace " + bkDays + " días del último."} Es la única copia fuera de Supabase.</div></div><button class="btn small" data-act="acct-backup">Respaldar</button></div></div>` : "")
+      + (AD.users.length && admins < 2 ? `<div class="group" style="margin-bottom:12px"><div class="row top"><div class="main"><div class="title">Cuenta de recuperación</div><div class="meta">Solo hay un administrador. Crea una invitación para un segundo, por si pierdes este teléfono.</div></div><button class="btn small" data-act="acct-recinv">Crear</button></div></div>` : "");
     if (t === "users") body = (AD.users.length ? `<div class="group">${AD.users.map(u => `<button class="row" data-act="acct-user" data-id="${esc(u.id)}"><div class="main"><div class="title">${esc(u.username)}${u.role === "admin" ? ' <span class="tag">Admin</span>' : ""}${u.blocked ? ' <span class="tag bad">Bloqueado</span>' : ""}${u.pending ? ' <span class="tag warn">Pide cambio</span>' : ""}</div><div class="meta">${esc(u.device_name || "Sin dispositivo")}, visto ${ago(u.last_seen)}</div></div>${R_.I.chev}</button>`).join("")}</div>` : `<div class="group"><div class="empty">Sin usuarios.</div></div>`);
     if (t === "invites") body = `<div class="group"><div class="field"><label for="iv-note">Para quién (nota opcional)</label><input id="iv-note" type="text" maxlength="80" autocomplete="off"></div>
       <div class="field"><label for="iv-days">Vigencia</label><select id="iv-days"><option value="1">1 día</option><option value="3">3 días</option><option value="7" selected>7 días</option><option value="30">30 días</option></select></div>
@@ -246,7 +249,7 @@
       <h2 class="sec">Creadas</h2>${AD.invites.length ? `<div class="group">${AD.invites.map(i => `<div class="row top"><div class="main"><div class="title">${esc(i.note || "Sin nota")} <span class="tag">${i.role === "admin" ? "Admin" : "Usuario"}</span></div><div class="meta">${i.used_by ? "Usada por " + esc(i.used_by) + ", " + dt(i.used_at) : (new Date(i.expires_at) < new Date() ? "Vencida" : "Vence " + dt(i.expires_at))}</div></div>${i.used_by ? "" : `<button class="nb-btn" data-act="acct-revinv" data-id="${esc(i.id)}">Revocar</button>`}</div>`).join("")}</div>` : `<div class="group"><div class="empty">Aún no hay invitaciones.</div></div>`}`;
     if (t === "audit") body = `${AD.audit.length ? `<div class="group">${AD.audit.map(a => `<div class="row top"><div class="main"><div class="title">${esc(EVT[a.event] || a.event)}</div><div class="meta">${esc(a.user || "—")}, ${dt(a.at)}</div></div></div>`).join("")}</div>` : `<div class="group"><div class="empty">Sin eventos.</div></div>`}
       <h2 class="sec">Respaldo</h2><div class="group"><button class="row" data-act="acct-backup"><div class="main"><div class="title">Descargar respaldo cifrado</div><div class="meta">Los datos de todos, cifrados con tu frase. Hazlo cada semana.</div></div>${R_.I.chev}</button></div>`;
-    return `${R_.nav("Administración", { back: "Cuenta", to: "#/plan/cuenta" })}${seg}<div style="height:12px"></div>${body}`;
+    return `${R_.nav("Administración", { back: "Cuenta", to: "#/plan/cuenta" })}${seg}<div style="height:12px"></div>${warn}${body}`;
   }
   const EVT = { signup: "Registro", login: "Inicio de sesión", device_registered: "Dispositivo registrado", device_change_requested: "Pidió cambio de dispositivo", device_change_approved: "Cambio de dispositivo aprobado", device_change_rejected: "Cambio rechazado", invite_created: "Invitación creada", invite_revoked: "Invitación revocada", blocked: "Cuenta bloqueada", unblocked: "Cuenta desbloqueada", password_reset_by_admin: "Contraseña restablecida", password_changed: "Contraseña cambiada", account_deleted: "Cuenta eliminada", user_deleted_by_admin: "Usuario eliminado", verify_failed: "Dispositivo no coincide", locked_out: "Bloqueo por intentos" };
   async function adminRefresh() {
@@ -275,7 +278,7 @@
       const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(JSON.stringify({ at: new Date().toISOString(), users: data }))));
       const b64 = u => btoa(String.fromCharCode(...u));
       const out = JSON.stringify({ v: 1, kdf: "PBKDF2-SHA256", iter: 310000, salt: b64(salt), iv: b64(iv), data: b64(ct) });
-      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([out], { type: "application/json" })); a.download = `reto90-respaldo-${new Date().toISOString().slice(0, 10)}.enc.json`; a.click(); toast("Respaldo cifrado descargado");
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([out], { type: "application/json" })); a.download = `r90-respaldo-${new Date().toISOString().slice(0, 10)}.enc.json`; a.click(); ls.set("reto90.bk", String(Date.now())); try { await C.rpc("admin_mark_backup"); } catch (e) {} toast("Respaldo cifrado descargado"); R().refresh();
     } catch (e) { toast(C.human(e)); }
   }
 
@@ -315,7 +318,8 @@
   /* ---------- acciones ---------- */
   async function signOut() {
     try { if (C.state.status === "ok" && C.syncMeta().dirty) await pushNow(); } catch (e) {}
-    await C.signOut(); U.pw = ""; U.asked = false; ls.del("reto90.lock"); await R().wipe(); R().go("#/acceso/bienvenida"); R().render();
+    try { await pushDisable(); } catch (e) {}
+    await C.signOut(); U.pw = ""; U.asked = false; ls.del("reto90.lock"); ls.del("reto90.bio"); PS.ready = false; await R().wipe(); R().go("#/acceso/bienvenida"); R().render();
   }
   async function act(a, el) {
     try {
@@ -327,11 +331,11 @@
       else if (a === "acct-priv") R().go("#/plan/privacidad");
       else if (a === "acct-admin") { AD.tab = "users"; R().go("#/plan/admin"); }
       else if (a === "acct-chpw") R().openSheet("Cambiar contraseña", `<form data-acct="chpw" novalidate><div class="group">${pwField("c", "Contraseña actual", "current-password")}${pwField("p", "Contraseña nueva", "new-password", pwHint)}${showPw}</div><p class="form-err note err" role="alert" hidden></p><div class="btn-wrap"><button class="btn" type="submit">Guardar</button></div></form>`);
-      else if (a === "acct-approve") { await pushNow(); await C.rpc("approve_my_request"); R().closeSheet(); toast("Aprobado. Este dispositivo se desvinculó."); await signOutKeep(); }
+      else if (a === "acct-approve") { if (!(await bio())) return; await pushNow(); await C.rpc("approve_my_request"); R().closeSheet(); toast("Aprobado. Este dispositivo se desvinculó."); await signOutKeep(); }
       else if (a === "acct-reject") { await C.rpc("cancel_my_request"); R().closeSheet(); toast("Solicitud rechazada"); U.seenReq = ""; }
       else if (a === "acct-del") {
         const me = C.state.me || {}, t = prompt(`Se borrará tu cuenta y todos tus datos de la nube. No se puede deshacer.\n\nEscribe tu usuario (${me.username}) para confirmar.`);
-        if (t && t.trim().toLowerCase() === me.username) { await C.rpc("delete_my_account"); await C.signOut(); ls.del("reto90.lock"); await R().wipe(); R().go("#/acceso/bienvenida"); R().render(); toast("Cuenta eliminada"); }
+        if (t && t.trim().toLowerCase() === me.username) { await pushDisable(); await C.rpc("delete_my_account"); await C.signOut(); ls.del("reto90.lock"); await R().wipe(); R().go("#/acceso/bienvenida"); R().render(); toast("Cuenta eliminada"); }
         else if (t) toast("El usuario no coincide");
       }
       else if (a === "acct-newinv") {
@@ -341,14 +345,93 @@
       else if (a === "acct-copy") { try { await navigator.clipboard.writeText(AD.code); toast("Código copiado"); } catch (e) { toast("Selecciona y copia el código"); } }
       else if (a === "acct-revinv") { if (confirm("¿Revocar esta invitación?")) { await C.rpc("admin_revoke_invite", { p_id: el.dataset.id }); adminRefresh(); } }
       else if (a === "acct-user") userSheet(el.dataset.id);
-      else if (a === "acct-dec") { await C.rpc("admin_decide_request", { p_user: el.dataset.id, p_approve: el.dataset.ok === "1" }); R().closeSheet(); toast(el.dataset.ok === "1" ? "Cambio aprobado" : "Cambio rechazado"); adminRefresh(); }
+      else if (a === "acct-dec") { if (el.dataset.ok === "1" && !(await bio())) return; await C.rpc("admin_decide_request", { p_user: el.dataset.id, p_approve: el.dataset.ok === "1" }); R().closeSheet(); toast(el.dataset.ok === "1" ? "Cambio aprobado" : "Cambio rechazado"); adminRefresh(); }
       else if (a === "acct-blk") { await C.rpc("admin_set_blocked", { p_user: el.dataset.id, p_blocked: el.dataset.b === "1" }); R().closeSheet(); toast(el.dataset.b === "1" ? "Cuenta bloqueada" : "Cuenta desbloqueada"); adminRefresh(); }
-      else if (a === "acct-deluser") { const u = AD.users.find(x => x.id === el.dataset.id); if (u && prompt(`Se eliminará a ${u.username} y todos sus datos. Escribe su usuario para confirmar.`) === u.username) { await C.rpc("admin_delete_user", { p_user: el.dataset.id }); R().closeSheet(); toast("Usuario eliminado"); adminRefresh(); } }
-      else if (a === "acct-pw") R().openSheet("Contraseña temporal", `<form data-acct="adminpw" data-id="${esc(el.dataset.id)}" novalidate><div class="group">${pwField("t", "Contraseña temporal", "off", "Díctala por un canal seguro. La persona deberá cambiarla al entrar.")}</div><p class="form-err note err" role="alert" hidden></p><div class="btn-wrap"><button class="btn" type="submit">Guardar</button></div></form>`);
+      else if (a === "acct-deluser") { const u = AD.users.find(x => x.id === el.dataset.id); if (u && prompt(`Se eliminará a ${u.username} y todos sus datos. Escribe su usuario para confirmar.`) === u.username && await bio()) { await C.rpc("admin_delete_user", { p_user: el.dataset.id }); R().closeSheet(); toast("Usuario eliminado"); adminRefresh(); } }
+      else if (a === "acct-pw") { if (!(await bio())) return; R().openSheet("Contraseña temporal", `<form data-acct="adminpw" data-id="${esc(el.dataset.id)}" novalidate><div class="group">${pwField("t", "Contraseña temporal", "off", "Díctala por un canal seguro. La persona deberá cambiarla al entrar.")}</div><p class="form-err note err" role="alert" hidden></p><div class="btn-wrap"><button class="btn" type="submit">Guardar</button></div></form>`); }
       else if (a === "acct-backup") backup();
+      else if (a === "acct-pntest") { await C.rpc("push_test"); toast("Enviada. Debe llegar en unos segundos."); }
+      else if (a === "acct-recinv") { const r = await C.rpc("admin_create_invite", { p_note: "Recuperación", p_role: "admin", p_days: 7 }); AD.code = r.code; AD.tab = "invites"; await adminRefresh(); }
     } catch (e) { toast(C.human(e)); }
   }
   async function signOutKeep() { await C.boot(); R().render(); }
+
+  /* ---------- verificación biométrica para acciones sensibles ---------- */
+  async function bio() {
+    try {
+      if (!window.PublicKeyCredential || !navigator.credentials || !(await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())) return true;   // sin biometría: queda la confirmación normal
+      const id = ls.get("reto90.lock") || ls.get("reto90.bio");
+      if (!id) {
+        const c = await navigator.credentials.create({ publicKey: { rp: { name: "R90" }, user: { id: crypto.getRandomValues(new Uint8Array(16)), name: (C.state.me && C.state.me.username) || "r90", displayName: "R90" }, challenge: crypto.getRandomValues(new Uint8Array(32)), pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }], authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required", residentKey: "discouraged" }, timeout: 60000 } });
+        ls.set("reto90.bio", b64u.to(c.rawId)); return true;
+      }
+      await navigator.credentials.get({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)), allowCredentials: [{ type: "public-key", id: b64u.from(id) }], userVerification: "required", timeout: 60000 } });
+      return true;
+    } catch (e) { toast("No se pudo verificar tu identidad"); return false; }
+  }
+
+  /* ---------- notificaciones push ---------- */
+  const VAPID = "BCLA7q6IY6ZTQo0aBGD2ifZkJfUJOucMiOb31OQ0C0-p2USqgf9_pBo1CUpAGvZb41bnheY9oGhYA4iogvxVHlU";
+  const PS = { sup: "serviceWorker" in navigator && "PushManager" in window && "Notification" in window, ready: false, on: false, prefs: null };
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent), standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  const tzName = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) { return "UTC"; } };
+  const u8 = b => Uint8Array.from(atob(b.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+  const defPrefs = () => { const r = R().remind(); return { train: true, streak: true, weigh: true, meals: false, water: false, review: true, admin: true, device: true, t_train: r.train, t_weigh: r.weigh, t_review: "19:00", t_meals: ["07:30", "14:00", "20:45"], t_water: ["11:00", "15:00", "19:00"], days: R().trainDays() }; };
+  let psT;
+  const pushSave = () => { clearTimeout(psT); psT = setTimeout(async () => { try { await C.rpc("push_set_prefs", { p_prefs: PS.prefs, p_tz: tzName() }); } catch (e) {} }, 700); };
+  async function pushEnable() {
+    if ((await Notification.requestPermission()) !== "granted") { toast("Permiso denegado. Actívalo en los ajustes del navegador."); return false; }
+    const reg = await navigator.serviceWorker.ready; let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: u8(VAPID) });
+    const j = sub.toJSON(); PS.prefs = PS.prefs || defPrefs(); PS.prefs.days = defPrefs().days;
+    await C.rpc("push_subscribe", { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_tz: tzName(), p_prefs: PS.prefs });
+    PS.on = true; return true;
+  }
+  async function pushDisable() {
+    try { const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription(); if (sub) await sub.unsubscribe(); } catch (e) {}
+    try { await C.rpc("push_unsubscribe"); } catch (e) {}
+    PS.on = false;
+  }
+  async function pushLoad() {
+    if (!PS.sup || C.state.status !== "ok") return;
+    try {
+      const st = await C.rpc("push_status"), granted = Notification.permission === "granted";
+      PS.prefs = st.subscribed ? { ...defPrefs(), ...st.prefs } : defPrefs();
+      const days = defPrefs().days; if (st.subscribed && JSON.stringify(st.prefs.days) !== JSON.stringify(days)) { PS.prefs.days = days; pushSave(); }
+      PS.on = !!st.subscribed && granted; PS.ready = true;
+      if (st.subscribed && granted) { const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription(); if (!sub || sub.endpoint !== st.endpoint) await pushEnable(); }
+    } catch (e) { PS.ready = true; PS.prefs = PS.prefs || defPrefs(); }
+    if (/^#\/plan\/notificaciones/.test(location.hash)) R().refresh();
+  }
+  function notif() {
+    const R_ = R(), head = R_.nav("Notificaciones", { back: "Ajustes", to: "#/plan", sub: "Avisos en este dispositivo, aunque la app esté cerrada." });
+    if (!PS.sup || !window.isSecureContext) return `${head}<div class="group"><div class="empty">Este navegador no admite notificaciones. Prueba con Chrome o Safari actualizado.</div></div>`;
+    if (isIOS && !standalone) return `${head}<div class="group"><div class="prose"><p>En iPhone y iPad las notificaciones solo funcionan con la app instalada.</p><p>Toca Compartir y elige “Añadir a pantalla de inicio”. Abre R90 desde ese icono y vuelve aquí.</p></div></div>`;
+    if (!PS.ready || Date.now() - (PS.at || 0) > 30000) { PS.at = Date.now(); pushLoad(); }
+    if (!PS.ready) return `${head}<div class="group"><div class="empty">Un momento…</div></div>`;
+    const p = PS.prefs, me = C.state.me || {};
+    const sw = (k, t, m) => `<div class="row check-row"><label for="pn-${k}">${t}${m ? `<span class="meta">${m}</span>` : ""}</label><input class="switch" id="pn-${k}" data-pn="${k}" type="checkbox" ${p[k] ? "checked" : ""}></div>`;
+    const tm = (k, t) => `<div class="field"><label for="pt-${k}">${t}</label><input id="pt-${k}" data-pt="${k}" type="time" value="${esc(p[k])}"></div>`;
+    const denied = Notification.permission === "denied";
+    let h = `${head}<div class="group"><div class="row check-row"><label for="pn-master">Recibir notificaciones<span class="meta">${denied ? "Bloqueadas en el navegador. Actívalas en sus ajustes." : PS.on ? "Activas en este dispositivo" : "Desactivadas"}</span></label><input class="switch" id="pn-master" type="checkbox" ${PS.on ? "checked" : ""} ${denied ? "disabled" : ""}></div></div>`;
+    if (PS.on) {
+      h += `<h2 class="sec">Entrenamiento</h2><div class="group">${sw("train", "Hora de entrenar", "Solo tus días de pesas y si aún no entrenaste")}${tm("t_train", "Hora")}${sw("streak", "Cuidar la racha", "Un segundo aviso a las 21:00 si no entrenaste")}</div>
+      <h2 class="sec">Cuerpo y comida</h2><div class="group">${sw("weigh", "Pesarte", "Solo si aún no registras tu peso")}${tm("t_weigh", "Hora")}${sw("meals", "Comidas", "A las 7:30, 14:00 y 20:45")}${sw("water", "Agua", "A las 11:00, 15:00 y 19:00 mientras no llegues a tu meta")}${sw("review", "Revisión semanal", "Domingo a las 19:00")}</div>
+      <h2 class="sec">Cuenta</h2><div class="group">${sw("device", "Solicitudes de dispositivo", "Cuando alguien pida entrar a tu cuenta")}${me.role === "admin" ? sw("admin", "Administración", "Usuarios nuevos, cambios de dispositivo y respaldo semanal") : ""}</div>
+      <div class="btn-wrap"><button class="btn quiet" data-act="acct-pntest">Enviar notificación de prueba</button></div>
+      <p class="note">La hora se toma de este teléfono (${esc(tzName())}).</p>`;
+    }
+    return h;
+  }
+  document.addEventListener("change", async e => {
+    const t = e.target; if (!t.matches) return;
+    if (t.id === "pn-master") {
+      t.disabled = true;
+      try { if (t.checked) { if (!(await pushEnable())) t.checked = false; } else await pushDisable(); } catch (x) { t.checked = false; toast(C.human(x)); }
+      t.disabled = false; R().refresh();
+    } else if (t.dataset.pn) { PS.prefs[t.dataset.pn] = t.checked; pushSave(); }
+    else if (t.dataset.pt && /^\d\d:\d\d$/.test(t.value)) { PS.prefs[t.dataset.pt] = t.value; pushSave(); }
+  });
 
   /* ---------- enlaces con la app ---------- */
   document.addEventListener("click", async e => {
@@ -359,6 +442,7 @@
   });
   function view(name) {
     if (name === "cuenta") return ready() ? account() : "";
+    if (name === "notif") return C.state.status === "ok" ? notif() : "";
     if (name === "admin") { if (!(C.state.me && C.state.me.role === "admin") || C.state.status !== "ok") { setTimeout(() => R().go("#/plan/cuenta")); return ""; } if (!AD.users.length && !AD.loaded) { AD.loaded = true; adminRefresh(); } return admin(); }
     return flow(name);
   }
