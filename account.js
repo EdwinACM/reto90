@@ -261,7 +261,16 @@
 
   /* ---------- administración ---------- */
   let AD = { users: [], invites: [], audit: [], tab: "users", code: "" };
+  function invLists() {
+    const now = new Date(), pend = AD.invites.filter(i => !i.used_by && new Date(i.expires_at) >= now), done = AD.invites.filter(i => i.used_by), exp = AD.invites.filter(i => !i.used_by && new Date(i.expires_at) < now);
+    const row = (i, meta, x) => `<div class="row top"><div class="main"><div class="title">${esc(i.username || "Sin usuario")} <span class="tag">${i.role === "admin" ? "Admin" : "Usuario"}</span></div><div class="meta">${meta}</div></div>${x ? `<button class="nb-btn" data-act="acct-revinv" data-id="${esc(i.id)}">Quitar</button>` : ""}</div>`;
+    const box = (t, list, fn, empty) => `<h2 class="sec">${t} (${list.length})</h2>${list.length ? `<div class="group">${list.map(fn).join("")}</div>` : `<p class="note">${empty}</p>`}`;
+    return box("Esperando registro", pend, i => row(i, `El código vence ${dt(i.expires_at)}`, true), "Nadie tiene un código pendiente.")
+      + box("Ya se dieron de alta", done, i => row(i, `Se registró el ${dt(i.used_at)}`, false), "Todavía nadie ha terminado su registro.")
+      + (exp.length ? box("Códigos vencidos", exp, i => row(i, "No se registró a tiempo. Crea uno nuevo con el mismo usuario.", true), "") : "");
+  }
   function admin() {
+    if (PS.sup && !PS.ready && C.state.status === "ok") pushLoad();
     const R_ = R(), t = AD.tab;
     const seg = R_.seg([["users", "Usuarios"], ["invites", "Invitaciones"], ["audit", "Registro"]], t, "adtab", "Sección");
     let body = "";
@@ -272,6 +281,9 @@
     const recov = !AD.users.length ? "" : act_admins.length >= 2
       ? `<div class="group" style="margin-bottom:12px"><div class="row top"><div class="main"><div class="title">Cuenta de recuperación <span class="tag ok">Atendido</span></div><div class="meta">Ya hay otro administrador que puede entrar si tú pierdes el acceso.</div></div></div></div>`
       : `<div class="group" style="margin-bottom:12px"><div class="row top"><div class="main"><div class="title">Cuenta de recuperación</div><div class="meta">Solo hay un administrador activo. Crea un segundo, o dale permisos a un usuario que ya tengas.</div></div><button class="btn small" data-act="acct-recinv">Crear</button></div></div>`;
+    const pendN = AD.invites.filter(i => !i.used_by && new Date(i.expires_at) >= new Date()).length, doneN = AD.invites.filter(i => i.used_by).length;
+    const joinBox = AD.invites.length ? `<button class="row-card group" data-adtab="invites" style="margin-bottom:12px;width:100%;text-align:left;border:0;color:inherit"><div class="row"><div class="main"><div class="title">${pendN} esperando registro, ${doneN} ya se dieron de alta</div><div class="meta">Toca para ver quién falta y quién ya entró.</div></div>${R_.I.chev}</div></button>` : "";
+    const pushBox = PS.sup && PS.ready && !PS.on ? `<div class="group" style="margin-bottom:12px"><div class="row top"><div class="main"><div class="title">Activa tus avisos</div><div class="meta">Así te enteras al instante cuando alguien se registra o pide cambiar de dispositivo, y puedes aprobarlo.</div></div><button class="btn small" data-go="#/plan/notificaciones">Activar</button></div></div>` : "";
     const adminsBox = !AD.users.length ? "" : `<h2 class="sec">Administradores activos (${act_admins.length})</h2><div class="group">${act_admins.map(u => `<button class="row" data-act="acct-user" data-id="${esc(u.id)}"><div class="main"><div class="title">${esc(u.username)}${u.username === meName ? " (tú)" : ""}</div><div class="meta">${esc(u.device_name || "Sin dispositivo")}, visto ${ago(u.last_seen)}</div></div>${R_.I.chev}</button>`).join("")}</div>`;
     if (t === "users") body = adminsBox + (AD.users.length ? `<h2 class="sec">Todos los usuarios</h2>` : "") + (AD.users.length ? `<div class="group">${AD.users.map(u => `<button class="row" data-act="acct-user" data-id="${esc(u.id)}"><div class="main"><div class="title">${esc(u.username)}${u.role === "admin" ? ' <span class="tag">Admin</span>' : ""}${u.blocked ? ' <span class="tag bad">Bloqueado</span>' : ""}${u.pending ? ' <span class="tag warn">Pide cambio</span>' : ""}</div><div class="meta">${esc(u.device_name || "Sin dispositivo")}, visto ${ago(u.last_seen)}</div></div>${R_.I.chev}</button>`).join("")}</div>` : `<div class="group"><div class="empty">Sin usuarios.</div></div>`);
     if (t === "invites") body = `<div class="group"><div class="field"><label for="iv-user">Usuario nuevo</label><input id="iv-user" type="text" maxlength="20" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="por ejemplo: ana" value="${esc(AD.draftUser || "")}"><p class="hint">Es el nombre con el que entrará. De 3 a 20 letras minúsculas, números o guion bajo.</p></div>
@@ -279,10 +291,10 @@
       <div class="field"><label for="iv-days">El código sirve durante</label><select id="iv-days"><option value="1">1 día</option><option value="3">3 días</option><option value="7" selected>7 días</option><option value="30">30 días</option></select></div></div>
       <div class="btn-wrap"><button class="btn" data-act="acct-newinv">Crear usuario y código</button></div>
       ${AD.code ? `<div class="group" style="margin-top:14px"><div class="row top"><div class="main"><div class="title">Código para ${esc(AD.codeUser)}</div><div class="code" aria-label="Código">${esc(AD.code)}</div><div class="meta">Envíaselo a esa persona. Para entrar elegirá su usuario en “Crear mi cuenta” y escribirá este código. No se vuelve a mostrar.</div></div></div><div class="btn-wrap" style="display:flex;gap:8px;padding:0 16px 14px"><button class="btn" data-act="acct-share">Enviar</button><button class="btn quiet" data-act="acct-copy">Copiar código</button></div></div>` : ""}
-      <h2 class="sec">Esperando registro y registrados</h2>${AD.invites.length ? `<div class="group">${AD.invites.map(i => { const exp = new Date(i.expires_at) < new Date(), st = i.used_by ? `Registrado el ${dt(i.used_at)}` : exp ? "El código venció" : `Esperando registro, vence ${dt(i.expires_at)}`; return `<div class="row top"><div class="main"><div class="title">${esc(i.username || "Sin usuario")} <span class="tag">${i.role === "admin" ? "Admin" : "Usuario"}</span></div><div class="meta">${st}</div></div>${i.used_by ? "" : `<button class="nb-btn" data-act="acct-revinv" data-id="${esc(i.id)}">Quitar</button>`}</div>`; }).join("")}</div>` : `<div class="group"><div class="empty">Aún no has creado usuarios nuevos.</div></div>`}`;
+      ${invLists()}`;
     if (t === "audit") body = `${AD.audit.length ? `<div class="group">${AD.audit.map(a => `<div class="row top"><div class="main"><div class="title">${esc(EVT[a.event] || a.event)}</div><div class="meta">${esc(a.user || "—")}, ${dt(a.at)}</div></div></div>`).join("")}</div>` : `<div class="group"><div class="empty">Sin eventos.</div></div>`}
       <h2 class="sec">Respaldo</h2><div class="group"><button class="row" data-act="acct-backup"><div class="main"><div class="title">Descargar respaldo cifrado</div><div class="meta">Los datos de todos, cifrados con tu frase. Hazlo cada semana.</div></div>${R_.I.chev}</button></div>`;
-    return `${R_.nav("Administración", { back: "Cuenta", to: "#/plan/cuenta" })}${seg}<div style="height:12px"></div>${warn}${t === "users" ? recov : ""}${body}`;
+    return `${R_.nav("Administración", { back: "Cuenta", to: "#/plan/cuenta" })}${seg}<div style="height:12px"></div>${t === "users" ? pushBox + joinBox + warn + recov : ""}${body}`;
   }
   const EVT = { signup: "Registro", login: "Inicio de sesión", device_registered: "Dispositivo registrado", device_change_requested: "Pidió cambio de dispositivo", device_change_approved: "Cambio de dispositivo aprobado", device_change_rejected: "Cambio rechazado", invite_created: "Usuario nuevo creado", invite_revoked: "Invitación revocada", role_changed: "Cambio de permisos", blocked: "Cuenta bloqueada", unblocked: "Cuenta desbloqueada", password_reset_by_admin: "Contraseña restablecida", password_changed: "Contraseña cambiada", account_deleted: "Cuenta eliminada", user_deleted_by_admin: "Usuario eliminado", verify_failed: "Dispositivo no coincide", locked_out: "Bloqueo por intentos" };
   async function adminRefresh() {
@@ -449,7 +461,7 @@
       PS.on = !!st.subscribed && granted; PS.ready = true;
       if (st.subscribed && granted) { const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription(); if (!sub || sub.endpoint !== st.endpoint) await pushEnable(); }
     } catch (e) { PS.ready = true; PS.prefs = PS.prefs || defPrefs(); }
-    if (/^#\/plan\/notificaciones/.test(location.hash)) R().refresh();
+    if (/^#\/plan\/(notificaciones|admin)/.test(location.hash)) R().refresh();
   }
   function notif() {
     const R_ = R(), head = R_.nav("Notificaciones", { back: "Ajustes", to: "#/plan", sub: "Avisos en este dispositivo, aunque la app esté cerrada." });
@@ -465,7 +477,7 @@
     if (PS.on) {
       h += `<h2 class="sec">Entrenamiento</h2><div class="group">${sw("train", "Hora de entrenar", "Solo tus días de pesas y si aún no entrenaste")}${tm("t_train", "Hora")}${sw("streak", "Cuidar la racha", "Un segundo aviso a las 21:00 si no entrenaste")}</div>
       <h2 class="sec">Cuerpo y comida</h2><div class="group">${sw("weigh", "Pesarte", "Solo si aún no registras tu peso")}${tm("t_weigh", "Hora")}${sw("meals", "Comidas", "A las horas de tus comidas: " + (p.t_meals || []).join(", "))}${sw("water", "Agua", "A las 11:00, 15:00 y 19:00 mientras no llegues a tu meta")}${sw("review", "Revisión semanal", "Domingo a las 19:00")}</div>
-      <h2 class="sec">Cuenta</h2><div class="group">${sw("device", "Solicitudes de dispositivo", "Cuando alguien pida entrar a tu cuenta")}${me.role === "admin" ? sw("admin", "Administración", "Usuarios nuevos, cambios de dispositivo y respaldo semanal") : ""}</div>
+      <h2 class="sec">Cuenta</h2><div class="group">${sw("device", "Solicitudes de dispositivo", "Cuando alguien pida entrar a tu cuenta")}${me.role === "admin" ? sw("admin", "Administración", "Cuando alguien se registra o pide cambiar de dispositivo, códigos por vencer y respaldo semanal") : ""}</div>
       <div class="btn-wrap"><button class="btn quiet" data-act="acct-pntest">Enviar notificación de prueba</button></div>
       <p class="note">La hora se toma de este teléfono (${esc(tzName())}).</p>`;
     }
