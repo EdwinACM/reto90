@@ -1,0 +1,364 @@
+/* R90, cuenta: acceso, dispositivo único, sincronización, bloqueo biométrico y administración.
+   Toda la seguridad real vive en el servidor (Supabase: RLS cerrada + funciones). Aquí solo hay pantallas. */
+(() => {
+  const C = window.Cloud, R = () => window.R90;
+  const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} }, del: k => { try { localStorage.removeItem(k); } catch (e) {} } };
+  const U = { booting: false, pushT: null, pushing: false, again: false, seenReq: "", pollT: null, hiddenAt: 0 };
+  const ago = t => { if (!t) return "nunca"; const m = Math.round((Date.now() - new Date(t).getTime()) / 60000); return m < 1 ? "hace un momento" : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`; };
+  const dt = t => t ? new Date(t).toLocaleDateString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
+  const toast = m => R().toast(m);
+  const ready = () => C.state.status === "ok" || C.state.status === "offline_ok";
+
+  /* ---------- indicador de nube ---------- */
+  const SYNC_TXT = { saving: "Guardando…", ok: "Guardado", idle: "Guardado", offline: "Sin conexión", error: "Sin sincronizar" };
+  const chip = () => ready() ? `<button class="sync-chip" data-go="#/plan/cuenta" data-s="${C.state.sync}" aria-label="Nube: ${SYNC_TXT[C.state.sync] || "Guardado"}"><i aria-hidden="true"></i><span>${SYNC_TXT[C.state.sync] || "Guardado"}</span></button>` : "";
+  function setSync(k) {
+    C.state.sync = k; if (k === "ok") C.state.lastSync = Date.now();
+    $$(".sync-chip").forEach(el => { el.dataset.s = k; el.setAttribute("aria-label", "Nube: " + SYNC_TXT[k]); const s = $("span", el); if (s) s.textContent = SYNC_TXT[k]; });
+    const a = $("#ac-sync"); if (a) a.textContent = syncLine();
+  }
+  const syncLine = () => C.state.sync === "saving" ? "Guardando…" : C.state.sync === "offline" ? "Sin conexión; se enviará al volver" : C.state.sync === "error" ? "No se pudo sincronizar; se reintentará" : (C.syncMeta().dirty ? "Cambios por enviar" : "Sincronizado " + ago(C.syncMeta().at));
+
+  /* ---------- sincronización ---------- */
+  function changed() {
+    if (!C.hasSession()) return;
+    C.setSyncMeta({ dirty: true });
+    if (C.state.status === "ok") schedulePush(4000); else if (C.state.status === "offline_ok") setSync("offline");
+  }
+  function schedulePush(ms) { clearTimeout(U.pushT); U.pushT = setTimeout(pushNow, ms); }
+  async function pushNow() {
+    if (C.state.status !== "ok") return;
+    if (U.pushing) { U.again = true; return; }
+    U.pushing = true; setSync("saving");
+    try {
+      const snap = R().snapshot();
+      let r = await C.push(snap);
+      if (r.conflict) { C.setSyncMeta({ version: r.version }); r = await C.push(snap); }   // un solo dispositivo escribe: gana el de aquí
+      if (r.conflict) throw new Error("conflicto");
+      setSync("ok");
+    } catch (e) {
+      if (e.offline) setSync("offline");
+      else if (e.message === "no_verificado" || e.status === 401) { await recheck(); }
+      else setSync("error");
+    } finally { U.pushing = false; if (U.again) { U.again = false; schedulePush(600); } }
+  }
+  async function recheck() { await C.boot(); if (C.state.status === "ok") { setSync("ok"); return; } R().render(); }
+  async function reconcile() {
+    const has = R().hasPlan(), meta = C.syncMeta(), r = await C.pull();
+    if (!r) { if (has) await pushNow(); return; }
+    if (!has) { R().adopt(r.state); C.setSyncMeta({ version: r.version, at: Date.now(), dirty: false }); setSync("ok"); return; }
+    if (meta.version === r.version) { if (meta.dirty) await pushNow(); else setSync("ok"); return; }
+    if (meta.version > 0 && !meta.dirty) { R().adopt(r.state); C.setSyncMeta({ version: r.version, at: Date.now(), dirty: false }); setSync("ok"); return; }
+    // Hay datos distintos en la nube y en este dispositivo: la persona decide
+    if (confirm("Esta cuenta ya tiene datos guardados en la nube.\n\nAceptar: usar los de la nube.\nCancelar: reemplazarlos con los de este dispositivo.")) {
+      R().adopt(r.state); C.setSyncMeta({ version: r.version, at: Date.now(), dirty: false }); setSync("ok");
+    } else if (confirm("Se reemplazarán los datos de la nube por los de este dispositivo. ¿Seguro?")) {
+      C.setSyncMeta({ version: r.version, dirty: true }); await pushNow();
+    } else { R().adopt(r.state); C.setSyncMeta({ version: r.version, at: Date.now(), dirty: false }); setSync("ok"); }
+  }
+  async function onReady() {
+    try { await reconcile(); } catch (e) { setSync(e.offline ? "offline" : "error"); }
+    startPoll(); checkRequest();
+  }
+  function startPoll() { clearInterval(U.pollT); U.pollT = setInterval(() => { if (document.visibilityState === "visible" && C.state.status === "ok") poll(); }, 45000); }
+  async function poll() {
+    try { C.state.me = await C.rpc("me"); if (C.syncMeta().dirty && !U.pushing) pushNow(); checkRequest(); }
+    catch (e) { if (e.message === "no_verificado" || e.message === "bloqueado" || e.status === 401) recheck(); else if (e.offline) setSync("offline"); }
+  }
+  function checkRequest() {
+    const q = C.state.me && C.state.me.request;
+    if (!q || q.status !== "pending" || C.state.status !== "ok") return;
+    const id = q.at + "|" + q.name; if (U.seenReq === id) return; U.seenReq = id;
+    R().openSheet("Un dispositivo pide acceso", `<div class="prose"><p><strong>${esc(q.name)}</strong> quiere entrar a tu cuenta (${dt(q.at)}).</p><p>Si fuiste tú, aprueba: este dispositivo dejará de tener acceso y tus datos pasarán al nuevo. Si no fuiste tú, rechaza y cambia tu contraseña.</p></div>
+      <div class="btn-wrap"><button class="btn" data-act="acct-approve">Aprobar y pasar al nuevo</button></div><div class="btn-wrap"><button class="btn quiet" data-act="acct-reject">Rechazar</button></div>`, el => $$("[data-act]", el).forEach(b => b.addEventListener("click", () => act(b.dataset.act, b))));
+  }
+
+  /* ---------- puerta de acceso ---------- */
+  function gate(r) {
+    const s = C.state.status, route = r[0], has = R().hasPlan();
+    if (route === "acceso") return false;
+    const to = h => { R().go(h); return true; };
+    if (s === "boot") { if (!U.booting) startBoot(); return to("#/acceso/cargando"); }
+    if (s === "anon") { if (route === "inicio" && !has) return false; return to(has ? "#/acceso/crear" : "#/acceso/entrar"); }
+    if (s === "pending" || s === "need_device") return to("#/acceso/dispositivo");
+    if (s === "blocked") return to("#/acceso/bloqueado");
+    if (s === "error") return to("#/acceso/error");
+    if (s === "ok" && C.state.me && C.state.me.must_change_pw) return to("#/acceso/clave");
+    return false;
+  }
+  function startBoot() {
+    U.booting = true;
+    C.boot().then(async s => { U.booting = false; if (s === "ok") await onReady(); else if (s === "offline_ok") setSync("offline"); R().render(); }).catch(() => { U.booting = false; R().render(); });
+  }
+  async function afterAuth(s) {
+    if (s === "ok") { await onReady(); R().go(R().hasPlan() ? "#/hoy" : "#/inicio"); R().render(); }
+    else R().go("#/acceso/dispositivo");
+  }
+
+  /* ---------- formularios ---------- */
+  const pwHint = "10 caracteres o más, con mayúscula, minúscula, número y símbolo.";
+  const err = (f, m) => { const e = $(".form-err", f); if (e) { e.textContent = m; e.hidden = !m; } };
+  const busy = (f, on) => { const b = $("button[type=submit]", f); if (b) { b.disabled = on; b.dataset.t = b.dataset.t || b.textContent; b.textContent = on ? "Un momento…" : b.dataset.t; } };
+  const pwField = (id, label, auto, hint) => `<div class="field"><label for="${id}">${label}</label><input id="${id}" name="${id}" type="password" autocomplete="${auto}" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" required>${hint ? `<p class="hint">${hint}</p>` : ""}</div>`;
+  const userField = (id = "u") => `<div class="field"><label for="${id}">Usuario</label><input id="${id}" name="u" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" maxlength="20" enterkeyhint="next" required><p class="hint">3 a 20 letras minúsculas, números o guion bajo.</p></div>`;
+  const showPw = `<label class="row check-row"><span style="flex:1">Mostrar contraseña</span><input class="switch" type="checkbox" data-showpw></label>`;
+
+  function flow(sub) {
+    const nav = (t, s) => R().nav(t, { sub: s }), st = C.state.status;
+    if (sub === "cargando") { if (st !== "boot") { setTimeout(() => R().go("#/hoy")); return ""; } return `${nav("Conectando…", "Verificando tu cuenta")}<div class="group"><div class="empty">Un momento…</div></div>`; }
+    if (sub === "error") return `${nav("No pudimos conectar", esc(C.state.error || "Revisa tu internet."))}<div class="btn-wrap"><button class="btn" data-act="acct-retry">Reintentar</button></div>`;
+    if (sub === "bloqueado") return `${nav("Cuenta bloqueada", "Habla con el administrador para recuperar el acceso.")}<div class="btn-wrap"><button class="btn quiet" data-act="acct-out">Cerrar sesión</button></div>`;
+    if (sub === "entrar") {
+      if (st === "ok") { setTimeout(() => R().go("#/hoy")); return ""; }
+      return `${nav("Entrar", "Con tu usuario y contraseña")}
+      <form data-acct="login" novalidate><div class="group">${userField()}${pwField("p", "Contraseña", "current-password")}${showPw}</div>
+      <p class="form-err note err" role="alert" hidden></p>
+      <div class="btn-wrap"><button class="btn" type="submit">Entrar</button></div></form>
+      <div class="btn-wrap"><button class="btn quiet" data-go="#/acceso/crear">Tengo una invitación</button></div>
+      <p class="note">Tu cuenta solo funciona en un dispositivo a la vez. Si entras desde otro, tendrás que pedir autorización.</p>`;
+    }
+    if (sub === "crear") {
+      if (st === "ok") { setTimeout(() => R().go("#/hoy")); return ""; }
+      return `${nav("Crea tu cuenta", "Para guardar tu plan y proteger tus datos. La app es solo por invitación.")}
+      <form data-acct="signup" novalidate><div class="group">
+        <div class="field"><label for="i">Código de invitación</label><input id="i" name="i" type="text" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" enterkeyhint="next" required></div>
+        ${userField()}${pwField("p", "Contraseña", "new-password", pwHint)}${pwField("p2", "Repite la contraseña", "new-password")}${showPw}
+        <label class="row check-row" style="align-items:flex-start"><span style="font-size:14px;line-height:1.4">Acepto que mis datos de entrenamiento, comidas y medidas se guarden en la nube de R90. <a href="#/plan/privacidad">Ver privacidad</a></span><input class="switch" name="c" type="checkbox" aria-label="Acepto guardar mis datos en la nube"></label></div>
+      <p class="form-err note err" role="alert" hidden></p>
+      <div class="btn-wrap"><button class="btn" type="submit">Crear cuenta</button></div></form>
+      <div class="btn-wrap"><button class="btn quiet" data-go="#/acceso/entrar">Ya tengo cuenta</button></div>
+      <p class="note">Las fotos de progreso nunca se suben: se quedan en este dispositivo. No podrás entrar desde otro dispositivo sin tu aprobación.</p>`;
+    }
+    if (sub === "clave") {
+      return `${nav("Elige tu contraseña", "El administrador te dio una temporal. Cámbiala para continuar.")}
+      <form data-acct="forcepw" novalidate><div class="group">${pwField("c", "Contraseña temporal", "current-password")}${pwField("p", "Contraseña nueva", "new-password", pwHint)}${pwField("p2", "Repite la nueva", "new-password")}${showPw}</div>
+      <p class="form-err note err" role="alert" hidden></p><div class="btn-wrap"><button class="btn" type="submit">Guardar y continuar</button></div></form>`;
+    }
+    if (sub === "dispositivo") {
+      if (st === "ok") { setTimeout(() => R().go("#/hoy")); return ""; }
+      const pend = st === "pending";
+      setTimeout(() => { if (pend) pollDevice(); }, 0);
+      return `${nav(pend ? "Esperando aprobación" : "Otro dispositivo en uso", pend ? "Tu solicitud fue enviada." : "Tu cuenta está vinculada a otro dispositivo.")}
+      <div class="group"><div class="prose">${pend
+        ? `<p>Para aprobarla, abre R90 en tu dispositivo anterior (te avisará) o pide al administrador que la apruebe.</p><p>Esta pantalla se actualiza sola.</p>`
+        : `<p>Por seguridad, una cuenta solo puede usarse en un dispositivo a la vez. Pide autorización para pasar tu cuenta a <strong>este</strong> dispositivo: se mueve contigo todo tu progreso.</p>`}</div></div>
+      ${pend ? `<div class="btn-wrap"><button class="btn quiet" data-act="acct-cancelreq">Cancelar solicitud</button></div>` : `<div class="btn-wrap"><button class="btn" data-act="acct-askdev">Pedir autorización</button></div>`}
+      <div class="btn-wrap"><button class="btn quiet" data-act="acct-out">Cerrar sesión</button></div>`;
+    }
+    return "";
+  }
+  async function pollDevice() {
+    clearTimeout(U.devT);
+    const step = async () => {
+      if (!/^#\/acceso\/dispositivo/.test(location.hash)) return;
+      try {
+        const s = await C.pollRequest();
+        if (s === "approved" && C.state.status === "ok") { await onReady(); R().go("#/hoy"); R().render(); return; }
+        if (s === "rejected" || s === "none") { C.state.status = "need_device"; R().render(); return; }
+      } catch (e) { if (e.message === "bloqueado") { C.state.status = "blocked"; R().render(); return; } }
+      U.devT = setTimeout(step, 5000);
+    };
+    U.devT = setTimeout(step, 4000);
+  }
+
+  document.addEventListener("submit", async e => {
+    const f = e.target.closest && e.target.closest("form[data-acct]"); if (!f) return;
+    e.preventDefault();
+    const v = n => (f.elements[n] ? f.elements[n].value : ""), kind = f.dataset.acct;
+    err(f, "");
+    try {
+      if (kind === "login") {
+        const u = v("u").trim().toLowerCase(); if (!C.userOk(u) || !v("p")) return err(f, "Escribe tu usuario y tu contraseña.");
+        busy(f, true); const s = await C.signIn(u, v("p")); busy(f, false); return afterAuth(s);
+      }
+      if (kind === "signup") {
+        const u = v("u").trim().toLowerCase(), p = v("p");
+        if (!v("i").trim()) return err(f, "Escribe tu código de invitación.");
+        if (!C.userOk(u)) return err(f, "El usuario debe tener 3 a 20 letras minúsculas, números o guion bajo.");
+        const pp = C.pwProblem(p); if (pp) return err(f, pp + ".");
+        if (p !== v("p2")) return err(f, "Las contraseñas no coinciden.");
+        if (!f.elements.c.checked) return err(f, "Acepta guardar tus datos en la nube para continuar.");
+        busy(f, true);
+        const n = await C.pwned(p); if (n > 0) { busy(f, false); return err(f, "Esa contraseña apareció en filtraciones de datos. Elige otra."); }
+        const s = await C.signUp(u, p, v("i")); busy(f, false); return afterAuth(s);
+      }
+      if (kind === "forcepw" || kind === "chpw") {
+        const p = v("p"), pp = C.pwProblem(p); if (pp) return err(f, pp + ".");
+        if (p !== v("p2")) return err(f, "Las contraseñas no coinciden.");
+        if (!v("c")) return err(f, "Escribe tu contraseña actual.");
+        if (p === v("c")) return err(f, "La contraseña nueva debe ser distinta.");
+        busy(f, true);
+        const n = await C.pwned(p); if (n > 0) { busy(f, false); return err(f, "Esa contraseña apareció en filtraciones de datos. Elige otra."); }
+        await C.changePassword(v("c"), p); busy(f, false);
+        if (kind === "chpw") { R().closeSheet(); toast("Contraseña actualizada"); } else { C.state.me = await C.rpc("me"); R().go("#/hoy"); R().render(); }
+        return;
+      }
+      if (kind === "adminpw") {
+        const t = v("t"); if (t.length < 10) return err(f, "Mínimo 10 caracteres.");
+        busy(f, true); await C.rpc("admin_set_password", { p_user: f.dataset.id, p_temp: t }); busy(f, false);
+        R().closeSheet(); toast("Contraseña temporal puesta; el usuario deberá cambiarla"); return adminRefresh();
+      }
+    } catch (x) { busy(f, false); err(f, C.human(x)); }
+  });
+  document.addEventListener("change", e => { const t = e.target; if (t.matches && t.matches("[data-showpw]")) $$("input[type=password],input[data-pw]", t.closest("form")).forEach(i => { i.type = t.checked ? "text" : "password"; i.dataset.pw = "1"; }); });
+
+  /* ---------- pantalla de cuenta ---------- */
+  function account() {
+    const me = C.state.me || {}, R_ = R(), lock = ls.get("reto90.lock");
+    const row = (t, m, a, val) => `<button class="row" data-act="${a}"><div class="main"><div class="title">${t}</div>${m ? `<div class="meta">${m}</div>` : ""}</div>${val ? `<span class="val">${val}</span>` : ""}${R_.I.chev}</button>`;
+    return `${R_.nav("Cuenta", { back: "Ajustes", to: "#/plan" })}
+    <div class="group"><div class="row top"><div class="main"><div class="title">${esc(me.username || "—")}${me.role === "admin" ? ' <span class="tag">Admin</span>' : ""}</div><div class="meta" id="ac-sync">${esc(syncLine())}</div></div></div>
+    ${row("Sincronizar ahora", "", "acct-sync")}</div>
+    <h2 class="sec">Dispositivo</h2>
+    <div class="group"><div class="row top"><div class="main"><div class="title">${esc(me.device_name || C.deviceName())}</div><div class="meta">Solo este dispositivo puede usar tu cuenta. Para cambiar, entra desde el nuevo y aprueba la solicitud aquí o pide al administrador que la apruebe.</div></div></div></div>
+    <h2 class="sec">Seguridad</h2>
+    <div class="group">${row("Cambiar contraseña", "", "acct-chpw")}
+    ${"credentials" in navigator && window.PublicKeyCredential ? `<div class="row check-row"><label for="lk">Bloquear la app con huella o Face ID</label><input class="switch" id="lk" type="checkbox" data-lock ${lock ? "checked" : ""}></div>` : ""}</div>
+    <p class="note">El bloqueo protege la app si alguien toma tu teléfono desbloqueado. Se pide al volver tras un minuto.</p>
+    <h2 class="sec">Tus datos</h2>
+    <div class="group">${row("Exportar copia (archivo)", "Tus pesos, series y comidas", "export")}
+    ${row("Privacidad", "Qué se guarda y dónde", "acct-priv")}</div>
+    ${me.role === "admin" ? `<h2 class="sec">Administración</h2><div class="group">${row("Panel de administración", "Invitaciones, usuarios y dispositivos", "acct-admin")}</div>` : ""}
+    <h2 class="sec">Sesión</h2>
+    <div class="group">${row("Cerrar sesión", "Borra los datos de este dispositivo; siguen en la nube", "acct-out")}
+    <button class="row" data-act="acct-del"><div class="main"><div class="title" style="color:var(--bad)">Eliminar mi cuenta y mis datos</div></div></button></div>`;
+  }
+
+  /* ---------- administración ---------- */
+  let AD = { users: [], invites: [], audit: [], tab: "users", code: "" };
+  function admin() {
+    const R_ = R(), t = AD.tab;
+    const seg = R_.seg([["users", "Usuarios"], ["invites", "Invitaciones"], ["audit", "Registro"]], t, "adtab", "Sección");
+    let body = "";
+    if (t === "users") body = (AD.users.length ? `<div class="group">${AD.users.map(u => `<button class="row" data-act="acct-user" data-id="${esc(u.id)}"><div class="main"><div class="title">${esc(u.username)}${u.role === "admin" ? ' <span class="tag">Admin</span>' : ""}${u.blocked ? ' <span class="tag bad">Bloqueado</span>' : ""}${u.pending ? ' <span class="tag warn">Pide cambio</span>' : ""}</div><div class="meta">${esc(u.device_name || "Sin dispositivo")}, visto ${ago(u.last_seen)}</div></div>${R_.I.chev}</button>`).join("")}</div>` : `<div class="group"><div class="empty">Sin usuarios.</div></div>`);
+    if (t === "invites") body = `<div class="group"><div class="field"><label for="iv-note">Para quién (nota opcional)</label><input id="iv-note" type="text" maxlength="80" autocomplete="off"></div>
+      <div class="field"><label for="iv-days">Vigencia</label><select id="iv-days"><option value="1">1 día</option><option value="3">3 días</option><option value="7" selected>7 días</option><option value="30">30 días</option></select></div>
+      <div class="field"><label for="iv-role">Rol</label><select id="iv-role"><option value="user">Usuario</option><option value="admin">Administrador</option></select></div></div>
+      <div class="btn-wrap"><button class="btn" data-act="acct-newinv">Crear invitación</button></div>
+      ${AD.code ? `<div class="group" style="margin-top:14px"><div class="row top"><div class="main"><div class="title" style="font-variant-numeric:tabular-nums;letter-spacing:.02em;word-break:break-all">${esc(AD.code)}</div><div class="meta">Cópiala ahora: no se vuelve a mostrar.</div></div><button class="btn small" data-act="acct-copy">Copiar</button></div></div>` : ""}
+      <h2 class="sec">Creadas</h2>${AD.invites.length ? `<div class="group">${AD.invites.map(i => `<div class="row top"><div class="main"><div class="title">${esc(i.note || "Sin nota")} <span class="tag">${i.role === "admin" ? "Admin" : "Usuario"}</span></div><div class="meta">${i.used_by ? "Usada por " + esc(i.used_by) + ", " + dt(i.used_at) : (new Date(i.expires_at) < new Date() ? "Vencida" : "Vence " + dt(i.expires_at))}</div></div>${i.used_by ? "" : `<button class="nb-btn" data-act="acct-revinv" data-id="${esc(i.id)}">Revocar</button>`}</div>`).join("")}</div>` : `<div class="group"><div class="empty">Aún no hay invitaciones.</div></div>`}`;
+    if (t === "audit") body = `${AD.audit.length ? `<div class="group">${AD.audit.map(a => `<div class="row top"><div class="main"><div class="title">${esc(EVT[a.event] || a.event)}</div><div class="meta">${esc(a.user || "—")}, ${dt(a.at)}</div></div></div>`).join("")}</div>` : `<div class="group"><div class="empty">Sin eventos.</div></div>`}
+      <h2 class="sec">Respaldo</h2><div class="group"><button class="row" data-act="acct-backup"><div class="main"><div class="title">Descargar respaldo cifrado</div><div class="meta">Los datos de todos, cifrados con tu frase. Hazlo cada semana.</div></div>${R_.I.chev}</button></div>`;
+    return `${R_.nav("Administración", { back: "Cuenta", to: "#/plan/cuenta" })}${seg}<div style="height:12px"></div>${body}`;
+  }
+  const EVT = { signup: "Registro", login: "Inicio de sesión", device_registered: "Dispositivo registrado", device_change_requested: "Pidió cambio de dispositivo", device_change_approved: "Cambio de dispositivo aprobado", device_change_rejected: "Cambio rechazado", invite_created: "Invitación creada", invite_revoked: "Invitación revocada", blocked: "Cuenta bloqueada", unblocked: "Cuenta desbloqueada", password_reset_by_admin: "Contraseña restablecida", password_changed: "Contraseña cambiada", account_deleted: "Cuenta eliminada", user_deleted_by_admin: "Usuario eliminado", verify_failed: "Dispositivo no coincide", locked_out: "Bloqueo por intentos" };
+  async function adminRefresh() {
+    try {
+      const [u, i, a] = await Promise.all([C.rpc("admin_list_users"), C.rpc("admin_list_invites"), C.rpc("admin_audit", { p_limit: 80 })]);
+      AD.users = u || []; AD.invites = i || []; AD.audit = a || []; R().refresh();
+    } catch (e) { toast(C.human(e)); }
+  }
+  function userSheet(id) {
+    const u = AD.users.find(x => x.id === id); if (!u) return;
+    const me = C.state.me || {}, self = u.username === me.username;
+    R().openSheet(u.username, `<div class="group"><div class="row top"><div class="main"><div class="title">${esc(u.device_name || "Sin dispositivo")}</div><div class="meta">Alta ${dt(u.created_at)}, visto ${ago(u.last_seen)}</div></div></div></div>
+      ${u.pending ? `<h2 class="sec">Solicitud de cambio</h2><div class="group"><div class="row top"><div class="main"><div class="title">${esc(u.pending)}</div><div class="meta">Aprueba solo si confirmaste con la persona que es ella.</div></div></div></div><div class="btn-wrap" style="display:flex;gap:8px"><button class="btn" data-act="acct-dec" data-id="${esc(id)}" data-ok="1">Aprobar</button><button class="btn quiet" data-act="acct-dec" data-id="${esc(id)}" data-ok="0">Rechazar</button></div>` : ""}
+      ${self ? `<p class="note">Esta es tu cuenta.</p>` : `<h2 class="sec">Acciones</h2><div class="group">
+        <button class="row" data-act="acct-pw" data-id="${esc(id)}"><div class="main"><div class="title">Poner contraseña temporal</div></div></button>
+        <button class="row" data-act="acct-blk" data-id="${esc(id)}" data-b="${u.blocked ? 0 : 1}"><div class="main"><div class="title">${u.blocked ? "Desbloquear" : "Bloquear"} cuenta</div></div></button>
+        <button class="row" data-act="acct-deluser" data-id="${esc(id)}"><div class="main"><div class="title" style="color:var(--bad)">Eliminar usuario y sus datos</div></div></button></div>`}`,
+      el => $$("[data-act]", el).forEach(b => b.addEventListener("click", () => act(b.dataset.act, b))));
+  }
+  async function backup() {
+    const p = prompt("Escribe una frase para cifrar el respaldo (guárdala: sin ella no se puede abrir).");
+    if (!p || p.length < 12) return toast("Usa una frase de al menos 12 caracteres");
+    try {
+      const data = await C.rpc("admin_export"), enc = new TextEncoder(), salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+      const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 310000, hash: "SHA-256" }, await crypto.subtle.importKey("raw", enc.encode(p), "PBKDF2", false, ["deriveKey"]), { name: "AES-GCM", length: 256 }, false, ["encrypt"]);
+      const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(JSON.stringify({ at: new Date().toISOString(), users: data }))));
+      const b64 = u => btoa(String.fromCharCode(...u));
+      const out = JSON.stringify({ v: 1, kdf: "PBKDF2-SHA256", iter: 310000, salt: b64(salt), iv: b64(iv), data: b64(ct) });
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([out], { type: "application/json" })); a.download = `reto90-respaldo-${new Date().toISOString().slice(0, 10)}.enc.json`; a.click(); toast("Respaldo cifrado descargado");
+    } catch (e) { toast(C.human(e)); }
+  }
+
+  /* ---------- bloqueo biométrico (local) ---------- */
+  const b64u = {
+    to: u => btoa(String.fromCharCode(...new Uint8Array(u))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""),
+    from: s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0)),
+  };
+  async function lockEnable() {
+    try {
+      const cred = await navigator.credentials.create({ publicKey: { rp: { name: "R90" }, user: { id: crypto.getRandomValues(new Uint8Array(16)), name: (C.state.me && C.state.me.username) || "reto90", displayName: "R90" }, challenge: crypto.getRandomValues(new Uint8Array(32)), pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }], authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required", residentKey: "discouraged" }, timeout: 60000 } });
+      ls.set("reto90.lock", b64u.to(cred.rawId)); toast("Bloqueo activado"); return true;
+    } catch (e) { toast("No se pudo activar el bloqueo"); return false; }
+  }
+  async function lockAsk() {
+    const id = ls.get("reto90.lock"); if (!id) return true;
+    try { await navigator.credentials.get({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)), allowCredentials: [{ type: "public-key", id: b64u.from(id) }], userVerification: "required", timeout: 60000 } }); return true; }
+    catch (e) { return false; }
+  }
+  function showLock() {
+    if (!ls.get("reto90.lock") || $("#lockscr")) return;
+    const d = document.createElement("div"); d.id = "lockscr"; d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true"); d.setAttribute("aria-label", "App bloqueada");
+    d.innerHTML = `<div class="lk-in"><h1>R90</h1><p>App bloqueada</p><button class="btn" data-lk="1">Desbloquear</button><button class="btn quiet" data-lk="2">Cerrar sesión</button></div>`;
+    document.body.appendChild(d);
+    const open = async () => { if (await lockAsk()) d.remove(); };
+    $("[data-lk='1']", d).addEventListener("click", open);
+    $("[data-lk='2']", d).addEventListener("click", async () => { if (confirm("Se borrarán los datos de este dispositivo (siguen en la nube). ¿Cerrar sesión?")) { await signOut(); d.remove(); } });
+    open();
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") U.hiddenAt = Date.now();
+    else { if (U.hiddenAt && Date.now() - U.hiddenAt > 60000) showLock(); if (C.state.status === "ok") poll(); else if (C.state.status === "offline_ok") recheck(); }
+  });
+  window.addEventListener("online", () => { if (C.state.status === "offline_ok") recheck(); else if (C.state.status === "ok" && C.syncMeta().dirty) pushNow(); });
+  window.addEventListener("pagehide", () => { if (C.state.status === "ok" && C.syncMeta().dirty) pushNow(); });
+
+  /* ---------- acciones ---------- */
+  async function signOut() {
+    try { if (C.state.status === "ok" && C.syncMeta().dirty) await pushNow(); } catch (e) {}
+    await C.signOut(); ls.del("reto90.lock"); await R().wipe(); R().go("#/acceso/entrar"); R().render();
+  }
+  async function act(a, el) {
+    try {
+      if (a === "acct-retry") { C.state.status = "boot"; U.booting = false; R().render(); }
+      else if (a === "acct-out") { if (confirm("Se borrarán los datos de este dispositivo, incluidas las fotos (no se guardan en la nube). Tus datos siguen en tu cuenta. ¿Cerrar sesión?")) await signOut(); }
+      else if (a === "acct-askdev") { await C.requestChange(); C.state.status = "pending"; R().render(); }
+      else if (a === "acct-cancelreq") { try { await C.rpc("cancel_my_request"); } catch (e) {} C.state.status = "need_device"; R().render(); }
+      else if (a === "acct-sync") { setSync("saving"); try { await reconcile(); poll(); } catch (e) { setSync(e.offline ? "offline" : "error"); } R().refresh(); }
+      else if (a === "acct-priv") R().go("#/plan/privacidad");
+      else if (a === "acct-admin") { AD.tab = "users"; R().go("#/plan/admin"); }
+      else if (a === "acct-chpw") R().openSheet("Cambiar contraseña", `<form data-acct="chpw" novalidate><div class="group">${pwField("c", "Contraseña actual", "current-password")}${pwField("p", "Contraseña nueva", "new-password", pwHint)}${pwField("p2", "Repite la nueva", "new-password")}${showPw}</div><p class="form-err note err" role="alert" hidden></p><div class="btn-wrap"><button class="btn" type="submit">Guardar</button></div></form>`);
+      else if (a === "acct-approve") { await pushNow(); await C.rpc("approve_my_request"); R().closeSheet(); toast("Aprobado. Este dispositivo se desvinculó."); await signOutKeep(); }
+      else if (a === "acct-reject") { await C.rpc("cancel_my_request"); R().closeSheet(); toast("Solicitud rechazada"); U.seenReq = ""; }
+      else if (a === "acct-del") {
+        const me = C.state.me || {}, t = prompt(`Se borrará tu cuenta y todos tus datos de la nube. No se puede deshacer.\n\nEscribe tu usuario (${me.username}) para confirmar.`);
+        if (t && t.trim().toLowerCase() === me.username) { await C.rpc("delete_my_account"); await C.signOut(); ls.del("reto90.lock"); await R().wipe(); R().go("#/acceso/crear"); R().render(); toast("Cuenta eliminada"); }
+        else if (t) toast("El usuario no coincide");
+      }
+      else if (a === "acct-newinv") {
+        const r = await C.rpc("admin_create_invite", { p_note: $("#iv-note").value, p_role: $("#iv-role").value, p_days: +$("#iv-days").value });
+        AD.code = r.code; await adminRefresh();
+      }
+      else if (a === "acct-copy") { try { await navigator.clipboard.writeText(AD.code); toast("Código copiado"); } catch (e) { toast("Selecciona y copia el código"); } }
+      else if (a === "acct-revinv") { if (confirm("¿Revocar esta invitación?")) { await C.rpc("admin_revoke_invite", { p_id: el.dataset.id }); adminRefresh(); } }
+      else if (a === "acct-user") userSheet(el.dataset.id);
+      else if (a === "acct-dec") { await C.rpc("admin_decide_request", { p_user: el.dataset.id, p_approve: el.dataset.ok === "1" }); R().closeSheet(); toast(el.dataset.ok === "1" ? "Cambio aprobado" : "Cambio rechazado"); adminRefresh(); }
+      else if (a === "acct-blk") { await C.rpc("admin_set_blocked", { p_user: el.dataset.id, p_blocked: el.dataset.b === "1" }); R().closeSheet(); toast(el.dataset.b === "1" ? "Cuenta bloqueada" : "Cuenta desbloqueada"); adminRefresh(); }
+      else if (a === "acct-deluser") { const u = AD.users.find(x => x.id === el.dataset.id); if (u && prompt(`Se eliminará a ${u.username} y todos sus datos. Escribe su usuario para confirmar.`) === u.username) { await C.rpc("admin_delete_user", { p_user: el.dataset.id }); R().closeSheet(); toast("Usuario eliminado"); adminRefresh(); } }
+      else if (a === "acct-pw") R().openSheet("Contraseña temporal", `<form data-acct="adminpw" data-id="${esc(el.dataset.id)}" novalidate><div class="group">${pwField("t", "Contraseña temporal", "off", "Díctala por un canal seguro. La persona deberá cambiarla al entrar.")}</div><p class="form-err note err" role="alert" hidden></p><div class="btn-wrap"><button class="btn" type="submit">Guardar</button></div></form>`);
+      else if (a === "acct-backup") backup();
+    } catch (e) { toast(C.human(e)); }
+  }
+  async function signOutKeep() { await C.boot(); R().render(); }
+
+  /* ---------- enlaces con la app ---------- */
+  document.addEventListener("click", async e => {
+    const t = e.target.closest && e.target.closest("[data-adtab]");
+    if (t) { AD.tab = t.dataset.adtab; R().refresh(); }
+    const lk = e.target.closest && e.target.closest("[data-lock]");
+    if (lk) { e.preventDefault(); if (lk.checked) { lk.checked = !(await lockEnable()) ? false : true; } else { ls.del("reto90.lock"); toast("Bloqueo desactivado"); } }
+  });
+  function view(name) {
+    if (name === "cuenta") return ready() ? account() : "";
+    if (name === "admin") { if (!(C.state.me && C.state.me.role === "admin") || C.state.status !== "ok") { setTimeout(() => R().go("#/plan/cuenta")); return ""; } if (!AD.users.length && !AD.loaded) { AD.loaded = true; adminRefresh(); } return admin(); }
+    return flow(name);
+  }
+  function after(r) { const f = $("form[data-acct] input:not([type=checkbox])"); if (f && r[0] === "acceso") f.focus({ preventScroll: true }); }
+
+  if (ls.get("reto90.lock")) { const go = () => showLock(); if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", go); else go(); }
+  window.Acct = { gate, view, act, changed, chip, after, ready, status: () => C.state.status };
+})();

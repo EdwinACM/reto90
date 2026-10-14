@@ -9,21 +9,21 @@ window.CONTENT = {
     recomp: { name: "Perder grasa y ganar músculo", desc: "Recomposición: bajar grasa y ganar fuerza y músculo a la vez. Ideal si empiezas o vuelves a entrenar.", sub: "recomposición: casi en mantenimiento", paces: [[5, "Casi mantenimiento (5 %)"], [10, "Déficit ligero (10 %)"], [15, "Déficit moderado (15 %)"]], pace: 10 },
     muscle: { name: "Ganar músculo", desc: "Subir de peso con control para ganar músculo y fuerza. Superávit moderado y poco cardio.", sub: "superávit moderado, menos cardio", paces: [[5, "Superávit suave (5 %)"], [10, "Superávit moderado (10 %)"], [15, "Superávit firme (15 %)"]], pace: 10 },
   },
-  daysOptions: [[3, "3 días · cuerpo completo"], [4, "4 días · torso y pierna"], [5, "5 días · empuje, tirón, pierna y torso"], [6, "6 días · empuje, tirón y pierna ×2"]],
+  daysOptions: [[3, "3 días: cuerpo completo"], [4, "4 días: torso y pierna"], [5, "5 días: empuje, tirón, pierna y torso"], [6, "6 días: empuje, tirón y pierna ×2"]],
   diets: { omni: "Como de todo", veg: "Vegetariano (huevo y lácteos)" },
 
   phases: [
-    { n: 1, name: "Base", weeks: [1, 4], rir: "3 → 2", steps: 8000, cardioAdd: 0, cardio: "20 min al terminar las pesas · 35 min en la sesión larga", goal: "Aprender la rutina, encontrar tus cargas de trabajo y fijar horarios. Semana 4 es de descarga." },
-    { n: 2, name: "Progresión", weeks: [5, 8], rir: "2 → 1", steps: 9000, cardioAdd: 5, cardio: "25 min al terminar las pesas · 40 min en la sesión larga", goal: "Subir peso o repeticiones cada semana en los básicos. Semana 8 es de descarga." },
-    { n: 3, name: "Intensificar", weeks: [9, 12], rir: "1–2 (última serie a 0–1)", steps: 10000, cardioAdd: 10, cardio: "30 min al terminar las pesas · 45 min en la sesión larga", goal: "Mejores marcas en los ejercicios principales y, si te recuperas bien, intervalos en el cardio del viernes." },
-    { n: 4, name: "Cierre", weeks: [13, 13], rir: "1–2", steps: 10000, cardioAdd: 10, cardio: "30 min al terminar las pesas · 45 min en la sesión larga", goal: "Días 85–90: marcas finales, medidas y decidir la siguiente fase." },
+    { n: 1, name: "Base", weeks: [1, 4], rir: "3 → 2", steps: 8000, cardioAdd: 0, cardio: "20 min al terminar las pesas y 35 min en la sesión larga", goal: "Aprender la rutina, encontrar tus cargas de trabajo y fijar horarios. Semana 4 es de descarga." },
+    { n: 2, name: "Progresión", weeks: [5, 8], rir: "2 → 1", steps: 9000, cardioAdd: 5, cardio: "25 min al terminar las pesas y 40 min en la sesión larga", goal: "Subir peso o repeticiones cada semana en los básicos. Semana 8 es de descarga." },
+    { n: 3, name: "Intensificar", weeks: [9, 12], rir: "1–2 (última serie a 0–1)", steps: 10000, cardioAdd: 10, cardio: "30 min al terminar las pesas y 45 min en la sesión larga", goal: "Mejores marcas en los ejercicios principales y, si te recuperas bien, intervalos en el cardio del viernes." },
+    { n: 4, name: "Cierre", weeks: [13, 13], rir: "1–2", steps: 10000, cardioAdd: 10, cardio: "30 min al terminar las pesas y 45 min en la sesión larga", goal: "Días 85–90: marcas finales, medidas y decidir la siguiente fase." },
   ],
 
   milestones: [
     { day: 14, t: "Primer ajuste", d: "Con 2 semanas de datos, revisa si la tendencia de peso va en rango y ajusta calorías si hace falta." },
-    { day: 30, t: "Mes 1", pct: [1.4, 2.7], cm: [1, 3], d: "cintura −{cm} cm · subiste carga o repeticiones en la mayoría de ejercicios." },
-    { day: 60, t: "Mes 2", pct: [3.4, 5.4], cm: [3, 5], d: "cintura −{cm} cm · cambio visible en abdomen y cintura." },
-    { day: 90, t: "Día 90", pct: [4.7, 8], cm: [5, 8], d: "cintura −{cm} cm · fuerza igual o mayor. Son estimaciones: tu cuerpo marca el ritmo real." },
+    { day: 30, t: "Mes 1", pct: [1.4, 2.7], cm: [1, 3], d: "cintura −{cm} cm. Subiste carga o repeticiones en la mayoría de ejercicios." },
+    { day: 60, t: "Mes 2", pct: [3.4, 5.4], cm: [3, 5], d: "cintura −{cm} cm. Cambio visible en abdomen y cintura." },
+    { day: 90, t: "Día 90", pct: [4.7, 8], cm: [5, 8], d: "cintura −{cm} cm. Fuerza igual o mayor. Son estimaciones: tu cuerpo marca el ritmo real." },
   ],
 
   weekFocus: {
@@ -55,12 +55,15 @@ window.CONTENT = {
     { q: "¿Cómo instalo la app?", a: "En Progreso → Mis datos, la tarjeta “Instalar la app” te dice los pasos para tu teléfono. Instalada se abre a pantalla completa y funciona sin internet." },
   ],
   privacy: [
-    { t: "Dónde se guardan tus datos", d: "En este dispositivo, dentro del navegador. No hay cuentas ni servidor: tu plan, tus registros y tus medidas no se envían a ningún lado." },
-    { t: "Qué no hace la app", d: "No usa publicidad, no vende datos y no te sigue. Tu información no sale de tu teléfono salvo que tú la exportes o la compartas." },
-    { t: "Fotos de progreso", d: "Son opcionales. Se quedan solo en este teléfono, aparte de tu copia de seguridad." },
-    { t: "Permisos", d: "La app pide permiso de notificaciones solo si activas esa opción, y acceso a la cámara o a tus fotos solo cuando eliges una foto." },
+    { t: "Cuenta y nube", d: "Para usar la app necesitas una cuenta por invitación. Tu plan, tus registros, tus comidas y tus medidas se guardan en una base de datos de Supabase (Estados Unidos), ligada a tu usuario y protegida con reglas que impiden que otra persona los lea." },
+    { t: "Un solo dispositivo", d: "Tu cuenta solo funciona en un dispositivo a la vez. Para pasarla a otro, el nuevo pide autorización y tú la apruebas desde el anterior (o el administrador). Si alguien más conoce tu contraseña, no podrá entrar sin ese permiso." },
+    { t: "Qué ve el administrador", d: "El administrador gestiona invitaciones y dispositivos, y puede bloquear o borrar cuentas. Por cómo funciona la base de datos, también podría acceder técnicamente a los datos guardados; los usa solo para mantener respaldos del servicio." },
+    { t: "Tu contraseña", d: "Nunca se guarda en texto: el servidor guarda solo una huella. Al crearla, la app comprueba si apareció en filtraciones enviando únicamente los primeros 5 caracteres de su huella a Have I Been Pwned; la contraseña no sale de tu teléfono." },
+    { t: "Qué no hace la app", d: "No usa publicidad, no vende datos y no te sigue. Tu información no se comparte con nadie más salvo que tú la exportes o la compartas." },
+    { t: "Fotos de progreso", d: "Son opcionales y nunca se suben a la nube. Se quedan solo en este dispositivo; si cierras sesión, se borran de aquí." },
+    { t: "Permisos", d: "La app pide permiso de notificaciones solo si activas esa opción, y acceso a la cámara o a tus fotos solo cuando eliges una foto. El bloqueo con huella o Face ID es opcional y se queda en tu dispositivo." },
     { t: "Copias y códigos", d: "El archivo de copia y el código de transferencia contienen tus datos. Compártelos solo con quien confíes." },
-    { t: "Cómo borrar todo", d: "En Ajustes → Volver a comenzar → Borrar todo. Si desinstalas la app o limpias los datos del navegador, también se borra." },
+    { t: "Cómo borrar todo", d: "En Ajustes → Cuenta → Eliminar mi cuenta se borran tu usuario y tus datos de la nube. Cerrar sesión solo borra los datos de este dispositivo." },
     { t: "Aviso de salud", d: "Las calorías, los pesos y los planes son estimaciones. No sustituyen a un médico ni a un nutriólogo. Si tienes una condición de salud, consulta antes de empezar y detente si sientes dolor o mareo." },
   ],
   habits: [
