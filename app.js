@@ -153,6 +153,7 @@ function applyHealth(blocks, mode) {
   return blocks.filter(b => b.t === "cardio" || b.items.length).map(b => (b.t !== "cardio" && b.items.length === 1 && b.t !== "uni") ? { ...b, t: "uni" } : b);
 }
 const ADV = new Set(["squat_bb", "deadlift", "ohp_bb", "inc_bb", "cgbp", "hang_pike"]);
+const effLevel = () => { const lv = (S.profile && S.profile.level) || "medio"; return lv === "alto" && (cons() || safety(currentKg()).severe) ? "medio" : lv; };
 const okLevel = k => (!ADV.has(k) || (S.profile && S.profile.level === "alto" && !cons())) && !avoidSet().has(k);
 const COMPOUND = new Set(["bench_db", "bench_bb", "inc_db", "inc_bb", "ohp_db", "ohp_bb", "sh_mach", "chest_mach", "lat_pd", "pullup", "chinup", "row_cable", "row_db", "row_bb", "tbar", "db_row2", "dips", "cgbp", "smith_sq", "squat_bb", "leg_press", "hack", "rdl", "deadlift", "hip_thrust", "goblet", "db_squat", "db_rdl", "split_db", "bulg", "db_lunge", "step_up", "arnold", "inv_row", "pushup", "pushup_dec"]);
 const LEVEL_SWAPS = {
@@ -248,6 +249,7 @@ function applyEquip(blocks, mode) {
   if (eq.bar) blocks.forEach(b => { b.items = b.items.map(it => { const t = D.BARSWAP[it.k]; return t && !has(t) ? resolveItem(t) : it; }); });
   return blocks.filter(b => b.t === "cardio" || b.items.length).map(b => (b.t !== "cardio" && b.items.length === 1 && b.t !== "uni") ? { ...b, t: "uni" } : b);
 }
+const MUSC_MIN_ADV = { pecho: 14, espalda: 14, hombro: 12, "hombro posterior": 8, "bíceps": 12, "tríceps": 12, "cuádriceps": 14, femoral: 12, "glúteo": 8, pantorrilla: 10 };
 const MUSC_MIN = { pecho: 10, espalda: 10, hombro: 8, "hombro posterior": 6, "bíceps": 8, "tríceps": 8, "cuádriceps": 10, femoral: 8, "glúteo": 6, pantorrilla: 8 };
 const MUSC_PREF = {
   hombro: ["lat_raise"], "hombro posterior": ["rev_fly", "face"],
@@ -270,10 +272,10 @@ function balanceMuscles(ss, lv) {
   ["gym", "db", "home"].forEach(m => {
     const vol = {}; ss.forEach(x => volOf(x[m], vol)); const added = new Map();
     Object.keys(MUSC_MIN).forEach(g => {
-      const need = Math.round(MUSC_MIN[g] * (lv === "nuevo" ? 0.75 : 1)), reg = MUSC_REGION[g] || [g];
+      const need = lv === "alto" ? MUSC_MIN_ADV[g] : Math.round(MUSC_MIN[g] * (lv === "nuevo" ? 0.75 : 1)), reg = MUSC_REGION[g] || [g];
       let guard = 0;
-      while ((vol[g] || 0) < need && guard++ < 3) {
-        const cands = ss.filter(x => x[m].some(b => b.t !== "cardio" && b.items.some(it => reg.includes(D.MUSCLE[it.k]))) && (added.get(x.id) || 0) < (m === "home" ? 3 : 2)).sort((a, b) => (added.get(a.id) || 0) - (added.get(b.id) || 0) || a[m].length - b[m].length);
+      while ((vol[g] || 0) < need && guard++ < (lv === "alto" ? 4 : 3)) {
+        const cands = ss.filter(x => x[m].some(b => b.t !== "cardio" && b.items.some(it => reg.includes(D.MUSCLE[it.k]))) && (added.get(x.id) || 0) < (m === "home" ? 3 : lv === "alto" ? (ss.length <= 3 ? 5 : 3) : 2)).sort((a, b) => (added.get(a.id) || 0) - (added.get(b.id) || 0) || a[m].length - b[m].length);
         let done = false;
         for (const x of cands) {
           const present = new Set(x[m].flatMap(b => b.items.map(i => i.k))), k = (MUSC_PREF[g] || []).find(e => !present.has(e) && exAvail(e, m)); if (!k) continue;
@@ -292,7 +294,7 @@ function SESSIONS() {
   const p = S.profile, wkN = S.start ? weekNum() : 1, cyc = cycleIdx(wkN), dl = deloadWeek(wkN) || autoDlOn(), k = [p.goal, p.days, p.level, S.weekend, p.sex, JSON.stringify(p.equip || {}), cyc, dl, JSON.stringify(health()), Object.keys(S.avoid || {}).join(",")].join("|");
   if (_plan.k === k) return _plan.v;
   const d = SPLITS[p.days] ? p.days : 6, wds = d === 3 ? [1, 3, 5] : d === 4 ? [1, 2, 4, 5] : d === 5 ? [1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, S.weekend === "sab" ? 6 : 0];
-  _plan = { k, v: balanceMuscles(SPLITS[d].map((id, i) => adaptSession(D.ARCH[id], wds[i], p.goal || "recomp", p.level || "medio", d, p.sex, cyc, dl)), p.level || "medio") };
+  _plan = { k, v: balanceMuscles(SPLITS[d].map((id, i) => adaptSession(D.ARCH[id], wds[i], p.goal || "recomp", effLevel(), d, p.sex, cyc, dl)), effLevel()) };
   return _plan.v;
 }
 const sessMin = s => Math.round((8 + blocksOf(s).reduce((a, b) => a + (b.t === "cardio" ? b.min : b.rounds * (b.items.length * 0.75 + b.rest / 60)), 0)) / 5) * 5;
@@ -338,26 +340,43 @@ const r5 = x => Math.round(x / 5) * 5, r50 = x => Math.round(x / 50) * 50;
 const latestWeight = () => { const w = sortedWeights(); return w.length ? w[w.length - 1][1] : null; };
 const currentKg = () => avgWeight(todayISO()) || latestWeight() || S.profile.kg;
 const num = n => Number(n).toLocaleString("es-MX");
+function safety(kg) {
+  const p = S.profile, h = health(), ht = p.h / 100, bmi = kg / (ht * ht), ideal = 25 * ht * ht;
+  return { bmi, ideal, preg: h.cond.includes("embarazo"), minor: p.age < 18, senior: p.age >= 60, under: bmi < 18.5, low: bmi < 20, obese: bmi >= 30, severe: bmi >= 35, heart: h.cond.some(c => ["presion", "corazon"].includes(c)), diab: h.cond.includes("diabetes") };
+}
+function safetyNotes() {
+  const sf = safety(currentKg()), n = [];
+  if (sf.preg) n.push("Embarazo o posparto: tu plan no busca bajar de peso, baja la intensidad y evita ejercicios de abdomen y peso muerto. Confirma todo con tu médico.");
+  if (sf.minor) n.push("Eres menor de 18 años: el plan mantiene tu peso (sin déficit de calorías) y usa una intensidad moderada. Entrena con supervisión de un adulto.");
+  if (sf.under) n.push("Tu peso está por debajo de lo saludable para tu estatura: no se aplica ningún déficit de calorías. Habla con tu médico antes de cambiar tu peso.");
+  else if (sf.low) n.push("Tu peso es bajo para tu estatura: el déficit se limitó a un ritmo suave.");
+  if (sf.severe) n.push("Con tu peso actual el plan evita correr y saltar para cuidar tus articulaciones. Prioriza caminata inclinada y elíptica.");
+  if (sf.senior) n.push("A tu edad el plan usa más descanso, menos intensidad y proteína moderada. Calienta bien y detente si sientes dolor o mareo.");
+  if (sf.heart) n.push("Por tu presión o corazón se evitan los esfuerzos al máximo: deja siempre repeticiones en reserva, respira sin contener el aire y consulta a tu médico.");
+  if (sf.diab) n.push("Con diabetes: no entrenes en ayunas largos, ten a la mano algo con azúcar y vigila tu glucosa antes y después. Consulta a tu médico.");
+  return n;
+}
+const safetyBox = () => { const n = safetyNotes(); return n.length ? `<h2 class="sec">Cuidamos tu salud</h2><div class="group">${n.map(t => `<div class="row top"><div class="main"><div class="meta" style="margin:0;color:var(--label)">${esc(t)}</div></div></div>`).join("")}</div>` : ""; };
 function planCalc() {
-  const p = S.profile, kg = r5(currentKg() * 2) / 2 || currentKg(), g = p.goal || "recomp";
+  const p = S.profile, kg = r5(currentKg() * 2) / 2 || currentKg(), g0 = p.goal || "recomp", sf = safety(kg), g = sf.preg && g0 === "muscle" ? "recomp" : g0;
   const bmr = 10 * kg + 6.25 * p.h - 5 * p.age + (p.sex === "f" ? -161 : 5);
-  const maint = bmr * 1.55, pct = (p.pct ?? p.def ?? C.goals[g].pace) / 100, floor = p.sex === "f" ? 1400 : 1700, adj = p.adj || 0;
+  const maint = bmr * 1.55, pct0 = (p.pct ?? p.def ?? C.goals[g].pace) / 100, pct = g === "muscle" ? pct0 : (sf.preg || sf.minor || sf.under) ? 0 : sf.low ? Math.min(pct0, 0.08) : pct0, floor = p.sex === "f" ? 1400 : 1700, adj = p.adj || 0;
   let tKcal, rKcal, floorHit = false;
   if (g === "muscle") { tKcal = r50(maint * (1 + pct)) + adj; rKcal = r50(tKcal * 0.92); }
   else { const raw = maint * (1 - pct) + 45; floorHit = raw < floor + 250; tKcal = Math.max(r50(raw), floor + 250) + adj; rKcal = Math.max(r50(tKcal - tKcal * 0.14), floor); }
   tKcal = Math.max(tKcal, floor + 100);
-  const prot = Math.min(200, r5((g === "muscle" ? 1.8 : 2.2) * kg)), fat = r5(Math.max(0.8 * kg, 0.22 * tKcal / 9));
+  const pk = sf.bmi > 30 ? sf.ideal + 0.25 * (kg - sf.ideal) : kg, prot = Math.min(200, r5((sf.preg ? 1.2 : (sf.minor || sf.senior) ? 1.6 : g === "muscle" ? 1.8 : 2.2) * pk)), fat = r5(Math.max(0.8 * kg, 0.22 * tKcal / 9));
   const carb = k => Math.max(80, r5((k - 4 * prot - 9 * fat) / 4));
   const bf = p.sex === "f" ? 30 : 22, f1 = x => wd(x).toFixed(1);
-  const rate = g === "fat" ? `${f1(kg * 0.0035)}–${f1(kg * 0.008)} ${wU()}` : g === "recomp" ? `${f1(kg * 0.001)}–${f1(kg * 0.004)} ${wU()}` : `${f1(kg * 0.0025)}–${f1(kg * 0.005)} ${wU()}`;
-  return { kg, goal: g, pct: Math.round(pct * 100), adj, maint: r50(maint), maintLo: r50(bmr * 1.45), maintHi: r50(bmr * 1.65), floorHit,
+  const rate = pct === 0 && g !== "muscle" ? "peso estable" : g === "fat" ? `${f1(kg * 0.0035)}–${f1(kg * 0.008)} ${wU()}` : g === "recomp" ? `${f1(kg * 0.001)}–${f1(kg * 0.004)} ${wU()}` : `${f1(kg * 0.0025)}–${f1(kg * 0.005)} ${wU()}`;
+  return { kg, goal: g, safe: sf, pct: Math.round(pct * 100), adj, maint: r50(maint), maintLo: r50(bmr * 1.45), maintHi: r50(bmr * 1.65), floorHit,
     train: { kcal: tKcal, range: `${num(tKcal - 100)}–${num(tKcal + 100)}`, p: prot, c: carb(tKcal), g: fat },
     rest: { kcal: rKcal, range: `${num(rKcal - 100)}–${num(rKcal + 100)}`, p: prot, c: carb(rKcal), g: fat },
     rate, bf, protFfm: (prot / (kg * (1 - bf / 100))).toFixed(1), protMeal: r5(0.4 * kg), fatPct: Math.round(fat * 9 / tKcal * 100) };
 }
 function fill(str) {
   const c = planCalc(), lv = C.levels[S.profile.level];
-  const map = { MAINT: `${num(c.maintLo)}–${num(c.maintHi)}`, KCAL_T: num(c.train.kcal), KCAL_R: num(c.rest.kcal), RATE: c.rate, PROT: c.train.p, PROT_FFM: c.protFfm, BF: c.bf, PROT_MEAL: c.protMeal, FAT: c.train.g, CARB: c.train.c, FAT_PCT: c.fatPct, PCT: c.pct, GOAL_KCAL: c.goal === "recomp" ? `casi mantenimiento (≈ ${c.pct} % por debajo)` : `déficit moderado (≈ ${c.pct} %)`, LEVEL: lv.name.toLowerCase(), GAIN: lv.gain };
+  const map = { MAINT: `${num(c.maintLo)}–${num(c.maintHi)}`, KCAL_T: num(c.train.kcal), KCAL_R: num(c.rest.kcal), RATE: c.rate, PROT: c.train.p, PROT_FFM: c.protFfm, BF: c.bf, PROT_MEAL: c.protMeal, FAT: c.train.g, CARB: c.train.c, FAT_PCT: c.fatPct, PCT: c.pct, GOAL_KCAL: c.pct === 0 && c.goal !== "muscle" ? "mantenimiento, sin déficit" : c.goal === "recomp" ? `casi mantenimiento (≈ ${c.pct} % por debajo)` : `déficit moderado (≈ ${c.pct} %)`, LEVEL: lv.name.toLowerCase(), GAIN: lv.gain };
   return String(str).replace(/\{\{(\w+)\}\}/g, (_, k) => map[k] ?? "");
 }
 /* Porciones: el plan base (≈ 2,100 kcal en día de entreno) se escala a las calorías de cada persona */
@@ -438,7 +457,7 @@ const MODES = [["gym", "Gimnasio"], ["db", "Mancuernas"], ["home", "Sin equipo"]
 const modeSeg = () => segHtml(MODES, S.mode, "mode", "Dónde entrenas");
 const typeLabel = t => ({ uni: "Uniserie", bi: "Biserie", tri: "Triserie", cardio: "Cardio" }[t]);
 const cardioMin = b => b.min + (phaseOf(weekNum()).cardioAdd || 0);
-const cardioKinds = () => S.mode === "gym" ? C.cardioKinds.gym : C.cardioKinds.home;
+const cardioKinds = () => { const ks = S.mode === "gym" ? C.cardioKinds.gym : C.cardioKinds.home; if (!S.profile) return ks; const impact = safety(currentKg()).severe || health().inj.includes("rodilla") || health().inj.includes("espalda") || health().cond.includes("embarazo"); const f = ks.filter(k => !(impact && k.id === "run")); return f.length ? f : ks; };
 const cardioKind = () => { const ks = cardioKinds(); return ks.find(k => k.id === S.cardioKind) || ks[0]; };
 const letters = "ABC";
 
@@ -585,7 +604,7 @@ function vSetup() {
     <h2 class="sec">Día 1</h2><div class="group"><div class="field"><label for="ob-date">Empiezas el</label><input id="ob-date" type="date" value="${esc(d.date)}"></div></div>`; }
   if (step === 5) body = withDraft(() => {
     const c = planCalc(), ss = SESSIONS(), g = C.goals[d.goal];
-    return `<div class="group">
+    return `${safetyBox()}<div class="group">
       <div class="row top"><div class="main"><div class="title">Objetivo</div><div class="meta">${esc(g.name)}, ${esc(C.levels[d.level].name.toLowerCase())}</div></div></div>
       <div class="row top"><div class="main"><div class="title">Calorías</div><div class="meta">${num(c.train.kcal)} kcal en día de entreno, ${num(c.rest.kcal)} en descanso</div></div></div>
       <div class="row top"><div class="main"><div class="title">Proteína, carbohidratos y grasas</div><div class="meta">${c.train.p} g, ${c.train.c} g, ${c.train.g} g en día de entreno</div></div></div>
@@ -949,7 +968,7 @@ function vDiet() {
   return `${nav("Tu dieta", { back: "Comida", to: "#/comida", sub: "Menú de 7 días y lista de compras con tus porciones" })}
   <div class="group">
     <button class="row" data-go="#/imprimir"><div class="main"><div class="title">Imprimir o guardar PDF</div><div class="meta">Formato ordenado para papel</div></div>${I.chev}</button>
-    <button class="row" data-act="csv"><div class="main"><div class="title">Descargar para Excel</div><div class="meta">Archivo CSV con comidas y macros</div></div></button>
+    <button class="row" data-act="csv"><div class="main"><div class="title">Descargar para Excel</div><div class="meta">Archivo para Excel con comidas y macros</div></div></button>
     <button class="row" data-act="sharediet"><div class="main"><div class="title">Compartir como texto</div><div class="meta">Por mensaje, correo o notas</div></div></button>
   </div>`;
 }
@@ -1305,7 +1324,7 @@ function vHub() {
 }
 function vHealth() {
   const h = health(), av = Object.keys(S.avoid || {});
-  return `${nav("Salud y alergias", { back: "Ajustes", to: "#/plan", sub: "Tu plan y tus comidas se adaptan a esto" })}${healthBlocks(h)}
+  return `${nav("Salud y alergias", { back: "Ajustes", to: "#/plan", sub: "Tu plan y tus comidas se adaptan a esto" })}${safetyBox()}${healthBlocks(h)}
   ${av.length ? `<h2 class="sec">Ejercicios que evitas</h2><div class="group">${av.map(k => `<div class="row"><div class="main"><div class="title">${esc(D.EX[k].name)}</div></div><button class="nb-btn" data-unavoid="${k}">Quitar</button></div>`).join("")}</div>` : ""}`;
 }
 function vHelp() {
@@ -1913,7 +1932,7 @@ function act(a, el) {
     out.push([], ["LISTA DE COMPRAS (7 días)", "Producto", "Cantidad"]);
     shopData().forEach(([t, it]) => it.forEach(([n, qty]) => out.push([t, n, qty])));
     const text = "\ufeff" + out.map(r => r.map(q).join(",")).join("\r\n");
-    const l = document.createElement("a"); l.href = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" })); l.download = `menu-${S.profile.name ? S.profile.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" : ""}${iso}.csv`; l.click(); toast("Menú descargado (CSV)");
+    const l = document.createElement("a"); l.href = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" })); l.download = `menu-${S.profile.name ? S.profile.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" : ""}${iso}.csv`; l.click(); toast("Menú descargado");
   } else if (a === "reset") {
     if (confirm("¿Borrar todos tus datos y reiniciar? No se puede deshacer.")) { LS.removeItem(KEY); S = defaults(); go("#/inicio"); render(); }
   }
