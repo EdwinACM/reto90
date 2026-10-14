@@ -89,6 +89,7 @@ const save = () => {
 };
 
 /* ───────── Utilidades ───────── */
+const prop = s => String(s || "").trim().split(/[\s_]+/).filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ");
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const fmt = (n, d = 1) => Number(n).toLocaleString("es-MX", { minimumFractionDigits: d, maximumFractionDigits: d });
 const MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -484,10 +485,12 @@ const tMin = t => { const [h, m] = String(t).split(":").map(Number); return isNa
 let _slotCache = { k: "", v: null };
 /* Comidas del día: según cuántas haces, cada una recibe su parte de las calorías (entreno o descanso) y se escala su porción */
 function MEALS() {
-  const c = planCalc(), N = MEAL_N(), k = [isVeg(), [...blockedFoods()].join(","), N, c.train.kcal, c.rest.kcal].join("|");
+  const c = planCalc(), N = MEAL_N(), tr = tMin((S.remind && S.remind.train) || "18:00"), k = [isVeg(), [...blockedFoods()].join(","), N, c.train.kcal, c.rest.kcal, tr].join("|");
   if (_slotCache.k === k) return _slotCache.v;
   const base = MEAL_BASE(), by = Object.fromEntries(base.map(m => [m.slot, m])), sn = snackList(), slots = new Map();
-  const add = (kind, [slot, time, share], n) => { const src = by[slot] ? by[slot].opts : sn; let m = slots.get(slot); if (!m) { m = { slot, time, opts: src }; slots.set(slot, m); } const day = kind === "t" ? c.train : c.rest, ps = share * 0.6 + 0.4 / n; m[kind === "t" ? "fT" : "fR"] = { Kt: share * day.kcal, Pt: ps * day.p }; };
+  const hm = m => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`, r5m = m => Math.round(m / 5) * 5;
+  const when = (slot, time) => slot === "Pre-entreno" ? hm(clamp(r5m(tr - 75), 330, 1260)) : slot === "Cena (post-entreno)" ? hm(Math.min(1410, Math.max(tMin(time), r5m(tr + 100)))) : time;
+  const add = (kind, [slot, time0, share], n) => { const time = when(slot, time0); const src = by[slot] ? by[slot].opts : sn; let m = slots.get(slot); if (!m) { m = { slot, time, opts: src }; slots.set(slot, m); } const day = kind === "t" ? c.train : c.rest, ps = share * 0.6 + 0.4 / n; m[kind === "t" ? "fT" : "fR"] = { Kt: share * day.kcal, Pt: ps * day.p }; };
   MPLAN[N].t.forEach(x => add("t", x, N)); MPLAN[N].r.forEach(x => add("r", x, N));
   const v = [...slots.values()].sort((a, b) => tMin(a.time) - tMin(b.time));
   _slotCache = { k, v }; return v;
@@ -591,7 +594,7 @@ function readProfile(ids) {
   if (!(kg >= 30 && kg <= 250)) return `Escribe tu peso en ${wU()}`;
   return { name: cleanName(g("name") || ""), sex, age, h, kg, level: g("lv"), goal: g("goal"), pct: +g("pct"), days: +g("days"), diet: g("diet"), meals: +g("meals") || 5, adj: S.profile?.adj || 0, equip: S.profile?.equip };
 }
-const ONB = () => ({ step: 0, d: { name: "", goal: null, health: { inj: [], cond: [], alg: [] }, waist: "", sex: null, age: "", h: "", kg: "", level: null, days: null, mode: "gym", bench: "si", dbMax: 20, bar: "no", pull: "no", dips: "no", diet: "omni", meals: 5, pct: null, weekend: "sab", date: todayISO() } });
+const ONB = () => ({ step: 0, d: { name: "", goal: null, health: { inj: [], cond: [], alg: [] }, waist: "", sex: null, age: "", h: "", kg: "", level: null, days: null, mode: "gym", bench: "si", dbMax: 20, bar: "no", pull: "no", dips: "no", diet: "omni", meals: 5, train: "18:00", pct: null, weekend: "sab", date: todayISO() } });
 let onb = ONB();
 const ONB_STEPS = 6;
 function radioRows(name, options, cur) {
@@ -635,7 +638,9 @@ function vSetup() {
     <p class="note">Las porciones y las calorías se reparten según las comidas que elijas, y cambian en tus días de pesas y de descanso.</p>
     <h2 class="sec">Ritmo</h2>${radioRows("pct", g.paces, d.pct ?? g.pace)}
     ${+d.days === 6 ? `<h2 class="sec">Tu día de pesas del fin de semana</h2>${segRow("weekend", [["sab", "Sábado"], ["dom", "Domingo"]], d.weekend)}` : ""}
-    <h2 class="sec">Día 1</h2><div class="group"><div class="field"><label for="ob-date">Empiezas el</label><input id="ob-date" type="date" value="${esc(d.date)}"></div></div>`; }
+    <h2 class="sec">Tu horario</h2><div class="group"><div class="field"><label for="ob-train">¿A qué hora sueles entrenar?</label><input id="ob-train" type="time" value="${esc(d.train || "18:00")}"></div></div>
+    <p class="note">Tus comidas de antes y después de entrenar se acomodan a esa hora, y la app te avisa cuando toca.</p>
+    <h2 class="sec">Inicio</h2><div class="group"><div class="field"><label for="ob-date">Empiezas el</label><input id="ob-date" type="date" value="${esc(d.date)}"></div></div>`; }
   if (step === 5) body = withDraft(() => {
     const c = planCalc(), ss = SESSIONS(), g = C.goals[d.goal];
     return `${safetyBox()}<div class="group">
@@ -662,7 +667,7 @@ function mealRows(iso, showHint) {
   return mealsToday(iso).map(m => {
     const o = pick(m, iso), on = !!e[m.slot], idx = all.indexOf(m);
     return `<div class="row"><button class="hit" role="checkbox" aria-checked="${on}" aria-label="Marcar ${esc(m.slot)} como comida" data-eat="${esc(m.slot)}"><span class="circle ${on ? "on" : ""}">${I.check}</span></button>
-      <button class="main" style="background:none;border:0;text-align:left;padding:0;color:inherit;cursor:pointer;min-height:44px" data-go="#/comida/slot/${idx}"><div class="title">${esc(m.slot)} <span class="pill">${m.time}</span>${showHint && nxt === m.slot ? ' <span class="badge">Sigue</span>' : ""}</div><div class="meta">${esc(o.name)}</div><div class="meta">${o.m.kcal} kcal y ${o.m.p} g de proteína</div></button></div>`;
+      <button class="main" style="background:none;border:0;text-align:left;padding:0;color:inherit;cursor:pointer;min-height:44px" data-go="#/comida/slot/${idx}"><div class="title">${esc(slotName(m, iso))} <span class="pill">${m.time}</span>${showHint && nxt === m.slot ? ' <span class="badge">Sigue</span>' : ""}</div><div class="meta">${esc(o.name)}</div><div class="meta">${o.m.kcal} kcal y ${o.m.p} g de proteína</div></button></div>`;
   }).join("");
 }
 function intake(iso) {
@@ -681,7 +686,7 @@ function vToday() {
   } else sesBlock = `<h2 class="sec">Entrenamiento</h2><div class="group"><div class="row"><div class="main"><div class="title">Descanso activo</div><div class="meta">Camina 45 minutos y estira. Hoy no hay pesas.</div></div></div></div>`;
   const w = S.weights[iso], delta = weekDelta(), steps = ck.steps || 0, water = ck.water || 0;
   return `<div class="navbar" id="navbar"><span class="nb-title" aria-hidden="true">Hoy</span>${window.Acct ? Acct.chip() : ""}<button class="nb-btn gear" data-go="#/plan" aria-label="Ajustes">${I.gear}</button></div><h1 class="large" id="lt">${n < 1 ? "Hoy" : "Día " + n}</h1>
-    <p class="sub" style="margin-bottom:8px">${S.profile.name ? "Hola, " + esc(S.profile.name) + ". " : ""}${longDate(iso)}${n >= 1 ? `. ${weekLabel(wk)}` : ""}</p>
+    <p class="sub" style="margin-bottom:8px">${S.profile.name ? "Hola, " + esc(prop(S.profile.name)) + ". " : ""}${longDate(iso)}${n >= 1 ? `. ${weekLabel(wk)}` : ""}</p>
     <div class="bar" role="progressbar" aria-label="Avance del plan" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><i style="--p:${(pct)/100}"></i></div>
     ${storageWarn()}
     ${weekStrip(iso)}
@@ -705,18 +710,29 @@ function vToday() {
     ${new Date().getDay() === 0 ? `<h2 class="sec">Esta semana</h2><div class="group"><button class="row" data-go="#/progreso/revision"><div class="main"><div class="title">Revisión semanal</div><div class="meta">Cinco preguntas y el ajuste recomendado</div></div>${I.chev}</button></div>` : ""}`;
 }
 const backupDue = () => dayNum() >= 7 && (Object.keys(S.weights).length >= 3 || totalSessions() >= 3) && (!S.lastExport || diffDays(todayISO(), S.lastExport) >= 14);
+const slotName = (m, iso) => m.slot === "Cena (post-entreno)" && !isTrainDay(iso) ? "Cena" : m.slot;
+/* "Ahora" sigue los horarios de la persona: su hora de entrenar, la de pesarse y las de sus comidas */
 function nextAction(iso) {
-  const h = new Date().getHours(), ses = sessionFor(iso), ck = S.checks[iso] || {}, nxt = nextMealSlot(iso), done = ses && sessionDoneOn(iso, ses.id), all = MEALS();
-  if (!S.weights[iso] && h < 12) return { t: "Registra tu peso en ayunas", m: "Diez segundos que mejoran tu tendencia", go: "#/progreso/peso" };
-  if (ses && !done && h >= 15) return { t: `Es hora de entrenar: ${ses.name}`, m: `${blocksOf(ses).length} bloques, ${sessMin(ses)} min`, go: `#/entreno/${ses.id}` };
-  if (nxt) { const m = all.find(x => x.slot === nxt); return { t: `Sigue: ${nxt} (${m.time})`, m: pick(m).name, go: `#/comida/slot/${all.indexOf(m)}` }; }
-  if (ses && !done) return { t: `Hoy toca: ${ses.name}`, m: `${blocksOf(ses).length} bloques, ${sessMin(ses)} min`, go: `#/entreno/${ses.id}` };
-  if ((ck.water || 0) < 2500) return { t: "Toma agua", m: `Llevas ${fmt((ck.water || 0) / 1000, 1)} L de 2.5–3 L`, go: "" };
+  const now = new Date(), mins = now.getHours() * 60 + now.getMinutes(), ses = sessionFor(iso), ck = S.checks[iso] || {}, e = eatenOn(iso), all = MEALS();
+  const done = ses && sessionDoneOn(iso, ses.id), trainAt = tMin((S.remind && S.remind.train) || "18:00"), weighAt = tMin((S.remind && S.remind.weigh) || "07:00");
+  const hm = m => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
+  const ev = [];
+  if (!S.weights[iso]) ev.push({ at: weighAt, win: 240, t: "Registra tu peso en ayunas", m: `Es mejor antes de comer, hacia las ${hm(weighAt)}`, go: "#/progreso/peso" });
+  mealsToday(iso).forEach(m => { if (e[m.slot]) return; const at = tMin(m.time); if (at === 9999) return; ev.push({ at, win: 90, t: slotName(m, iso), m: `${m.time}, ${pick(m, iso).name}`, go: `#/comida/slot/${all.indexOf(m)}` }); });
+  if (ses && !done) ev.push({ at: trainAt, win: 150, t: `Toca entrenar: ${ses.name}`, m: `${hm(trainAt)}, ${blocksOf(ses).length} bloques, ${sessMin(ses)} min`, go: `#/entreno/${ses.id}`, train: true });
+  const active = ev.filter(x => mins >= x.at - 30 && mins <= x.at + x.win).sort((p, q) => Math.abs(mins - p.at) - Math.abs(mins - q.at))[0];
+  if (active) return { label: "Ahora", t: active.t, m: active.m, go: active.go };
+  const next = ev.filter(x => x.at > mins).sort((p, q) => p.at - q.at)[0];
+  if (next) return { label: "Más tarde", t: `${next.t}, a las ${hm(next.at)}`, m: next.m.replace(/^\d+:\d+, /, ""), go: next.go };
+  if (ses && !done) return { label: "Pendiente", t: `Aún puedes entrenar: ${ses.name}`, m: `${blocksOf(ses).length} bloques, ${sessMin(ses)} min`, go: `#/entreno/${ses.id}` };
+  const snack = mealsToday(iso).find(m => !e[m.slot] && tMin(m.time) === 9999);
+  if (snack) return { label: "Cuando quieras", t: "Snack con proteína", m: pick(snack, iso).name, go: `#/comida/slot/${all.indexOf(snack)}` };
+  if ((ck.water || 0) < 2500 && mins < 21 * 60) return { label: "Pendiente", t: "Toma agua", m: `Llevas ${fmt((ck.water || 0) / 1000, 1)} L de 2.5 a 3 L`, go: "" };
   return null;
 }
 function nowCard(iso) {
   const a = nextAction(iso);
-  return a ? `<button class="nowcard" ${a.go ? `data-go="${a.go}"` : "data-noop"}><div><small>Ahora</small><b>${esc(a.t)}</b><span>${esc(a.m)}</span></div>${a.go ? I.chev : ""}</button>` : `<div class="nowcard done" role="status"><div><small>Ahora</small><b>Día completo</b><span>Lo que hiciste hoy cuenta. Descansa y mañana seguimos.</span></div></div>`;
+  return a ? `<button class="nowcard" ${a.go ? `data-go="${a.go}"` : "data-noop"}><div><small>${esc(a.label || "Ahora")}</small><b>${esc(a.t)}</b><span>${esc(a.m)}</span></div>${a.go ? I.chev : ""}</button>` : `<div class="nowcard done" role="status"><div><small>Hoy</small><b>Día completo</b><span>Lo que hiciste hoy cuenta. Descansa y mañana seguimos.</span></div></div>`;
 }
 function adoptState(n) { S = n; _plan = { k: "", v: null }; save(); applyAccent(); applyTheme(); if (window.Store) Store.persist(); }
 async function stateFromCode(raw) {
@@ -1008,7 +1024,7 @@ function vDiet() {
   </div>`;
 }
 function dietText() {
-  const c = planCalc(), nm = S.profile.name ? " de " + S.profile.name : "";
+  const c = planCalc(), nm = S.profile.name ? " de " + prop(S.profile.name) : "";
   let t = `Menú semanal${nm}\nMeta en día de entreno: ${num(c.train.kcal)} kcal, proteína ${c.train.p} g, carbohidratos ${c.train.c} g, grasas ${c.train.g} g\n`;
   weekMenu().forEach(d => { t += `\n${d.dn.toUpperCase()}${d.rest ? " (descanso)" : ""}, ${num(d.tot.kcal)} kcal\n` + d.meals.map(x => `• ${x.slot} (${x.time}): ${x.v.name} — ${x.v.items.join(", ")}, ${x.v.m.kcal} kcal`).join("\n") + "\n"; });
   t += "\nLISTA DE COMPRAS (7 días)\n"; shopData().forEach(([g, it]) => { t += `${g}: ` + it.map(([n, q]) => `${n} ${q}`).join(", ") + "\n"; });
@@ -1082,7 +1098,7 @@ function vFoodRules() {
   <h2 class="sec">Suplementos</h2><div class="group"><div class="prose">${C.supplements}</div></div>`;
 }
 function vPrint() {
-  const c = planCalc(), wm = weekMenu(), who = S.profile.name ? esc(S.profile.name) : "", g = C.goals[S.profile.goal || "recomp"];
+  const c = planCalc(), wm = weekMenu(), who = S.profile.name ? esc(prop(S.profile.name)) : "", g = C.goals[S.profile.goal || "recomp"];
   const hoy = new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
   const stat = (v, l) => `<div><b>${v}</b><span>${l}</span></div>`;
   const days = wm.map((d, i) => `<section class="pd-day${d.rest ? " rest" : ""}"><h3><em>${i + 1}</em>${d.dn}${d.rest ? "<small>Descanso</small>" : "<small>Entreno</small>"}</h3>
@@ -1495,7 +1511,7 @@ function drawShare() {
   const font = "-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Roboto, sans-serif"; g.textAlign = "left";
   g.fillStyle = acc; g.font = `700 44px ${font}`; g.fillText("RETO 90", 80, 130);
   g.fillStyle = "#fff"; g.font = `700 120px ${font}`; const dn = Math.max(1, dayNum()), n = Math.min(90, dn);
-  g.fillText(shareKind === "mes" ? (m => m.name.charAt(0).toUpperCase() + m.name.slice(1))(monthStats(recapOff)) : (S.profile.name ? S.profile.name : "Mi progreso"), 80, 300);
+  g.fillText(shareKind === "mes" ? (m => m.name.charAt(0).toUpperCase() + m.name.slice(1))(monthStats(recapOff)) : (S.profile.name ? prop(S.profile.name) : "Mi progreso"), 80, 300);
   g.fillStyle = "#aeaeb2"; g.font = `500 54px ${font}`; g.fillText(`Día ${dn}`, 80, 380);
   g.fillStyle = "rgba(255,255,255,.14)"; g.beginPath(); g.roundRect(80, 430, 920, 28, 14); g.fill();
   g.fillStyle = acc; g.beginPath(); g.roundRect(80, 430, Math.max(28, 920 * n / 90), 28, 14); g.fill();
@@ -1708,7 +1724,7 @@ function bind() {
   $$("button[data-accent]").forEach(b => b.addEventListener("click", () => { segMove(b); S.accent = b.dataset.accent; applyAccent(); save(); vibrate(8); }));
   $$("[data-adj]").forEach(b => { if (!b.closest("#rev-out")) b.addEventListener("click", () => adjustKcal(b.dataset.adj)); });
   $$("[data-choice]").forEach(b => b.addEventListener("click", () => { const [k, v] = b.dataset.choice.split("|"); onb.d[k] = ["days", "pct", "dbMax", "meals"].includes(k) ? +v : v; if (k === "goal") onb.d.pct = null; vibrate(8); if (b.closest(".seg")) { segMove(b); setTimeout(refresh, 240); } else refresh(); }));
-  [["#ob-age", "age"], ["#ob-h", "h"], ["#ob-kg", "kg"], ["#ob-waist", "waist"], ["#ob-date", "date"]].forEach(([sel, k]) => $(sel)?.addEventListener("input", e => { onb.d[k] = e.target.value; }));
+  [["#ob-age", "age"], ["#ob-h", "h"], ["#ob-kg", "kg"], ["#ob-waist", "waist"], ["#ob-date", "date"], ["#ob-train", "train"]].forEach(([sel, k]) => $(sel)?.addEventListener("input", e => { onb.d[k] = e.target.value; }));
   $("#ob-name")?.addEventListener("input", e => { onb.d.name = cleanName(e.target.value); });
   $$("[data-onb]").forEach(b => b.addEventListener("click", () => {
     const a = b.dataset.onb;
@@ -1799,7 +1815,7 @@ function act(a, el) {
   if (a === "start") {
     const d = onb.d;
     S.profile = { name: cleanName(d.name), health: cleanHealth(d.health), sex: d.sex, age: +d.age, h: Math.round(fromL(+d.h)), kg: Math.round(fromW(parseFloat(d.kg)) * 10) / 10, level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, meals: +d.meals || 5, adj: 0, equip: { bench: d.bench !== "no", bar: d.bar === "si", dbMax: +d.dbMax, pull: d.pull === "si", dips: d.dips === "si" } };
-    const keepW = onb.redo ? S.weights : {}; S.swaps = {}; S.reviews = {}; S.picks = {}; if (!onb.redo) S.avoid = {}; const wv = Math.round(fromL(parseFloat(d.waist)) * 10) / 10; S.start = d.date || iso; S.weekend = d.weekend; S.mode = d.mode; S.weights = { ...keepW, [S.start]: S.profile.kg }; if (wv >= 30 && wv <= 250) S.waists[S.start] = wv; S.goalKg = suggestGoalKg(S.profile, S.profile.kg, wv >= 30 ? wv : lastWaist()).goal; _plan = { k: "", v: null };
+    const keepW = onb.redo ? S.weights : {}; S.swaps = {}; S.reviews = {}; S.picks = {}; if (!onb.redo) S.avoid = {}; const wv = Math.round(fromL(parseFloat(d.waist)) * 10) / 10; S.start = d.date || iso; if (/^\d\d:\d\d$/.test(d.train || "")) S.remind.train = d.train; S.weekend = d.weekend; S.mode = d.mode; S.weights = { ...keepW, [S.start]: S.profile.kg }; if (wv >= 30 && wv <= 250) S.waists[S.start] = wv; S.goalKg = suggestGoalKg(S.profile, S.profile.kg, wv >= 30 ? wv : lastWaist()).goal; _plan = { k: "", v: null };
     save(); onb = ONB(); if (window.Store) Store.persist(); go("#/hoy"); toast("Todo listo: empieza el día 1");
   } else if (a === "saveweight") {
     const v = fromW(parseFloat($("#w-today").value));
@@ -1934,7 +1950,7 @@ function act(a, el) {
       el.querySelectorAll("[data-rs]").forEach(b => b.addEventListener("click", () => {
         const k = b.dataset.rs;
         if (k === "new") { S.start = todayISO(); S.swaps = {}; S.reviews = {}; _plan = { k: "", v: null }; save(); closeSheet(); toast("Nuevo reto: día 1"); go("#/hoy"); }
-        else if (k === "redo") { const p = S.profile, e = equip(); onb = ONB(); onb.redo = true; Object.assign(onb.d, { name: p.name || "", goal: p.goal, sex: p.sex, age: String(p.age), h: String(Math.round(ld(p.h))), kg: String(Math.round(wd(currentKg()) * 10) / 10), health: JSON.parse(JSON.stringify(health())), level: p.level, days: p.days, mode: S.mode, bench: e.bench ? "si" : "no", dbMax: e.dbMax, bar: e.bar ? "si" : "no", pull: e.pull ? "si" : "no", dips: e.dips ? "si" : "no", diet: p.diet, pct: p.pct, weekend: S.weekend }); closeSheet(true); go("#/inicio"); render(); }
+        else if (k === "redo") { const p = S.profile, e = equip(); onb = ONB(); onb.redo = true; Object.assign(onb.d, { train: S.remind.train, meals: p.meals || 5, name: p.name || "", goal: p.goal, sex: p.sex, age: String(p.age), h: String(Math.round(ld(p.h))), kg: String(Math.round(wd(currentKg()) * 10) / 10), health: JSON.parse(JSON.stringify(health())), level: p.level, days: p.days, mode: S.mode, bench: e.bench ? "si" : "no", dbMax: e.dbMax, bar: e.bar ? "si" : "no", pull: e.pull ? "si" : "no", dips: e.dips ? "si" : "no", diet: p.diet, pct: p.pct, weekend: S.weekend }); closeSheet(true); go("#/inicio"); render(); }
         else { closeSheet(true); act("reset"); }
       }));
     });
@@ -1977,7 +1993,7 @@ if (window.Store && Store.available()) {
   if (!LS.getItem(KEY)) Store.getKV("backup").then(b => { if (b) { try { const n = normalizeState(JSON.parse(b)); if (!n.profile || !n.start) return; S = n; LS.setItem(KEY, JSON.stringify(n)); _plan = { k: "", v: null }; toast("Recuperamos tus datos"); go("#/hoy"); if (parseHash()[0] === "hoy") render(); } catch {} } }).catch(() => {});
   if (S.start) Store.persist();
 }
-if (location.hostname === "localhost" && LS.getItem("reto90.debug")) window.__reto = { get S() { return S; }, set S(v) { S = v; }, MEALS, weekMenu, shopData, avoidSet, ALG, cons, SESSIONS, planCalc, D, C, blocksOf, altsFor, suggest, equip, render };
+if (location.hostname === "localhost" && LS.getItem("reto90.debug")) window.__reto = { nextAction, get S() { return S; }, set S(v) { S = v; }, MEALS, weekMenu, shopData, avoidSet, ALG, cons, SESSIONS, planCalc, D, C, blocksOf, altsFor, suggest, equip, render };
 const applyTheme = () => {
   const t = S.theme === "light" || S.theme === "dark" ? S.theme : null, root = document.documentElement;
   if (t) root.dataset.theme = t; else delete root.dataset.theme;
