@@ -221,9 +221,9 @@ window.CONTENT = {
     ],
     diet: [
       { only: ["fat", "recomp"], t: "Calorías: {{GOAL_KCAL}}", d: "Con tus datos, tu mantenimiento estimado es de unas {{MAINT}} kcal. Un día de entreno son unas {{KCAL_T}} y uno de descanso unas {{KCAL_R}}. La idea es bajar como máximo entre 0.5 % y 1 % de tu peso por semana: en atletas, bajar 0.7 % por semana conservó mejor el músculo y la fuerza que bajar 1.4 %. Si tu objetivo es recomponer, lo normal es cambiar unos {{RATE}} por semana.", s: ["helms14", "garthe", "issnDiet"] },
-      { only: ["fat", "recomp"], t: "Proteína: unos {{PROT}} g al día", d: "Son 2.2 g por cada kg de tu peso (unos {{PROT_FFM}} g por kg de masa magra si tu grasa corporal fuera de {{BF}} %, una estimación y no una medición). Para quien entrena y está en déficit, lo recomendado es de 2.3 a 3.1 g por kg de masa magra.", s: ["issnProt", "issnDiet"] },
+      { only: ["fat", "recomp"], t: "Proteína: unos {{PROT}} g al día", d: "Son {{PROT_KG}} g por cada kg de tu peso (unos {{PROT_FFM}} g por kg de masa magra si tu grasa corporal fuera de {{BF}} %, una estimación y no una medición). Para quien entrena y está en déficit, lo recomendado es de 2.3 a 3.1 g por kg de masa magra.", s: ["issnProt", "issnDiet"] },
       { only: ["muscle"], t: "Calorías: superávit de ≈ {{PCT}} %", d: "Con tus datos, tu mantenimiento estimado es de unas {{MAINT}} kcal. Un día de entreno son unas {{KCAL_T}} y uno de descanso unas {{KCAL_R}}. Para quien empieza o ya tiene algo de experiencia se sugiere comer entre 10 % y 20 % más y subir entre 0.25 % y 0.5 % del peso por semana (unos {{RATE}}). Con mucha experiencia conviene ir más despacio. Nadie conoce el superávit ideal, y quien empieza puede ganar músculo con poco o ningún superávit.", s: ["iraki", "slater"] },
-      { only: ["muscle"], t: "Proteína: unos {{PROT}} g al día", d: "Son 1.8 g por kg de tu peso. Comer más proteína que unos 1.6 g por kg no dio más músculo en promedio, y 1.8 deja un poco de margen. Lo habitual para ganar músculo es de 1.4 a 2.0 g por kg.", s: ["morton", "issnProt"] },
+      { only: ["muscle"], t: "Proteína: unos {{PROT}} g al día", d: "Son {{PROT_KG}} g por kg de tu peso, según tu nivel. Comer más proteína que unos 1.6 g por kg no dio más músculo en promedio, y 1.8 deja un poco de margen. Lo habitual para ganar músculo es de 1.4 a 2.0 g por kg.", s: ["morton", "issnProt"] },
       { only: ["muscle"], t: "Grasas ≈ {{FAT}} g y carbohidratos ≈ {{CARB}} g", d: "Las grasas aportan cerca del {{FAT_PCT}} % de las calorías y el resto son carbohidratos, que te dan energía para entrenar. En superávit, casi todo lo extra va a carbohidratos.", s: ["acsm", "issnDiet"] },
       { only: ["muscle"], t: "Qué esperar", d: "Con tu nivel ({{LEVEL}}) puedes ganar unos {{GAIN}} de músculo en esta primera etapa del plan. Parte de lo que subas en la báscula será grasa. Si la cintura sube más rápido que tu fuerza, baja las calorías.", s: ["iraki"] },
       { t: "Tus {{MEALS}} comidas del día", d: "Con {{MEALS}} comidas al día, cada una lleva unos {{PROT_MEAL}} g de proteína, una cantidad que el cuerpo aprovecha bien de una sola vez. Las calorías se reparten entre ellas y cambian entre un día de pesas y uno de descanso. Lo que más importa es el total del día; el número de comidas y los horarios se eligen para que puedas seguirlos.", s: ["protMeal", "helms14"] },
@@ -300,4 +300,22 @@ window.CONTENT = {
   },
 
   honesty: `<p>Las calorías y los macros son <strong>cálculos aproximados con un rango</strong>, no valores exactos. Tu mantenimiento real lo descubres con 2 o 3 semanas de datos de peso.</p><p>La recomposición (perder grasa y ganar músculo a la vez) funciona, pero cuánto músculo ganas depende de tu nivel: con el tuyo ({{LEVEL}}) son unos {{GAIN}} en esta primera etapa si llegas a tu proteína y subes peso, y no conviene esperar ganar mucho músculo y perder mucha grasa al mismo ritmo. El cambio que más se ve viene de bajar la cintura y mantener o subir la fuerza.</p><p>Esto no sustituye a un médico ni a un nutriólogo. Si tienes mareos, dolor en el pecho o una lesión, detente y consulta.</p>`,
+
+  sources: [
+    { t: "Dietas y composición corporal", w: "Posición de la Sociedad Internacional de Nutrición Deportiva, 2017", u: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5470183/" },
+    { t: "Momento y reparto de los nutrientes", w: "Posición de la Sociedad Internacional de Nutrición Deportiva, 2017", u: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5596471" },
+    { t: "Nutrición y suplementos para fisicoculturismo natural", w: "Helms, Aragon y Fitschen, 2014", u: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4033492/" },
+    { t: "Nutrición y rendimiento deportivo", w: "Posición conjunta de ACSM, Academy of Nutrition and Dietetics y Dietitians of Canada, 2016", u: "https://doi.org/10.1249/MSS.0000000000000852" },
+    { t: "Volumen semanal de entrenamiento y crecimiento muscular", w: "Schoenfeld, Ogborn y Krieger, 2016", u: "https://pubmed.ncbi.nlm.nih.gov/?term=Schoenfeld+dose-response+weekly+resistance+training+volume+muscle+mass" },
+    { t: "Frecuencia de entrenamiento y crecimiento muscular", w: "Schoenfeld, Ogborn y Krieger, 2016", u: "https://pubmed.ncbi.nlm.nih.gov/27102172/" },
+    { t: "Entrenar cerca del fallo y crecimiento muscular", w: "Refalo y colaboradores, 2023", u: "https://openrepository.aut.ac.nz/items/78679612-6ff4-4d00-95d1-7920d072a760/full" },
+    { t: "Descanso entre series y crecimiento muscular", w: "Singer y colaboradores, 2024", u: "https://www.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2024.1429789/pdf" },
+    { t: "Ritmo de pérdida de peso en deportistas", w: "Garthe y colaboradores, 2011", u: "https://nih.brage.unit.no/nih-xmlui/handle/11250/171332" },
+    { t: "Pausas en la dieta (estudio MATADOR)", w: "Byrne y colaboradores, 2018", u: "https://ecite.utas.edu.au/123184" },
+    { t: "Energía suficiente para entrenar (RED-S)", w: "Consenso del Comité Olímpico Internacional, 2018", u: "https://www.researchgate.net/profile/Margo_Mountjoy/publication/325212903_International_Olympic_Committee_IOC_Consensus_Statement_on_Relative_Energy_Deficiency_in_Sport_RED-S_2018_Update" },
+    { t: "Proteína en adultos mayores (PROT-AGE)", w: "Bauer y colaboradores, 2013", u: "https://researchexperts.utmb.edu/en/publications/evidence-based-recommendations-for-optimal-dietary-protein-intake/" },
+    { t: "Ejercicio durante el embarazo", w: "Colegio Estadounidense de Obstetras y Ginecólogos", u: "https://pubmed.ncbi.nlm.nih.gov/30410829/" },
+    { t: "Guías de actividad física", w: "Organización Mundial de la Salud, 2020", u: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7719906/" },
+    { t: "Pasos diarios y salud", w: "Paluch y colaboradores, 2022", u: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9289978/" },
+  ],
 };
