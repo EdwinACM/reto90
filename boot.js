@@ -23,8 +23,8 @@
     document.body.appendChild(d);
   }
   // 2) Errores durante la carga
-  window.addEventListener("error", function (e) { if (!document.getElementById("app").firstChild) var m = String(e.message || "error"); box(/syntax|unexpected|token|identifier/i.test(m) ? "Tu navegador es muy antiguo para esta app" : "No se pudo abrir la app", m + " · " + navigator.userAgent); });
+  window.addEventListener("error", function (e) { if (!document.getElementById("app").firstChild) var m = String(e.message || "error"); box(/syntax|unexpected|token|identifier/i.test(m) ? "Tu navegador es muy antiguo para esta app" : "No se pudo abrir la app", m + ". " + navigator.userAgent); });
   window.addEventListener("unhandledrejection", function () {});
   // 3) Si a los 5 s sigue vacía, avisar
-  window.addEventListener("load", function () { setTimeout(function () { var a = document.getElementById("app"); if (a && !a.firstChild) box("La app no terminó de cargar", "Sin contenido tras 5 s · " + navigator.userAgent); }, 5000); });
+  window.addEventListener("load", function () { setTimeout(function () { var a = document.getElementById("app"); if (a && !a.firstChild) box("La app no terminó de cargar", "Sin contenido tras 5 s. " + navigator.userAgent); }, 5000); });
 })();

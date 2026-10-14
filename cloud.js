@@ -71,7 +71,7 @@
     const ua = navigator.userAgent, os = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android" : /Macintosh/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : "Dispositivo";
     const br = /EdgA|Edg\//.test(ua) ? "Edge" : /CriOS|Chrome\//.test(ua) ? "Chrome" : /FxiOS|Firefox/.test(ua) ? "Firefox" : /Safari/.test(ua) ? "Safari" : "Navegador";
     const app = (matchMedia("(display-mode: standalone)").matches || navigator.standalone) ? " (app instalada)" : "";
-    return (os + " · " + br + app).slice(0, 60);
+    return (os + ", " + br + app).slice(0, 60);
   }
   async function deviceToken(create) {
     let t = ls.get(DEV_KEY);
@@ -88,6 +88,7 @@
     correo_invalido: "Usuario no válido.", no_verificado: "Este dispositivo aún no está autorizado.", bloqueado: "Tu cuenta está bloqueada. Habla con el administrador.", demasiados_intentos: "Demasiados intentos. Espera unos minutos.",
     solo_admin: "Solo el administrador puede hacer esto.", dispositivo_existente: "Ya hay un dispositivo registrado para esta cuenta.", sin_dispositivo: "Tu cuenta aún no tiene dispositivo registrado.",
     sin_solicitud: "No hay solicitud pendiente.", estado_invalido: "Los datos no son válidos o son demasiado grandes.", no_a_ti_mismo: "No puedes hacerlo con tu propia cuenta.", contrasena_corta: "La contraseña temporal debe tener al menos 10 caracteres.",
+    sin_suscripcion: "Activa las notificaciones primero.", demasiado_rapido: "Espera unos segundos antes de otra prueba.", no_autorizado: "No autorizado.",
     "Invalid login credentials": "Usuario o contraseña incorrectos.", "Database error saving new user": "No se pudo crear la cuenta. Revisa la invitación y el nombre de usuario.", "User already registered": "Ese usuario ya existe.",
     user_already_exists: "Ese usuario ya existe.", weak_password: "La contraseña no cumple los requisitos.", over_request_rate_limit: "Demasiados intentos. Espera unos minutos.", user_banned: "Tu cuenta está bloqueada. Habla con el administrador.",
     invalid_credentials: "Usuario o contraseña incorrectos.", same_password: "La contraseña nueva debe ser distinta.", current_password_required: "Escribe tu contraseña actual.",

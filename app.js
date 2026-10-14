@@ -497,14 +497,14 @@ function render(o) {
     case "cambiar": html = vSwap(r[1], +r[2], +r[3]); break;
     case "comida": html = r[1] === "dieta" ? vDiet() : r[1] === "guias" ? vFoodGuides() : r[1] === "guia" ? vFoodGuide(r[2]) : r[1] === "menu" ? vMenu() : r[1] === "compras" ? vShop() : r[1] === "snacks" ? vSnacks() : r[1] === "reglas" ? vFoodRules() : r[1] === "porque" ? vWhy("diet") : r[1] === "slot" ? vSlot(r[2]) : vFood(); break;
     case "progreso": html = r[1] === "logros" ? vBadges() : r[1] === "resumen" ? vRecap() : r[1] === "sesion" ? vPast(r[2], r[3]) : r[1] === "meta" ? vWeightGoal() : r[1] === "musculos" ? vMuscles() : r[1] === "habitos" ? vHabits() : r[1] === "calorias" ? vAdjust() : r[1] === "compartir" ? vShare() : r[1] === "medidas" ? vBodyMeasures() : r[1] === "fotos" ? vPhotos() : r[1] === "historial" ? vHistory() : r[1] === "datos" ? vData() : r[1] === "revision" ? vReview() : r[1] === "peso" ? vLogWeight() : r[1] === "fuerza" ? vStrength() : r[1] === "guia" ? vMeasureGuide() : vProgress(); break;
-    case "plan": html = r[1] === "cuenta" ? Acct.view("cuenta") : r[1] === "admin" ? Acct.view("admin") : r[1] === "ayuda" ? vHelp() : r[1] === "privacidad" ? vPrivacy() : r[1] === "ajustes" ? vSettings() : r[1] === "salud" ? vHealth() : r[1] === "avisos" ? vRemind() : vHub(); break;
+    case "plan": html = r[1] === "cuenta" ? Acct.view("cuenta") : r[1] === "notificaciones" ? Acct.view("notif") : r[1] === "admin" ? Acct.view("admin") : r[1] === "ayuda" ? vHelp() : r[1] === "privacidad" ? vPrivacy() : r[1] === "ajustes" ? vSettings() : r[1] === "salud" ? vHealth() : r[1] === "avisos" ? vRemind() : vHub(); break;
     default: html = vToday();
   }
-  const back = r.length < lastDepth; lastDepth = r.length;
+  const back = r.length < lastDepth, tabNow = TABOF[r[0]] || "hoy", swap = !keep && !back && r.length === 1 && lastDepth === 1 && lastTab && lastTab !== tabNow; lastDepth = r.length;
   const onboarding = r[0] === "inicio" || r[0] === "acceso"; if (r[0] === "inicio") hasCta = true;
   document.documentElement.style.setProperty("--cta-h", hasCta ? "72px" : "0px");
   document.documentElement.classList.toggle("onb", onboarding);
-  app.innerHTML = `<main class="page${keep ? " still" : back ? " back" : ""}">${html}</main>`;
+  app.innerHTML = `<main class="page${keep ? " still" : back ? " back" : swap ? " swap" : ""}">${html}</main>`;
   renderTabs(TABOF[r[0]] || "hoy"); tabsEl.style.display = S.start && r[0] !== "acceso" ? "" : "none";
   window.scrollTo(0, keep ? y0 : 0);
   if (io) io.disconnect();
@@ -1295,7 +1295,7 @@ function vHub() {
   <div class="field"><label>Unidades de medidas</label>${segHtml([["cm", "Centímetros"], ["in", "Pulgadas"]], S.units.l, "unitl", "Unidades de medidas")}</div>
   <div class="field"><label>Color de acento</label>${segHtml([["naranja", "Naranja"], ["azul", "Azul"], ["morado", "Morado"], ["rosa", "Rosa"]], S.accent, "accent", "Color de acento")}</div></div>
   <h2 class="sec">Cuenta</h2>
-  <div class="group">${row("#/plan/cuenta", "Cuenta y dispositivo")}</div>
+  <div class="group">${row("#/plan/cuenta", "Cuenta y dispositivo")}${row("#/plan/notificaciones", "Notificaciones")}</div>
   <h2 class="sec">General</h2>
   <div class="group">${row("#/plan/ajustes", "Perfil y equipo")}${row("#/plan/salud", "Salud y alergias")}<button class="row" data-act="level"><div class="main"><div class="title">Nivel</div></div><span class="val">${esc(C.levels[S.profile.level || "medio"].name)}</span>${I.chev}</button>${row("#/plan/avisos", "Recordatorios y sonido")}${row("#/progreso/datos", "Mis datos y copia de seguridad")}
   <div class="row check-row"><label for="ph-on">Fotos de progreso (opcional)</label><input class="switch" id="ph-on" type="checkbox" ${S.photos ? "checked" : ""}></div>
@@ -1944,7 +1944,7 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 }
 window.R90 = {
   nav, toast, go, refresh, render: () => render(), openSheet, closeSheet, I, seg: segHtml,
-  hasPlan: () => !!(S.start && S.profile),
+  hasPlan: () => !!(S.start && S.profile), remind: () => S.remind, trainDays: () => { try { return [...new Set(SESSIONS().map(x => x.wd).filter(d => d >= 0))]; } catch { return []; } },
   snapshot: () => JSON.parse(JSON.stringify(S)),
   adopt: raw => { S = normalizeState(raw); _plan = { k: "", v: null }; try { LS.setItem(KEY, JSON.stringify(S)); LS.setItem(KEY + ".saved", String(Date.now())); } catch {} applyTheme(); applyAccent(); if (S.start && window.Store) Store.setKV("backup", JSON.stringify(S)).catch(() => {}); render(); },
   wipe: async () => {
