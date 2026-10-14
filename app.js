@@ -11,7 +11,7 @@ const LS = (() => { const mem = {}; let ok = true; try { localStorage.setItem("_
 const todayISO = (d = new Date()) => { const z = new Date(d.getTime() - d.getTimezoneOffset() * 6e4); return z.toISOString().slice(0, 10); };
 const addDays = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return todayISO(d); };
 const diffDays = (a, b) => Math.round((new Date(a + "T12:00:00") - new Date(b + "T12:00:00")) / 864e5);
-const defaults = () => ({ body: {}, prs: {}, lastExport: null, tips: {}, swaps: {}, accent: "naranja", photos: false, goalKg: null, notify: false, theme: "auto", sound: true, remind: { train: "18:00", weigh: "07:00" }, profile: null, cardio: {}, intro: false, start: null, weekend: "sab", mode: "gym", weights: {}, waists: {}, checks: {}, hist: {}, picks: {}, eaten: {}, reviews: {} });
+const defaults = () => ({ body: {}, prs: {}, lastExport: null, tips: {}, swaps: {}, accent: "naranja", photos: false, avoid: {}, autoDl: null, calAt: null, fb: {}, goalKg: null, notify: false, theme: "auto", sound: true, remind: { train: "18:00", weigh: "07:00" }, profile: null, cardio: {}, intro: false, start: null, weekend: "sab", mode: "gym", weights: {}, waists: {}, checks: {}, hist: {}, picks: {}, eaten: {}, reviews: {} });
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const isObj = o => !!o && typeof o === "object" && !Array.isArray(o);
 const okKey = k => typeof k === "string" && k.length < 80 && k !== "__proto__" && k !== "constructor" && k !== "prototype";
@@ -21,18 +21,20 @@ function cleanMap(src, fn) { const out = {}; if (!isObj(src)) return out; Object
 /* Nada de lo que viene de fuera (archivo importado, copia restaurada) entra al estado sin pasar por aquí:
    solo claves conocidas, tipos y rangos válidos. Así no puede inyectar HTML ni romper la app. */
 const SLOTS = new Set([...D.MEALS, ...D.MEALS_VEG].map(m => m.slot).concat("Snack"));
+const HEALTH_OPTS = { inj: ["hombro", "rodilla", "espalda", "muñeca"], cond: ["presion", "diabetes", "corazon", "embarazo"], alg: ["lactosa", "gluten", "huevo", "nueces", "pescado"] };
+const cleanHealth = h => { const o = {}; Object.keys(HEALTH_OPTS).forEach(k => { o[k] = isObj(h) && Array.isArray(h[k]) ? HEALTH_OPTS[k].filter(x => h[k].includes(x)) : []; }); return o; };
 const cleanName = v => typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f<>&"]/g, "").replace(/\s+/g, " ").trim().slice(0, 30) : "";
 function normalizeState(raw) {
   const d = defaults(); if (!isObj(raw)) return d;
   if (isObj(raw.profile)) {
     const p = raw.profile, e = isObj(p.equip) ? p.equip : {};
-    const pr = { name: cleanName(p.name), sex: ["m", "f"].includes(p.sex) ? p.sex : null, age: numIn(p.age, 14, 90), h: numIn(p.h, 120, 220), kg: numIn(p.kg, 30, 250), level: Object.keys(C.levels).includes(p.level) ? p.level : "medio", goal: Object.keys(C.goals).includes(p.goal) ? p.goal : "recomp", pct: [5, 10, 15, 20].includes(p.pct) ? p.pct : null, days: [3, 4, 5, 6].includes(p.days) ? p.days : 6, diet: ["omni", "veg"].includes(p.diet) ? p.diet : "omni", adj: numIn(p.adj, -450, 450) ?? 0, equip: { bench: e.bench !== false, bar: e.bar === true, dbMax: [10, 20, 30, 40].includes(e.dbMax) ? e.dbMax : 20, pull: e.pull === true, dips: e.dips === true } };
+    const pr = { name: cleanName(p.name), sex: ["m", "f"].includes(p.sex) ? p.sex : null, age: numIn(p.age, 14, 90), h: numIn(p.h, 120, 220), kg: numIn(p.kg, 30, 250), level: Object.keys(C.levels).includes(p.level) ? p.level : "medio", goal: Object.keys(C.goals).includes(p.goal) ? p.goal : "recomp", health: cleanHealth(p.health), pct: [5, 10, 15, 20].includes(p.pct) ? p.pct : null, days: [3, 4, 5, 6].includes(p.days) ? p.days : 6, diet: ["omni", "veg"].includes(p.diet) ? p.diet : "omni", adj: numIn(p.adj, -450, 450) ?? 0, equip: { bench: e.bench !== false, bar: e.bar === true, dbMax: [10, 20, 30, 40].includes(e.dbMax) ? e.dbMax : 20, pull: e.pull === true, dips: e.dips === true } };
     if (pr.sex && pr.age && pr.h && pr.kg) { if (pr.pct === null) pr.pct = C.goals[pr.goal].pace; d.profile = pr; }
   }
   d.start = d.profile && validDate(raw.start) ? raw.start : null;
   d.weekend = raw.weekend === "dom" ? "dom" : "sab"; d.mode = ["gym", "db", "home"].includes(raw.mode) ? raw.mode : "gym";
   d.accent = ["naranja", "azul", "morado", "rosa"].includes(raw.accent) ? raw.accent : "naranja";
-  d.photos = raw.photos === true; d.goalKg = numIn(raw.goalKg, 30, 250); d.notify = raw.notify === true; d.theme = ["auto", "light", "dark"].includes(raw.theme) ? raw.theme : "auto"; d.sound = raw.sound !== false;
+  d.photos = raw.photos === true; d.avoid = {}; if (isObj(raw.avoid)) Object.keys(raw.avoid).forEach(k => { if (okKey(k) && D.EX[k] && raw.avoid[k] === true) d.avoid[k] = true; }); d.autoDl = validDate(raw.autoDl) ? raw.autoDl : null; d.calAt = validDate(raw.calAt) ? raw.calAt : null; d.fb = {}; if (isObj(raw.fb)) Object.keys(raw.fb).sort().slice(-60).forEach(k => { const v = raw.fb[k]; if (validDate(k) && isObj(v) && ["bien", "carg", "dolor"].includes(v.v)) d.fb[k] = { v: v.v }; }); d.goalKg = numIn(raw.goalKg, 30, 250); d.notify = raw.notify === true; d.theme = ["auto", "light", "dark"].includes(raw.theme) ? raw.theme : "auto"; d.sound = raw.sound !== false;
   const hhmm = v => typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
   d.remind = { train: isObj(raw.remind) && hhmm(raw.remind.train) ? raw.remind.train : "18:00", weigh: isObj(raw.remind) && hhmm(raw.remind.weigh) ? raw.remind.weigh : "07:00" };
   d.weights = cleanMap(raw.weights, v => numIn(v, 20, 400)); d.waists = cleanMap(raw.waists, v => numIn(v, 30, 250));
@@ -40,7 +42,7 @@ function normalizeState(raw) {
   d.checks = cleanMap(raw.checks, v => { if (!isObj(v)) return null; const o = {}; Object.keys(v).forEach(k => { if (!okKey(k)) return; if (k === "water") { const n = numIn(v[k], 0, 10000); if (n !== null) o[k] = n; } else if (k === "steps") { const n = numIn(v[k], 0, 100000); if (n !== null) o[k] = n; } else if (k === "sleep" || /^s_[A-Za-z]{2,12}$/.test(k)) o[k] = v[k] === true; }); return o; });
   d.eaten = cleanMap(raw.eaten, v => { if (!isObj(v)) return null; const o = {}; Object.keys(v).forEach(k => { if (SLOTS.has(k) && v[k] === true) o[k] = true; }); return o; });
   d.cardio = cleanMap(raw.cardio, v => { if (!isObj(v)) return null; const o = {}; Object.keys(v).forEach(k => { if (okKey(k) && /^[A-Za-z]{2,12}-(gym|db|home)-\d{1,2}$/.test(k) && isObj(v[k])) o[k] = { done: v[k].done === true, min: numIn(v[k].min, 0, 300) ?? 0, kind: ["cam", "eli", "run"].includes(v[k].kind) ? v[k].kind : "cam" }; }); return o; });
-  d.hist = {}; if (isObj(raw.hist)) Object.keys(raw.hist).forEach(k => { if (!okKey(k) || !D.EX[k] || !Array.isArray(raw.hist[k])) return; d.hist[k] = raw.hist[k].slice(-400).filter(x => isObj(x) && validDate(x.d) && Array.isArray(x.sets)).map(x => ({ d: x.d, sets: x.sets.slice(0, 12).map(t => isObj(t) ? { w: numIn(t.w, 0, 1000), r: numIn(t.r, 0, 1000), done: t.done === true } : { w: null, r: null, done: false }) })); });
+  d.hist = {}; if (isObj(raw.hist)) Object.keys(raw.hist).forEach(k => { if (!okKey(k) || !D.EX[k] || !Array.isArray(raw.hist[k])) return; d.hist[k] = raw.hist[k].slice(-400).filter(x => isObj(x) && validDate(x.d) && Array.isArray(x.sets)).map(x => ({ d: x.d, sets: x.sets.slice(0, 12).map(t => isObj(t) ? { w: numIn(t.w, 0, 1000), r: numIn(t.r, 0, 1000), done: t.done === true, f: t.f === true } : { w: null, r: null, done: false }) })); });
   d.picks = {}; if (isObj(raw.picks)) Object.keys(raw.picks).forEach(k => { if (SLOTS.has(k) && Number.isInteger(raw.picks[k]) && raw.picks[k] >= 0 && raw.picks[k] < 30) d.picks[k] = raw.picks[k]; });
   d.swaps = {}; if (isObj(raw.swaps)) Object.keys(raw.swaps).forEach(k => { if (okKey(k) && /^[A-Za-z]{2,12}\|(gym|db|home)\|\d{1,2}\|\d{1,2}$/.test(k) && typeof raw.swaps[k] === "string" && D.EX[raw.swaps[k]]) d.swaps[k] = raw.swaps[k]; });
   d.prs = {}; if (isObj(raw.prs)) Object.keys(raw.prs).forEach(k => { if (okKey(k) && D.EX[k]) { const n = numIn(raw.prs[k], 0, 2000); if (n !== null) d.prs[k] = n; } });
@@ -96,16 +98,45 @@ const phaseOf = w => {
 };
 const SPLITS = { 3: ["fullA", "fullB", "fullC"], 4: ["upperA", "legsA", "upperB", "legsB"], 5: ["pushA", "pullA", "legsA", "upperB", "legsB"], 6: ["pushA", "pullA", "legsA", "pushB", "pullB", "legsB"] };
 const WD_NAME = { 1: "Lun", 2: "Mar", 3: "Mié", 4: "Jue", 5: "Vie", 6: "Sáb", 0: "Dom" };
-const ABS = new Set(["cable_crunch", "hang_leg", "rev_crunch", "ab_roller", "plank", "side_bridge", "pallof", "crunch", "russian"]);
+const ABS = new Set(["cable_crunch", "hang_leg", "rev_crunch", "ab_roller", "plank", "side_bridge", "pallof", "crunch", "russian", "dec_crunch", "leg_raise", "bicycle", "dead_bug", "woodchop", "ab_mach", "obl_crunch", "v_up", "side_bend", "w_crunch", "hang_pike", "knee_tuck"]);
 let _plan = { k: "", v: null };
-const ADV = new Set(["squat_bb", "deadlift", "ohp_bb", "inc_bb", "cgbp"]);
-const okLevel = k => !ADV.has(k) || (S.profile && S.profile.level === "alto");
+const health = () => (S.profile && S.profile.health) || { inj: [], cond: [], alg: [] };
+const cons = () => { const h = health(), a = S.profile && S.profile.age; return h.cond.some(c => ["presion", "corazon", "embarazo"].includes(c)) || (a && (a >= 60 || a < 18)); };
+const INJ_AVOID = {
+  hombro: ["ohp_db", "ohp_bb", "sh_mach", "arnold", "dips", "dip_mach", "bench_dips", "pushup_dec", "inc_bb"],
+  rodilla: ["split_db", "bulg", "bw_lunge", "db_lunge", "db_rear_lunge", "step_up", "leg_ext", "hack", "squat_bb", "smith_sq", "goblet", "db_squat", "bw_squat"],
+  espalda: ["rdl", "db_rdl", "deadlift", "row_bb", "tbar", "db_row2", "superman", "squat_bb", "ohp_bb", "ab_roller"],
+  "muñeca": ["skull", "db_skull", "curl_bb", "preacher", "dips", "bench_dips", "ab_roller", "cgbp"],
+  embarazo: ["crunch", "rev_crunch", "ab_roller", "hang_leg", "cable_crunch", "dec_crunch", "leg_raise", "v_up", "w_crunch", "ab_mach", "hang_pike", "bicycle", "obl_crunch", "russian", "plank", "deadlift", "dead_bug"],
+};
+function avoidSet() { const h = health(), out = new Set(Object.keys(S.avoid || {})); h.inj.forEach(i => (INJ_AVOID[i] || []).forEach(k => out.add(k))); if (h.cond.includes("embarazo")) INJ_AVOID.embarazo.forEach(k => out.add(k)); return out; }
+const HEALTH_FALLBACK = { "cuádriceps": ["leg_press", "hip_thrust", "glute_br", "db_rdl", "leg_curl"], hombro: ["lat_raise"], pecho: ["pec_deck", "chest_mach", "db_fly", "db_floor", "cross"], espalda: ["row_cable", "db_row_inc", "row_db", "lat_pd"], "tríceps": ["tri_push", "oh_tri", "db_kickback"], "bíceps": ["hammer", "db_curl", "inc_curl"], femoral: ["leg_curl", "hip_thrust", "glute_br"], "glúteo": ["hip_thrust", "glute_br"], abdomen: ["pallof", "side_bridge", "woodchop", "side_bend"] };
+const WRIST_NOTE = { pushup: "Sobre los puños o con barras de flexiones: muñeca recta.", pushup_dec: "Sobre los puños o con barras de flexiones: muñeca recta.", pushup_cl: "Sobre los puños o con barras de flexiones: muñeca recta.", inc_pushup: "Sobre los puños o con barras de flexiones: muñeca recta.", plank: "Sobre los antebrazos." };
+function applyHealth(blocks, mode) {
+  const av = avoidSet(), wrist = health().inj.includes("muñeca");
+  const pr = new Set(blocks.flatMap(x => x.items.map(i => i.k)));
+  blocks.forEach(b => { b.items = b.items.map(it => {
+    if (!av.has(it.k)) { if (wrist && WRIST_NOTE[it.k]) it.note = WRIST_NOTE[it.k]; return it; }
+    pr.delete(it.k); let rep = null;
+    Object.values(D.FAMILIES).filter(f => f.items.some(i => i.k === it.k)).some(f => f.items.some(i => { if (!av.has(i.k) && !pr.has(i.k) && exAvail(i.k, mode)) { rep = i.k; return true; } return false; }));
+    if (!rep) rep = (HEALTH_FALLBACK[D.MUSCLE[it.k]] || []).find(k => !pr.has(k) && !av.has(k) && exAvail(k, mode)) || null;
+    if (!rep) return null; pr.add(rep); const r = resolveItem(rep); if (wrist && WRIST_NOTE[rep]) r.note = WRIST_NOTE[rep]; return r;
+  }).filter(Boolean); });
+  return blocks.filter(b => b.t === "cardio" || b.items.length).map(b => (b.t !== "cardio" && b.items.length === 1 && b.t !== "uni") ? { ...b, t: "uni" } : b);
+}
+const ADV = new Set(["squat_bb", "deadlift", "ohp_bb", "inc_bb", "cgbp", "hang_pike"]);
+const okLevel = k => (!ADV.has(k) || (S.profile && S.profile.level === "alto" && !cons())) && !avoidSet().has(k);
 const COMPOUND = new Set(["bench_db", "bench_bb", "inc_db", "inc_bb", "ohp_db", "ohp_bb", "sh_mach", "chest_mach", "lat_pd", "pullup", "chinup", "row_cable", "row_db", "row_bb", "tbar", "db_row2", "dips", "cgbp", "smith_sq", "squat_bb", "leg_press", "hack", "rdl", "deadlift", "hip_thrust", "goblet", "db_squat", "db_rdl", "split_db", "bulg", "db_lunge", "step_up", "arnold", "inv_row", "pushup", "pushup_dec"]);
 const LEVEL_SWAPS = {
   alto: { gym: { smith_sq: "squat_bb", bench_db: "bench_bb", ohp_db: "ohp_bb", inc_db: "inc_bb", skull: "cgbp", tbar: "deadlift", row_cable: "row_bb" }, db: {}, home: { pushup: "pushup_dec", bw_squat: "bulg" } },
   nuevo: { gym: { rdl: "db_rdl", tbar: "row_cable", skull: "tri_push" }, db: {}, home: { pushup_dec: "pushup", pushup_cl: "inc_pushup" } },
 };
 const LEVEL_NOTE = { deadlift: "Prioridad: técnica. Sube solo si la espalda se mantiene neutra.", squat_bb: "Con barras de seguridad o un compañero. Baja controlado.", bench_bb: "Con barras de seguridad o un compañero." };
+const FREE_BAR = new Set(["squat_bb", "deadlift", "bench_bb", "ohp_bb", "inc_bb", "row_bb", "rdl", "cgbp", "hip_thrust", "smith_sq"]);
+const autoDlOn = () => !!S.autoDl && todayISO() <= S.autoDl;
+function effortTag(it, lv, dl) { return (dl || cons()) ? "r3" : FREE_BAR.has(it.k) ? "r2" : (lv === "nuevo" && (S.start ? weekNum() : 1) < 5) ? "r2" : "fail"; }
+const tagBlocks = (blocks, lv, dl) => { blocks.forEach(b => { if (b.t !== "cardio") b.items.forEach(it => { it.tag = effortTag(it, lv, dl); }); }); return blocks; };
+const effortLabel = b => { const t = b.items.map(i => i.tag); return t.includes("fail") ? "Última vuelta: al fallo" : t.includes("r2") ? "Última vuelta: 1–2 en reserva" : "Última vuelta: 3 en reserva"; };
 function levelize(blocks, mode, lv, dl) {
   const swaps = (LEVEL_SWAPS[lv] || {})[mode] || {}, has = k => blocks.some(b => b.items.some(i => i.k === k));
   blocks.forEach(b => { b.items = b.items.map(it => { const t = swaps[it.k]; if (!t || has(t)) return it; const r = resolveItem(t); if (LEVEL_NOTE[t]) r.note = LEVEL_NOTE[t]; return r; }); });
@@ -115,10 +146,10 @@ function levelize(blocks, mode, lv, dl) {
     const abs = b.items.every(it => ABS.has(it.k)), comp = b.items.some(it => COMPOUND.has(it.k)), n = b.items.length, heavy = i === 0 && comp;
     let r = abs ? 45 : comp ? (heavy ? (lv === "nuevo" ? 90 : lv === "alto" ? 150 : 120) : (lv === "nuevo" ? 75 : 90)) : 60;
     if (n > 1 && comp) r += 15 * (n - 1);
-    b.rest = dl ? Math.max(45, r - 15) : r;
+    b.rest = dl ? Math.max(45, r - 15) : cons() ? r + 15 : r;
   });
   // avanzado: última vuelta de aislamiento llevada al límite (técnica de intensidad)
-  if (lv === "alto" && !dl && mode !== "home") {
+  if (lv === "alto" && !dl && mode !== "home" && !cons()) {
     const iso = blocks.filter(b => b.t !== "cardio" && !b.items.every(it => ABS.has(it.k)) && !b.items.some(it => COMPOUND.has(it.k)));
     iso.slice(-2).forEach(b => b.items.forEach(it => { if (!/fallo/.test(it.note || "")) it.note = ((it.note ? it.note + " " : "") + "Última vuelta: al fallo y, sin descanso, baja el peso 20 % y haz unas repeticiones más.").trim(); }));
   }
@@ -140,7 +171,7 @@ function adaptSession(a, wd, goal, lv, days, sex, cyc = 0, dl = false) {
   }));
   s.gym = applySkills(s.gym); s.db = applyEquip(s.db, "db"); s.home = applyEquip(s.home, "home");
   ["gym", "db", "home"].forEach(m => {
-    s[m] = rotateBlocks(levelize(s[m], m, lv, dl), m, cyc);
+    s[m] = tagBlocks(applyHealth(rotateBlocks(levelize(s[m], m, lv, dl), m, cyc), m), lv, dl);
     s[m].forEach((b, i) => {
       if (b.t === "cardio") return;
       const abs = b.items.every(it => ABS.has(it.k));
@@ -219,6 +250,7 @@ function balanceMuscles(ss, lv) {
         for (const x of cands) {
           const present = new Set(x[m].flatMap(b => b.items.map(i => i.k))), k = (MUSC_PREF[g] || []).find(e => !present.has(e) && exAvail(e, m)); if (!k) continue;
           const nb = { t: "uni", rounds: 3, rest: 60, items: [resolveItem(k)], key: x.id + "-" + m + "-f" + (added.get(x.id) || 0), sid: x.id };
+          nb.items.forEach(it => { it.tag = effortTag(it, lv, false); });
           let at = x[m].findIndex(b => b.t === "cardio" || b.items.every(it => ABS.has(it.k))); if (at < 0) at = x[m].length;
           x[m].splice(at, 0, nb); x[m].forEach((b, i) => { b.idx = i; }); added.set(x.id, (added.get(x.id) || 0) + 1); vol[D.MUSCLE[k]] = (vol[D.MUSCLE[k]] || 0) + 3; done = true; break;
         }
@@ -229,7 +261,7 @@ function balanceMuscles(ss, lv) {
   return ss;
 }
 function SESSIONS() {
-  const p = S.profile, wkN = S.start ? weekNum() : 1, cyc = cycleIdx(wkN), dl = deloadWeek(wkN), k = [p.goal, p.days, p.level, S.weekend, p.sex, JSON.stringify(p.equip || {}), cyc, dl].join("|");
+  const p = S.profile, wkN = S.start ? weekNum() : 1, cyc = cycleIdx(wkN), dl = deloadWeek(wkN) || autoDlOn(), k = [p.goal, p.days, p.level, S.weekend, p.sex, JSON.stringify(p.equip || {}), cyc, dl, JSON.stringify(health()), Object.keys(S.avoid || {}).join(",")].join("|");
   if (_plan.k === k) return _plan.v;
   const d = SPLITS[p.days] ? p.days : 6, wds = d === 3 ? [1, 3, 5] : d === 4 ? [1, 2, 4, 5] : d === 5 ? [1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, S.weekend === "sab" ? 6 : 0];
   _plan = { k, v: balanceMuscles(SPLITS[d].map((id, i) => adaptSession(D.ARCH[id], wds[i], p.goal || "recomp", p.level || "medio", d, p.sex, cyc, dl)), p.level || "medio") };
@@ -297,7 +329,30 @@ function fill(str) {
 }
 /* Porciones: el plan base (≈ 2,100 kcal en día de entreno) se escala a las calorías de cada persona */
 const isVeg = () => S.profile.diet === "veg";
-const MEAL_BASE = () => isVeg() ? D.MEALS_VEG : D.MEALS;
+const MEAL_BASE = () => { const veg = isVeg(), bl = blockedFoods(), k = (veg ? 'v' : 'o') + [...bl].join(','); if (_mealCache.k === k) return _mealCache.v; const src = veg ? D.MEALS_VEG : D.MEALS; _mealCache = { k, v: bl.size ? src.map(m => adaptList(m, veg, bl)) : src }; return _mealCache.v; };
+const ALG = { lactosa: ["yogurt", "requeson", "panela", "leche", "whey"], gluten: ["pan", "pasta", "avena"], huevo: ["huevo", "claras", "huevo_c"], nueces: ["cacahuate"], pescado: ["tilapia", "atun"] };
+const blockedFoods = () => new Set(health().alg.flatMap(a => ALG[a] || []));
+const FSHORT = { pollo: "Pollo", bistec: "Bistec", tilapia: "Pescado", atun: "Atún", claras: "Claras", huevo: "Huevos", jamon: "Jamón", tofu: "Tofu", soya: "Soya", lentejas: "Lentejas", garbanzo: "Garbanzos", yogurt: "Yogurt", requeson: "Requesón", panela: "Panela", molida: "Carne molida", arroz: "arroz", papa: "papa", camote: "camote", tortilla: "tortillas", avena: "avena", pan: "pan", platano: "plátano", frijol: "frijoles", pasta: "pasta" };
+function rawMacros(raw) { const m = { kcal: 0, p: 0, c: 0, g: 0 }; raw.forEach(([k, q]) => { const f = D.FOODS[k], r = (f.unit === "pza" ? q * f.gpu : q) / 100; m.kcal += f.k * r; m.p += f.p * r; m.c += f.c * r; m.g += f.g * r; }); Object.keys(m).forEach(k => m[k] = Math.round(m[k])); return m; }
+function fallbackOpts(m, bl, n, veg) {
+  const T = m.opts.reduce((a, o) => ({ kcal: a.kcal + o.m.kcal / m.opts.length, p: a.p + o.m.p / m.opts.length, c: a.c + o.m.c / m.opts.length, g: a.g + o.m.g / m.opts.length }), { kcal: 0, p: 0, c: 0, g: 0 });
+  const PR = (veg ? ["tofu", "soya", "lentejas", "garbanzo", "claras", "huevo", "yogurt", "requeson", "panela"] : ["pollo", "bistec", "tilapia", "atun", "claras", "huevo", "jamon", "molida", "tofu", "soya"]).filter(k => D.FOODS[k] && !bl.has(k));
+  const CA = ["arroz", "papa", "camote", "tortilla", "avena", "pan", "platano", "frijol"].filter(k => D.FOODS[k] && !bl.has(k));
+  const q = (k, g) => { const f = D.FOODS[k]; return f.unit === "pza" ? Math.max(1, Math.round(g / f.gpu)) : Math.max(5, Math.round(g / 5) * 5); };
+  const meal = /Comida|Cena/.test(m.slot), out = [];
+  for (let i = 0; i < n && PR.length && CA.length; i++) {
+    const P = PR[i % PR.length], C = CA[(i * 2 + 1) % CA.length], fp = D.FOODS[P], fc = D.FOODS[C];
+    const gp = Math.min(300, Math.max(60, T.p * 0.9 * 100 / Math.max(fp.p, 1))), cNeed = Math.max(0, T.c - gp * fp.c / 100), gc = Math.min(320, Math.max(40, cNeed * 100 / Math.max(fc.c, 1)));
+    const raw = [[P, q(P, gp)], [C, q(C, gc)]];
+    if (D.FOODS.verdura && meal) raw.push(["verdura", 120]);
+    const fatK = !bl.has("aguacate") && D.FOODS.aguacate ? "aguacate" : "aceite"; if (T.g > rawMacros(raw).g + 4 && D.FOODS[fatK]) raw.push([fatK, fatK === "aceite" ? 8 : 40]);
+    out.push({ name: `${FSHORT[P] || P} con ${FSHORT[C] || C}`, raw, m: rawMacros(raw), tip: "Alternativa según tus alergias o intolerancias." });
+  }
+  return out;
+}
+let _mealCache = { k: "", v: null }, _snackCache = { k: "", v: null };
+function adaptList(slotLike, veg, bl) { const keep = slotLike.opts.filter(o => !o.raw.some(([k]) => bl.has(k))); return keep.length >= 3 ? { ...slotLike, opts: keep } : { ...slotLike, opts: [...keep, ...fallbackOpts(slotLike, bl, 3 - keep.length, veg)] }; }
+const snackList = () => { const veg = isVeg(), bl = blockedFoods(), k = (veg ? 'v' : 'o') + [...bl].join(','); if (_snackCache.k === k) return _snackCache.v; const src = veg ? D.SNACKS_VEG : D.SNACKS; _snackCache = { k, v: bl.size ? adaptList({ slot: 'Snack', opts: src }, veg, bl).opts : src }; return _snackCache.v; };
 const FIXED_QTY = new Set(["whey"]);
 const mealScale = () => clamp(planCalc().train.kcal / (isVeg() ? 2280 : 2130), 0.7, 1.7);
 function scaleQty(key, qty) {
@@ -355,7 +410,7 @@ const cardioKind = () => { const ks = cardioKinds(); return ks.find(k => k.id ==
 const letters = "ABC";
 
 /* ───────── Comidas ───────── */
-const MEALS = () => [...MEAL_BASE(), { slot: "Snack", time: "libre", opts: isVeg() ? D.SNACKS_VEG : D.SNACKS }];
+const MEALS = () => [...MEAL_BASE(), { slot: "Snack", time: "libre", opts: snackList() }];
 const isTrainDay = iso => !!sessionFor(iso);
 const mealsToday = iso => MEALS().filter(m => m.slot !== "Pre-entreno" || isTrainDay(iso));
 const pick = m => optView(m.opts[S.picks[m.slot] ?? 0]);
@@ -406,7 +461,7 @@ function render(o) {
     case "cambiar": html = vSwap(r[1], +r[2], +r[3]); break;
     case "comida": html = r[1] === "dieta" ? vDiet() : r[1] === "guias" ? vFoodGuides() : r[1] === "guia" ? vFoodGuide(r[2]) : r[1] === "menu" ? vMenu() : r[1] === "compras" ? vShop() : r[1] === "snacks" ? vSnacks() : r[1] === "reglas" ? vFoodRules() : r[1] === "porque" ? vWhy("diet") : r[1] === "slot" ? vSlot(r[2]) : vFood(); break;
     case "progreso": html = r[1] === "meta" ? vWeightGoal() : r[1] === "musculos" ? vMuscles() : r[1] === "habitos" ? vHabits() : r[1] === "calorias" ? vAdjust() : r[1] === "compartir" ? vShare() : r[1] === "medidas" ? vBodyMeasures() : r[1] === "fotos" ? vPhotos() : r[1] === "historial" ? vHistory() : r[1] === "datos" ? vData() : r[1] === "revision" ? vReview() : r[1] === "peso" ? vLogWeight() : r[1] === "fuerza" ? vStrength() : r[1] === "guia" ? vMeasureGuide() : vProgress(); break;
-    case "plan": html = r[1] === "ajustes" ? vSettings() : r[1] === "avisos" ? vRemind() : vHub(); break;
+    case "plan": html = r[1] === "ajustes" ? vSettings() : r[1] === "salud" ? vHealth() : r[1] === "avisos" ? vRemind() : vHub(); break;
     default: html = vToday();
   }
   const back = r.length < lastDepth; lastDepth = r.length;
@@ -448,24 +503,27 @@ function readProfile(ids) {
   if (!(kg >= 30 && kg <= 250)) return "Escribe tu peso en kg";
   return { name: cleanName(g("name") || ""), sex, age, h, kg, level: g("lv"), goal: g("goal"), pct: +g("pct"), days: +g("days"), diet: g("diet"), adj: S.profile?.adj || 0, equip: S.profile?.equip };
 }
-const ONB = () => ({ step: 0, d: { name: "", goal: null, sex: null, age: "", h: "", kg: "", level: null, days: null, mode: "gym", bench: "si", dbMax: 20, bar: "no", pull: "no", dips: "no", diet: "omni", pct: null, weekend: "sab", date: todayISO() } });
+const ONB = () => ({ step: 0, d: { name: "", goal: null, health: { inj: [], cond: [], alg: [] }, waist: "", sex: null, age: "", h: "", kg: "", level: null, days: null, mode: "gym", bench: "si", dbMax: 20, bar: "no", pull: "no", dips: "no", diet: "omni", pct: null, weekend: "sab", date: todayISO() } });
 let onb = ONB();
-const ONB_STEPS = 5;
+const ONB_STEPS = 6;
 function radioRows(name, options, cur) {
   return `<div class="group" role="radiogroup">${options.map(([v, t, m]) => `<button class="row top" role="radio" aria-checked="${String(cur) === String(v)}" data-choice="${name}|${v}"><span class="opt-radio ${String(cur) === String(v) ? "on" : ""}"></span><div class="main"><div class="title">${esc(t)}</div>${m ? `<div class="meta">${esc(m)}</div>` : ""}</div></button>`).join("")}</div>`;
 }
 const segRow = (name, options, cur) => `<div class="seg" role="group" style="--n:${options.length};--i:${Math.max(0, options.findIndex(([v]) => String(v) === String(cur)))}">${options.map(([v, t]) => `<button data-choice="${name}|${v}" aria-pressed="${String(cur) === String(v)}">${esc(t)}</button>`).join("")}</div>`;
+const multiRows = (name, opts, cur) => `<div class="group" role="group">${opts.map(([v, t, m]) => `<button class="row top" role="checkbox" aria-checked="${cur.includes(v)}" data-multi="${name}|${v}"><span class="opt-check ${cur.includes(v) ? "on" : ""}"></span><div class="main"><div class="title">${esc(t)}</div>${m ? `<div class="meta">${esc(m)}</div>` : ""}</div></button>`).join("")}</div>`;
+const HL = { inj: [["hombro", "Hombro"], ["rodilla", "Rodilla"], ["espalda", "Espalda baja"], ["muñeca", "Muñeca o codo"]], cond: [["presion", "Presión alta"], ["diabetes", "Diabetes"], ["corazon", "Problema del corazón"], ["embarazo", "Embarazo o posparto"]], alg: [["lactosa", "Lactosa"], ["gluten", "Gluten"], ["huevo", "Huevo"], ["nueces", "Cacahuate y frutos secos"], ["pescado", "Pescado y atún"]] };
+const healthBlocks = h => `<h2 class="sec">Molestias o lesiones</h2>${multiRows("inj", HL.inj, h.inj)}<h2 class="sec">Condiciones de salud</h2>${multiRows("cond", HL.cond, h.cond)}<h2 class="sec">Alergias o intolerancias</h2>${multiRows("alg", HL.alg, h.alg)}${h.cond.length ? `<p class="note">Consulta a tu médico antes de empezar. Tu plan será más conservador: sin técnicas extremas y con descansos largos.</p>` : ""}`;
 function onbValid(step, d) {
   if (step === 0 && !d.goal) return "Elige lo que quieres lograr";
   if (step === 1) { if (!d.sex) return "Elige tu sexo"; if (!(+d.age >= 14 && +d.age <= 90)) return "Escribe tu edad (14 a 90)"; if (!(+d.h >= 120 && +d.h <= 220)) return "Escribe tu estatura en cm"; if (!(parseFloat(d.kg) >= 30 && parseFloat(d.kg) <= 250)) return "Escribe tu peso en kg"; }
   if (step === 2) { if (!d.level) return "Elige tu experiencia"; if (!d.days) return "Elige cuántos días puedes entrenar"; }
   return "";
 }
-function withDraft(fn) { const prev = S.profile, pw = S.weights, pwe = S.weekend, pm = S.mode; const d = onb.d; S.profile = { name: cleanName(d.name), sex: d.sex, age: +d.age, h: +d.h, kg: parseFloat(d.kg), level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, adj: 0, equip: { bench: d.bench !== "no", bar: d.bar === "si", dbMax: +d.dbMax, pull: d.pull === "si", dips: d.dips === "si" } }; S.weights = {}; S.weekend = d.weekend; S.mode = d.mode; _plan = { k: "", v: null }; try { return fn(); } finally { S.profile = prev; S.weights = pw; S.weekend = pwe; S.mode = pm; _plan = { k: "", v: null }; } }
+function withDraft(fn) { const prev = S.profile, pw = S.weights, pwe = S.weekend, pm = S.mode; const d = onb.d; S.profile = { name: cleanName(d.name), health: cleanHealth(d.health), sex: d.sex, age: +d.age, h: +d.h, kg: parseFloat(d.kg), level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, adj: 0, equip: { bench: d.bench !== "no", bar: d.bar === "si", dbMax: +d.dbMax, pull: d.pull === "si", dips: d.dips === "si" } }; S.weights = {}; S.weekend = d.weekend; S.mode = d.mode; _plan = { k: "", v: null }; try { return fn(); } finally { S.profile = prev; S.weights = pw; S.weekend = pwe; S.mode = pm; _plan = { k: "", v: null }; } }
 function vSetup() {
   const { step, d } = onb;
-  const heads = ["¿Qué quieres lograr?", "Sobre ti", "Tu entrenamiento", "Tu comida y tu ritmo", "Tu plan"];
-  const subs = ["Tu plan se adapta a esto.", "Para calcular tus calorías. Se queda en tu teléfono.", "Para armar tu semana.", "Porciones y ritmo.", "Tu plan está listo."];
+  const heads = ["¿Qué quieres lograr?", "Sobre ti", "Tu entrenamiento", "Tu salud", "Tu comida y tu ritmo", "Tu plan"];
+  const subs = ["Tu plan se adapta a esto.", "Para calcular tus calorías. Se queda en tu teléfono.", "Para armar tu semana.", "Opcional. Adapta ejercicios y comidas.", "Porciones y ritmo.", "Tu plan está listo."];
   let body = "";
   if (step === 0) body = radioRows("goal", Object.entries(C.goals).map(([k, g]) => [k, g.name, g.desc]), d.goal) + (onb.redo ? "" : `<h2 class="sec">¿Ya usabas la app?</h2><div class="group">
     <label class="row" style="cursor:pointer"><div class="main"><div class="title">Restaurar copia de seguridad</div><div class="meta">Archivo exportado antes</div></div><input type="file" accept=".json,application/json,text/plain,application/octet-stream" id="imp0" hidden></label>
@@ -476,18 +534,20 @@ function vSetup() {
     <h2 class="sec">Tus medidas</h2><div class="group">
     <div class="field"><label for="ob-age">Edad (años)</label><input id="ob-age" type="number" inputmode="numeric" min="14" max="90" placeholder="Edad" value="${esc(d.age)}"></div>
     <div class="field"><label for="ob-h">Estatura (cm)</label><input id="ob-h" type="number" inputmode="numeric" min="120" max="220" placeholder="Estatura" value="${esc(d.h)}"></div>
-    <div class="field"><label for="ob-kg">Peso actual (kg)</label><input id="ob-kg" type="number" inputmode="decimal" step="0.1" min="30" max="250" placeholder="Peso" value="${esc(d.kg)}"></div></div>`;
+    <div class="field"><label for="ob-kg">Peso actual (kg)</label><input id="ob-kg" type="number" inputmode="decimal" step="0.1" min="30" max="250" placeholder="Peso" value="${esc(d.kg)}"></div>
+    <div class="field"><label for="ob-waist">Cintura (cm, opcional)</label><input id="ob-waist" type="number" inputmode="decimal" step="0.1" min="30" max="250" placeholder="A la altura del ombligo" value="${esc(d.waist || "")}"></div></div>`;
   if (step === 2) body = `<h2 class="sec">Tu experiencia con pesas</h2>${radioRows("level", Object.entries(C.levels).map(([k, v]) => [k, v.name, v.sub]), d.level)}
     <h2 class="sec">Días de pesas por semana</h2>${radioRows("days", C.daysOptions, d.days)}
     <h2 class="sec">¿Dónde entrenas?</h2>${radioRows("mode", [["gym", "Gimnasio", "Máquinas, poleas, barras y mancuernas"], ["db", "En casa con mancuernas", "Tus mancuernas, con o sin banca"], ["home", "En casa, sin equipo", "Solo tu cuerpo, una mesa o silla y una mochila"]], d.mode)}
     ${d.mode === "db" ? `<h2 class="sec">Tus mancuernas pesan hasta…</h2>${radioRows("dbMax", [[10, "10 kg cada una o menos"], [20, "Hasta 20 kg cada una"], [30, "Hasta 30 kg cada una"], [40, "40 kg o más cada una"]], d.dbMax)}<h2 class="sec">¿Tienes banca?</h2>${segRow("bench", [["si", "Sí"], ["no", "No"]], d.bench)}` : ""}
     ${d.mode === "gym" ? `<h2 class="sec">Peso corporal</h2><div class="group"><div class="field"><label>¿Puedes hacer 5 o más dominadas?</label>${segRow("pull", [["si", "Sí"], ["no", "No"]], d.pull)}</div><div class="field"><label>¿Y 5 o más fondos en paralelas?</label>${segRow("dips", [["si", "Sí"], ["no", "No"]], d.dips)}</div></div><p class="note">Si es que sí, entran en tu plan en lugar del jalón y el pushdown. Si no, quedan como alternativas (y hay máquina asistida).</p>` : ""}
     ${d.mode !== "gym" ? `<h2 class="sec">¿Tienes barra de dominadas?</h2>${segRow("bar", [["si", "Sí"], ["no", "No"]], d.bar)}` : ""}`;
-  if (step === 3) { const g = C.goals[d.goal]; body = `<h2 class="sec">Cómo comes</h2>${radioRows("diet", Object.entries(C.diets), d.diet)}
+  if (step === 3) body = healthBlocks(d.health);
+  if (step === 4) { const g = C.goals[d.goal]; body = `<h2 class="sec">Cómo comes</h2>${radioRows("diet", Object.entries(C.diets), d.diet)}
     <h2 class="sec">Ritmo</h2>${radioRows("pct", g.paces, d.pct ?? g.pace)}
     ${+d.days === 6 ? `<h2 class="sec">Tu día de pesas del fin de semana</h2>${segRow("weekend", [["sab", "Sábado"], ["dom", "Domingo"]], d.weekend)}` : ""}
     <h2 class="sec">Día 1</h2><div class="group"><div class="field"><label for="ob-date">Empiezas el</label><input id="ob-date" type="date" value="${esc(d.date)}"></div></div>`; }
-  if (step === 4) body = withDraft(() => {
+  if (step === 5) body = withDraft(() => {
     const c = planCalc(), ss = SESSIONS(), g = C.goals[d.goal];
     return `<div class="group">
       <div class="row top"><div class="main"><div class="title">Objetivo</div><div class="meta">${esc(g.name)} · ${esc(C.levels[d.level].name.toLowerCase())}</div></div></div>
@@ -496,6 +556,7 @@ function vSetup() {
       <div class="row top"><div class="main"><div class="title">Tu semana</div><div class="meta">${ss.map(x => `${x.day} ${x.name}`).join(" · ")}</div></div></div>
       <div class="row top"><div class="main"><div class="title">Equipo</div><div class="meta">${d.mode === "gym" ? `Gimnasio completo${d.pull === "si" ? " · con dominadas" : ""}${d.dips === "si" ? " · con fondos" : ""}` : d.mode === "db" ? `Mancuernas hasta ${d.dbMax} kg · banca: ${d.bench === "no" ? "no" : "sí"} · barra de dominadas: ${d.bar === "si" ? "sí" : "no"}` : `Sin equipo · barra de dominadas: ${d.bar === "si" ? "sí" : "no"}`}</div></div></div>
       <div class="row top"><div class="main"><div class="title">Cardio</div><div class="meta">${d.goal === "muscle" ? "Poco: solo para tu salud y recuperación" : d.mode === "gym" ? "Zona 2 en caminadora o elíptica al final de las pesas" : "Zona 2: caminata rápida, trote suave o bici al final de las pesas"}</div></div></div>
+      <div class="row top"><div class="main"><div class="title">Meta de peso sugerida</div><div class="meta">${(() => { const x = suggestGoalKg(S.profile, S.profile.kg, parseFloat(d.waist) || null); return `${fmt(x.goal, 1)} kg · rango saludable para tu estatura ${x.lo}–${x.hi} kg`; })()}</div></div></div>
       <div class="row top"><div class="main"><div class="title">Ritmo esperado</div><div class="meta">${d.goal === "muscle" ? "Subir" : "Bajar"} ≈ ${c.rate} por semana</div></div></div>
     </div>${c.floorHit ? `<p class="note"><strong>Aviso:</strong> tu meta quedaría por debajo de un mínimo razonable, así que se subió. Con un peso bajo conviene un ritmo suave.</p>` : ""}
     <p class="note">Son estimaciones; no sustituyen a un médico o nutriólogo.</p>`; });
@@ -536,6 +597,7 @@ function vToday() {
     ${storageWarn()}
     ${weekStrip(iso)}
     ${stats3()}
+    ${calCard()}
     ${nowCard(iso)}
     <h2 class="sec">Resumen del día</h2><div class="group">${ringsHtml(iso)}</div>
     ${sesBlock}
@@ -600,6 +662,18 @@ function ringsHtml(iso) {
   return `<div class="rings-row"><svg class="rings" viewBox="0 0 120 120" role="img" aria-label="Anillos del día: calorías ${Math.round(items[0][2] * 100)} %, proteína ${Math.round(items[1][2] * 100)} %, agua ${Math.round(items[2][2] * 100)} %">${items.map(([col, r, v]) => { const c = +(2 * Math.PI * r).toFixed(1), off = +(c * (1 - Math.min(1, Math.max(0, v)))).toFixed(1); return `<circle class="ring-bg" cx="60" cy="60" r="${r}"/><circle class="ring-fg" cx="60" cy="60" r="${r}" stroke="${col}" style="--c:${c};stroke-dasharray:${c};stroke-dashoffset:${off}"/>`; }).join("")}</svg>
   <div class="ring-legend">${items.map(([col, , , l, v]) => `<div><i style="background:${col}"></i>${l}<b>${v}</b></div>`).join("")}</div></div>`;
 }
+function calSuggestion() {
+  if (!S.start || dayNum() < 14) return null; const t = todayISO();
+  if (S.calAt && diffDays(t, S.calAt) < 14) return null;
+  if (Object.keys(S.weights).filter(d => d > addDays(t, -28)).length < 6) return null;
+  const a = avgWeight(t, 7), b = avgWeight(addDays(t, -14), 7); if (!a || !b) return null;
+  const kg = currentKg(), pct = (a - b) / 2 / kg, g = S.profile.goal || "recomp"; let d = 0, why = "";
+  if (g === "fat") { if (pct > -0.0025) { d = -150; why = "Bajas más lento de lo planeado"; } else if (pct < -0.01) { d = 150; why = "Bajas demasiado rápido: cuida tu músculo y tu energía"; } }
+  else if (g === "recomp") { if (pct > 0.002) { d = -150; why = "Subes más de lo esperado"; } else if (pct < -0.006) { d = 150; why = "Bajas demasiado rápido"; } }
+  else { if (pct < 0.001) { d = 150; why = "Subes más lento de lo planeado"; } else if (pct > 0.007) { d = -150; why = "Subes demasiado rápido: sería más grasa que músculo"; } }
+  if (!d || Math.abs((S.profile.adj || 0) + d) > 450) return null; return { d, why };
+}
+const calCard = () => { const c = calSuggestion(); return c ? `<div class="group" style="margin-top:14px"><div class="row top"><div class="main"><div class="title">Ajuste de calorías</div><div class="meta">${esc(c.why)}. ${c.d > 0 ? "Sube" : "Baja"} ${Math.abs(c.d)} kcal al día.</div></div></div><div class="btn-wrap" style="display:flex;gap:8px"><button class="btn" data-act="calapply" data-d="${c.d}">Aplicar</button><button class="btn secondary" data-act="calsnooze">Ahora no</button></div></div>` : ""; };
 function stats3() {
   const st = streak(), n = SESSIONS().filter(s => sessionDoneThisWeek(s.id)).length, d = weekDelta();
   return `<div class="stats3"><div><b>${st}</b><span>${st === 1 ? "día de racha" : "días de racha"}</span></div><div><b>${n}/${SESSIONS().length}</b><span>entrenos</span></div><div><b>${d === null ? "—" : (d > 0 ? "+" : d < 0 ? "−" : "") + fmt(Math.abs(d), 1)}</b><span>kg en 7 días</span></div></div>`;
@@ -665,11 +739,11 @@ const deloadWeek = w => [4, 8].includes(w) || (w > 13 && (w - 14) % 4 === 3);
 const cycleIdx = w => w <= 13 ? 0 : Math.floor((w - 14) / 4) + 1;
 const weekLabel = w => w <= 13 ? `Semana ${w}` : `Ciclo ${cycleIdx(w) + 1} · semana ${((w - 14) % 4) + 1}`;
 function prepRows() {
-  const w = weekNum(), ph = phaseOf(w), dl = deloadWeek(w);
+  const w = weekNum(), ph = phaseOf(w), dl = deloadWeek(w) || autoDlOn();
   return `<div class="group">
     <div class="row top"><div class="main"><div class="title">Calentamiento · 8 min</div><div class="meta">5 min de bici o caminadora, movilidad de hombros y cadera, y 2 series de aproximación del primer ejercicio.</div></div></div>
     <div class="row top"><div class="main"><div class="title">Recomendación</div><div class="meta">${esc(levelTip())}</div></div></div>
-    <div class="row top"><div class="main"><div class="title">${dl ? "Semana de descarga" : "Esfuerzo"}</div><div class="meta">${dl ? "Una vuelta menos por bloque y 3–4 repeticiones en reserva." : esc(ph.rir) + " repeticiones en reserva. Sube peso al completar todas las vueltas en el máximo del rango."}</div></div></div>
+    <div class="row top"><div class="main"><div class="title">${dl ? "Semana de descarga" : "Esfuerzo"}</div><div class="meta">${dl ? "Una vuelta menos por bloque y 3–4 repeticiones en reserva." : esc(ph.rir) + " en reserva en las primeras vueltas; la última, " + (cons() ? "con 3 en reserva" : "al fallo (en barra libre, 1–2 en reserva)") + ". Sube peso al llegar al máximo del rango en todas."}</div></div></div>
   </div>`;
 }
 const levelTip = () => ({ nuevo: "Aprende el movimiento con pesos que dominas; la técnica antes que el peso.", medio: "Anota cada serie: más repeticiones o más peso cada semana es lo que construye músculo.", alto: "Técnica estricta, 1 s de pausa en el estiramiento y última vuelta de aislamiento al límite." })[S.profile.level || "medio"];
@@ -689,8 +763,8 @@ function vBlock(id, bi) {
   const active = Array.from({ length: b.rounds }, (_, r) => r).find(r => !b.items.every(it => roundDone(it, r)));
   for (let r = 0; r < b.rounds; r++) {
     const on = b.items.every(it => roundDone(it, r));
-    rounds.push(`<div class="round ${on ? "done" : ""} ${r === active ? "active" : ""}" data-round="${r}"><div class="round-head"><b>Vuelta ${r + 1}</b><button class="tick" data-tick="${r}" aria-pressed="${on}" aria-label="Vuelta ${r + 1} terminada">${I.check}</button></div>
-      <div class="entry-head"><span></span><span>Ejercicio</span><span>${S.mode === "home" ? "Extra kg" : "Kg"}</span><span>Reps</span></div>
+    rounds.push(`<div class="round ${on ? "done" : ""} ${r === active ? "active" : ""}" data-round="${r}"><div class="round-head"><b>Vuelta ${r + 1}</b>${r === b.rounds - 1 ? `<span class="effort">${effortLabel(b)}</span>` : ""}<button class="tick" data-tick="${r}" aria-pressed="${on}" aria-label="Vuelta ${r + 1} terminada">${I.check}</button></div>
+      ${r === b.rounds - 1 && b.items.some(it => it.tag === "fail") ? `<button class="failbtn" data-fail="${r}" aria-pressed="${!!(getSets(b.items[0].k)[r] || {}).f}">Llegué al fallo</button>` : ""}<div class="entry-head"><span></span><span>Ejercicio</span><span>${S.mode === "home" ? "Extra kg" : "Kg"}</span><span>Reps</span></div>
       ${b.items.map((it, ii) => { const sg = suggest(it), cur = getSets(it.k)[r] || {}; return `<div class="entry"><span class="letter">${b.items.length > 1 ? letters[ii] : (ii + 1)}</span><span class="nm">${esc(D.EX[it.k].name)}<small>${esc(it.reps)}</small></span><input type="number" inputmode="decimal" step="0.5" min="0" data-i="${ii}" data-r="${r}" data-f="w" placeholder="${sg.n ?? (S.mode === "home" ? "—" : "pc")}" value="${cur.w ?? ""}" aria-label="${esc(D.EX[it.k].name)} vuelta ${r + 1}, kilos"><input type="number" inputmode="numeric" min="0" data-i="${ii}" data-r="${r}" data-f="r" placeholder="${lowReps(it.reps) ?? "reps"}" value="${cur.r ?? ""}" aria-label="${esc(D.EX[it.k].name)} vuelta ${r + 1}, repeticiones"></div>`; }).join("")}${r === active ? `<div style="padding:8px 16px 4px"><button class="btn" data-tick="${r}" aria-label="Terminar vuelta ${r + 1}">Vuelta ${r + 1} lista</button></div>` : ""}</div>`);
   }
   const p = blockProgress(b);
@@ -748,6 +822,7 @@ function vExercise(k, ctx) {
   const it = s ? blocksOf(s)[+bi]?.items[+ii] : null, sg = it ? suggest(it) : null;
   const hist = [...(S.hist[k] || [])].reverse().slice(0, 5);
   return `${nav(ex.name, { back: s ? `Bloque ${+bi + 1}` : "Entreno", sub: esc(ex.muscle) })}
+  ${s ? `<div class="group"><button class="row" data-act="hurt" data-k="${k}" data-sid="${sid}"><div class="main"><div class="title" style="color:var(--bad)">Me duele este ejercicio</div><div class="meta">Lo cambiamos por uno seguro</div></div></button></div>` : ""}
   <div class="gif-wrap"><img src="gifs/${ex.id}.gif" alt="Demostración de ${esc(ex.name)}: posición inicial y final" width="320" height="213"></div>
   ${it ? `<div class="group" style="margin-top:14px"><div class="row top"><div class="main"><div class="weight-line"><span class="kg">${esc(sg.text)}</span><span class="pill">${esc(repsLabel(it.reps))}</span></div><div class="meta">${esc(sg.src)}${it.note ? " " + esc(it.note) : ""}</div></div></div></div>` : ""}
   <h2 class="sec">Técnica</h2>
@@ -797,18 +872,19 @@ function weekMenu() {
   });
 }
 function shopData() {
-  const T = isVeg() ? D.SHOP_VEG : D.SHOP, F = D.FOODS;
-  const grp = [["Proteínas", ["pollo", "bistec", "tilapia", "atun", "huevo", "claras", "jamon", "panela", "yogurt", "requeson", "tofu", "soya", "lentejas", "garbanzo", "whey"]], ["Carbohidratos", ["arroz", "papa", "frijol", "avena", "tortilla", "pan", "tostada", "platano", "fresas"]], ["Grasas y verdura", ["aguacate", "aceite", "verdura"]]];
+  const tot = {}, F = D.FOODS, base = MEAL_BASE(), sn = snackList(), restIdx = S.weekend === "sab" ? 6 : 5;
+  const add = raw => raw.forEach(([k, q]) => { tot[k] = (tot[k] || 0) + scaleQty(k, q); });
+  DAYN.forEach((dn, d) => { base.forEach((m, si) => { if (d === restIdx && m.slot === "Pre-entreno") return; add(m.opts[(d + si) % m.opts.length].raw); }); add(sn[d % sn.length].raw); });
+  const grp = [["Proteínas", ["pollo", "bistec", "molida", "tilapia", "atun", "huevo", "huevo_c", "claras", "jamon", "panela", "yogurt", "requeson", "leche", "tofu", "soya", "lentejas", "garbanzo", "whey"]], ["Carbohidratos", ["arroz", "papa", "camote", "frijol", "avena", "tortilla", "pan", "pasta", "tostada", "platano", "fresas", "manzana"]], ["Grasas y verdura", ["aguacate", "aceite", "cacahuate", "verdura", "jicama"]]];
   const line = k => {
-    const q = Math.ceil((T[k] || 0) * mealScale()); if (!q) return null;
-    const f = F[k]; let txt;
+    const q = Math.ceil(tot[k] || 0); if (!q || !F[k]) return null; const f = F[k]; let txt;
     if (f.unit === "pza") txt = k === "tortilla" ? `${(q * 30 / 1000).toFixed(1)} kg (≈ ${q} tortillas)` : `${q} pzas`;
     else if (k === "atun") txt = `${Math.ceil(q / 140)} latas`;
     else txt = q >= 1000 ? `${(Math.ceil(q / 100) / 10).toFixed(1)} kg` : `${Math.ceil(q / 50) * 50} g`;
     if (k === "aceite") txt = "1 botella chica"; if (k === "whey") txt = "opcional (2 scoops)";
     return [f.name.charAt(0).toUpperCase() + f.name.slice(1), txt];
   };
-  return grp.map(([t, ks]) => [t, ks.map(line).filter(Boolean)]);
+  return grp.map(([t, ks]) => [t, ks.map(line).filter(Boolean)]).filter(([, it]) => it.length);
 }
 const DAYN = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 function vMenu() {
@@ -1093,10 +1169,15 @@ function vHub() {
   <div class="group"><div class="field"><label>Tema</label>${segHtml([["auto", "Automático"], ["light", "Claro"], ["dark", "Oscuro"]], S.theme, "theme", "Tema")}</div>
   <div class="field"><label>Color de acento</label>${segHtml([["naranja", "Naranja"], ["azul", "Azul"], ["morado", "Morado"], ["rosa", "Rosa"]], S.accent, "accent", "Color de acento")}</div></div>
   <h2 class="sec">General</h2>
-  <div class="group">${row("#/plan/ajustes", "Perfil y equipo")}<button class="row" data-act="level"><div class="main"><div class="title">Nivel</div></div><span class="val">${esc(C.levels[S.profile.level || "medio"].name)}</span>${I.chev}</button>${row("#/plan/avisos", "Recordatorios y sonido")}${row("#/progreso/datos", "Mis datos y copia de seguridad")}
+  <div class="group">${row("#/plan/ajustes", "Perfil y equipo")}${row("#/plan/salud", "Salud y alergias")}<button class="row" data-act="level"><div class="main"><div class="title">Nivel</div></div><span class="val">${esc(C.levels[S.profile.level || "medio"].name)}</span>${I.chev}</button>${row("#/plan/avisos", "Recordatorios y sonido")}${row("#/progreso/datos", "Mis datos y copia de seguridad")}
   <div class="row check-row"><label for="ph-on">Fotos de progreso (opcional)</label><input class="switch" id="ph-on" type="checkbox" ${S.photos ? "checked" : ""}></div>
   <button class="row" data-act="restart"><div class="main"><div class="title">Volver a comenzar</div></div>${I.chev}</button></div>`;
-}function vRemind() {
+}function vHealth() {
+  const h = health(), av = Object.keys(S.avoid || {});
+  return `${nav("Salud y alergias", { back: "Ajustes", to: "#/plan", sub: "Tu plan y tus comidas se adaptan a esto" })}${healthBlocks(h)}
+  ${av.length ? `<h2 class="sec">Ejercicios que evitas</h2><div class="group">${av.map(k => `<div class="row"><div class="main"><div class="title">${esc(D.EX[k].name)}</div></div><button class="nb-btn" data-unavoid="${k}">Quitar</button></div>`).join("")}</div>` : ""}`;
+}
+function vRemind() {
   const r = S.remind;
   return `${nav("Recordatorios", { back: "Ajustes", to: "#/plan", sub: "Se añaden a tu calendario y avisan aunque la app esté cerrada" })}
   <div class="group">
@@ -1134,23 +1215,33 @@ function vMuscles() {
     return `<div class="row"><div class="main"><div class="title">${n}</div><div class="meta">${vol[g] || 0} series por semana</div></div><span class="val" style="${st !== null && st > 0 ? "color:var(--good);font-weight:600" : ""}">${parts.join(" · ") || "—"}</span></div>`;
   }).join("")}</div>`;
 }
+const lastWaist = () => { const w = Object.entries(S.waists).sort((a, b) => a[0] < b[0] ? -1 : 1); return w.length ? w[w.length - 1][1] : null; };
+function suggestGoalKg(p, kg, waist) {
+  const m = p.h / 100, lo = Math.round(20 * m * m * 2) / 2, hi = Math.round(24 * m * m * 2) / 2, g = p.goal || "recomp"; let t;
+  if (g === "muscle") t = kg < lo ? Math.min(lo + 2, kg * 1.06) : kg * 1.04;
+  else if (g === "recomp") t = kg > hi ? Math.max(hi, kg * 0.94) : kg < lo ? kg : kg * 0.98;
+  else t = kg > hi ? Math.max(hi, kg * 0.9) : kg > (lo + hi) / 2 ? Math.max(lo, kg * 0.94) : Math.max(lo, kg * 0.97);
+  if (g !== "muscle") t = Math.max(t, 18.5 * m * m);
+  return { goal: Math.round(t * 2) / 2, lo, hi, bmi: kg / (m * m), whtr: waist ? waist / p.h : null };
+}
 function goalInfo() {
   const c = planCalc(), kg = currentKg(), ws = sortedWeights(), start = ws.length ? ws[0][1] : S.profile.kg, dir = c.goal === "muscle" ? 1 : -1;
   const pr = c.goal === "fat" ? [.0035, .008] : c.goal === "recomp" ? [.001, .004] : [.0025, .005], lo = kg * pr[0], hi = kg * pr[1];
   const a = avgWeight(todayISO(), 7), b = avgWeight(addDays(todayISO(), -21), 7), real = a && b ? (a - b) / 3 : null;
-  const goal = S.goalKg, left = goal ? (goal - kg) * dir : null; // kg que faltan en la dirección del objetivo
+  const sug = suggestGoalKg(S.profile, kg, lastWaist()), goal = S.goalKg || sug.goal, left = goal ? (goal - kg) * dir : null; // kg que faltan en la dirección del objetivo
   const total = goal ? (goal - start) * dir : null, prog = goal && total > 0 ? clamp((kg - start) * dir / total, 0, 1) : null;
   const mid = (lo + hi) / 2, speed = real !== null && real * dir > 0.02 ? Math.abs(real) : mid;
   const weeks = goal && left > 0 ? Math.ceil(left / speed) : 0;
-  return { c, kg, start, dir, lo, hi, real, goal, left, prog, weeks, eta: goal && left > 0 ? addDays(todayISO(), weeks * 7) : null, usingReal: speed !== mid };
+  return { sug, usingSug: !S.goalKg, c, kg, start, dir, lo, hi, real, goal, left, prog, weeks, eta: goal && left > 0 ? addDays(todayISO(), weeks * 7) : null, usingReal: speed !== mid };
 }
-const goalText = () => { const g = goalInfo(); return !g.goal ? "Definir" : g.left <= 0 ? "Alcanzada" : `${g.dir < 0 ? "Faltan" : "Suben"} ${fmt(g.left, 1)} kg`; };
+const goalText = () => { const g = goalInfo(); return g.left <= 0 ? "Alcanzada" : g.usingSug ? `Sugerida ${fmt(g.goal, 1)} kg` : `${g.dir < 0 ? "Faltan" : "Suben"} ${fmt(g.left, 1)} kg`; };
 function vWeightGoal() {
   const g = goalInfo(), c = g.c, ph = phaseOf(weekNum()), kgF = x => fmt(x, 1) + " kg", verb = g.dir < 0 ? "bajar" : "subir";
-  const sug = g.dir < 0 ? g.kg * (c.goal === "fat" ? 0.94 : 0.98) : g.kg * 1.03;
+  const sug = g.sug.goal;
   const row = (t, v, meta) => `<div class="row"><div class="main"><div class="title">${t}</div>${meta ? `<div class="meta">${meta}</div>` : ""}</div><span class="val" style="color:var(--label);font-weight:600">${v}</span></div>`;
-  return `${nav("Meta de peso", { back: "Progreso", sub: g.goal ? "" : "Elige un peso al que quieras llegar" })}
-  <div class="group"><div class="input-line"><input id="goal-kg" type="number" inputmode="decimal" step="0.1" min="30" max="250" placeholder="${Math.round(sug * 10) / 10} kg" aria-label="Peso meta en kilogramos" value="${esc(g.goal || "")}"><button class="btn" data-act="savegoal">Guardar</button></div></div>
+  return `${nav("Meta de peso", { back: "Progreso", sub: g.usingSug ? "Sugerida por tu estatura: puedes cambiarla" : "" })}
+  <div class="group"><div class="input-line"><input id="goal-kg" type="number" inputmode="decimal" step="0.1" min="30" max="250" placeholder="${fmt(sug, 1)} kg" aria-label="Peso meta en kilogramos" value="${esc(g.usingSug ? "" : g.goal)}"><button class="btn" data-act="savegoal">Guardar</button></div></div>
+  <div class="group">${row("Rango saludable para tu estatura", `${g.sug.lo}–${g.sug.hi} kg`, `IMC ${fmt(g.sug.bmi, 1)} ahora${g.sug.whtr ? " · cintura/estatura " + fmt(g.sug.whtr, 2) : ""}`)}${g.sug.whtr && g.sug.whtr >= 0.5 && g.dir > 0 ? row("Cintura alta para tu estatura", "Baja grasa primero", "Con cintura/estatura de 0.5 o más conviene bajar grasa antes de subir de peso") : ""}</div>
   ${g.goal ? `<div class="group">
     ${row("Inicio", kgF(g.start))}${row("Ahora (promedio 7 días)", kgF(g.kg))}${row("Meta", kgF(g.goal))}${row(g.left <= 0 ? "Meta alcanzada" : "Falta para " + verb, g.left <= 0 ? "✓" : kgF(g.left))}
     ${g.prog !== null ? `<div class="row"><div class="bar" style="margin:0;width:100%" role="progressbar" aria-label="Avance hacia tu meta" aria-valuenow="${Math.round(g.prog * 100)}" aria-valuemin="0" aria-valuemax="100"><i style="--p:${g.prog}"></i></div></div>` : ""}
@@ -1159,7 +1250,7 @@ function vWeightGoal() {
   <div class="group">${row("Recomendado", `${fmt(g.lo, 1)}–${fmt(g.hi, 1)} kg por semana`)}${row("El tuyo (3 semanas)", g.real === null ? "—" : `${g.real > 0 ? "+" : g.real < 0 ? "−" : ""}${fmt(Math.abs(g.real), 2)} kg por semana`)}${g.eta ? row("Fecha estimada", shortDate(g.eta), g.usingReal ? "Con tu ritmo real" : "Con el ritmo recomendado") : ""}</div>` : ""}
   <h2 class="sec">Tu plan para ${g.dir < 0 ? "bajar grasa" : "subir"}</h2>
   <div class="group">${row("Calorías", `${num(c.train.kcal)} / ${num(c.rest.kcal)}`, "Día de entreno / descanso")}${row("Proteína", c.train.p + " g", "Protege el músculo")}${row("Pasos", ph.steps.toLocaleString("es-MX"), "Al día")}${g.dir < 0 ? row("Cardio", ph.cardio.split("·")[0].trim(), "Zona 2, al terminar las pesas") : ""}</div>
-  ${g.goal ? `<div class="btn-wrap"><button class="btn secondary" data-act="delgoal">Quitar meta</button></div>` : ""}`;
+  ${!g.usingSug ? `<div class="btn-wrap"><button class="btn secondary" data-act="delgoal">Usar la sugerida</button></div>` : ""}`;
 }
 function vShare() {
   return `${nav("Compartir progreso", { back: "Progreso" })}
@@ -1283,7 +1374,7 @@ function saveRound(r, setDone) {
     let day = hist.find(x => x.d === iso); if (!day) { day = { d: iso, sets: [] }; hist.push(day); hist.sort((a, b) => a.d < b.d ? -1 : 1); }
     while (day.sets.length <= r) day.sets.push({ w: null, r: null, done: false });
     const cur = day.sets[r];
-    cur.w = w.value === "" ? null : +w.value; cur.r = rp.value === "" ? null : +rp.value;
+    const fb = $(`[data-fail="${r}"]`); cur.f = !!fb && fb.getAttribute("aria-pressed") === "true"; cur.w = w.value === "" ? null : +w.value; cur.r = rp.value === "" ? null : +rp.value;
     if (setDone !== undefined) {
       cur.done = setDone;
       if (setDone) { if (cur.w === null) { const sg = suggest(it); if (sg.n != null) { cur.w = sg.n; w.value = sg.n; } } if (cur.r === null) { const lr = lowReps(it.reps); if (lr !== null) { cur.r = lr; rp.value = lr; } } }
@@ -1291,9 +1382,36 @@ function saveRound(r, setDone) {
   });
   save();
 }
+function askFeedback(sid) {
+  const s = SESSIONS().find(x => x.id === sid); if (!s) return;
+  setTimeout(() => openSheet("¿Cómo te sentiste?", `<div class="group">
+    <button class="row" data-fb="bien"><div class="main"><div class="title">Bien</div></div></button>
+    <button class="row" data-fb="carg"><div class="main"><div class="title">Cargado</div><div class="meta">Cansancio fuerte o poca energía</div></div></button>
+    <button class="row" data-fb="dolor"><div class="main"><div class="title">Con dolor</div><div class="meta">Una molestia que no es el esfuerzo normal</div></div></button></div>`, el => {
+    el.querySelectorAll("[data-fb]").forEach(b => b.addEventListener("click", () => {
+      const v = b.dataset.fb; S.fb[todayISO()] = { v }; closeSheet(true);
+      if (v === "dolor") return askPain();
+      save(); evaluateLoad(s, v);
+    }));
+  }), 1500);
+}
+function askPain() {
+  openSheet("¿Dónde te duele?", `<div class="group">${HL.inj.map(([k, t]) => `<button class="row" data-pain="${k}"><div class="main"><div class="title">${t}</div></div></button>`).join("")}<button class="row" data-pain=""><div class="main"><div class="title">Otra zona</div></div></button></div>`, el => {
+    el.querySelectorAll("[data-pain]").forEach(b => b.addEventListener("click", () => {
+      const k = b.dataset.pain, h = health(); if (k && !h.inj.includes(k)) { S.profile.health = { ...h, inj: [...h.inj, k] }; S.swaps = {}; _plan = { k: "", v: null }; }
+      S.autoDl = addDays(todayISO(), 4); save(); closeSheet(true); toast(k ? "Cambiamos los ejercicios que cargan esa zona. Si sigue, consulta a un médico." : "Descarga unos días. Si sigue, consulta a un médico."); refresh();
+    }));
+  });
+}
+function evaluateLoad(s, v) {
+  const t = todayISO(), recent = Object.keys(S.fb).filter(d => d > addDays(t, -6)), carg = recent.filter(d => S.fb[d].v === "carg").length;
+  const b0 = blocksOf(s).find(b => b.t !== "cardio"), it = b0 && b0.items[0]; let stall = false;
+  if (it) { const ses = (S.hist[it.k] || []).filter(x => x.sets.some(q => q.done && q.r)).slice(-2), lo = lowReps(it.reps); stall = lo !== null && ses.length === 2 && ses.every(x => Math.max(...x.sets.filter(q => q.done && q.r).map(q => q.r)) < lo); }
+  if (carg >= 2 || stall) { S.autoDl = addDays(t, 5); _plan = { k: "", v: null }; save(); toast(stall ? "Te estancaste en el básico: unos días de descarga y vuelves más fuerte" : "Dos sesiones cargadas: descarga unos días"); }
+}
 function checkSessionComplete(s) {
   const pr = sessionProgress(s);
-  if (pr.done === pr.total && !sessionDoneOn(todayISO(), s.id)) { checksOf(todayISO())["s_" + s.id] = true; save(); celebrate("Entrenamiento completo"); vibrate([30, 60, 30]); }
+  if (pr.done === pr.total && !sessionDoneOn(todayISO(), s.id)) { checksOf(todayISO())["s_" + s.id] = true; save(); celebrate("Entrenamiento completo"); vibrate([30, 60, 30]); askFeedback(s.id); }
 }
 let lastPR = [];
 function checkPR(r) {
@@ -1317,6 +1435,12 @@ function bind() {
   $$("[data-water]").forEach(b => b.addEventListener("click", () => { const c = checksOf(todayISO()); c.water = Math.max(0, Math.min(6000, (c.water || 0) + +b.dataset.water)); save(); vibrate(8); refresh(); }));
   $("#steps")?.addEventListener("change", e => { checksOf(todayISO()).steps = +e.target.value || 0; save(); toast("Pasos guardados"); });
   $("#ph-on")?.addEventListener("change", e => { S.photos = e.target.checked; save(); toast(S.photos ? "Fotos activadas en Progreso" : "Fotos ocultas"); });
+  $$("[data-multi]").forEach(b => b.addEventListener("click", () => {
+    const [t, v] = b.dataset.multi.split("|"), onbMode = parseHash()[0] === "inicio", h = onbMode ? onb.d.health : S.profile.health;
+    h[t] = h[t].includes(v) ? h[t].filter(x => x !== v) : [...h[t], v]; vibrate(8);
+    if (!onbMode) { S.picks = {}; S.swaps = {}; _plan = { k: "", v: null }; save(); } refresh();
+  }));
+  $$("[data-unavoid]").forEach(b => b.addEventListener("click", () => { delete S.avoid[b.dataset.unavoid]; _plan = { k: "", v: null }; save(); toast("Ejercicio permitido de nuevo"); refresh(); }));
   $$("button[data-theme]").forEach(b => b.addEventListener("click", () => { segMove(b); S.theme = b.dataset.theme; applyTheme(); save(); vibrate(8); }));
   $$("button[data-sharew]").forEach(b => b.addEventListener("click", () => { segMove(b); shareW = b.dataset.sharew; drawShare(); }));
   $("#rm-train")?.addEventListener("change", e => { if (/^\d\d:\d\d$/.test(e.target.value)) { S.remind.train = e.target.value; save(); } });
@@ -1326,7 +1450,7 @@ function bind() {
   $$("button[data-accent]").forEach(b => b.addEventListener("click", () => { segMove(b); S.accent = b.dataset.accent; applyAccent(); save(); vibrate(8); }));
   $$("[data-adj]").forEach(b => { if (!b.closest("#rev-out")) b.addEventListener("click", () => adjustKcal(b.dataset.adj)); });
   $$("[data-choice]").forEach(b => b.addEventListener("click", () => { const [k, v] = b.dataset.choice.split("|"); onb.d[k] = ["days", "pct", "dbMax"].includes(k) ? +v : v; if (k === "goal") onb.d.pct = null; vibrate(8); if (b.closest(".seg")) { segMove(b); setTimeout(refresh, 240); } else refresh(); }));
-  [["#ob-age", "age"], ["#ob-h", "h"], ["#ob-kg", "kg"], ["#ob-date", "date"]].forEach(([sel, k]) => $(sel)?.addEventListener("input", e => { onb.d[k] = e.target.value; }));
+  [["#ob-age", "age"], ["#ob-h", "h"], ["#ob-kg", "kg"], ["#ob-waist", "waist"], ["#ob-date", "date"]].forEach(([sel, k]) => $(sel)?.addEventListener("input", e => { onb.d[k] = e.target.value; }));
   $("#ob-name")?.addEventListener("input", e => { onb.d.name = cleanName(e.target.value); });
   $$("[data-onb]").forEach(b => b.addEventListener("click", () => {
     const a = b.dataset.onb;
@@ -1349,6 +1473,7 @@ function bind() {
   $$("[data-pick]").forEach(b => b.addEventListener("click", () => { S.picks[b.dataset.slot] = +b.dataset.pick; save(); $$("[data-pick]").forEach(x => { const on = x === b; x.setAttribute("aria-checked", on); x.querySelector(".opt-radio").classList.toggle("on", on); }); vibrate(8); }));
   $$("[data-rq]").forEach(i => i.type === "range" && i.addEventListener("input", () => { $("#rv-" + i.dataset.rq).textContent = i.value; }));
   $$("[data-f]").forEach(i => i.addEventListener("input", () => saveRound(+i.dataset.r)));
+  $$("[data-fail]").forEach(b => b.addEventListener("click", () => { const on = b.getAttribute("aria-pressed") !== "true"; b.setAttribute("aria-pressed", String(on)); vibrate(10); saveRound(+b.dataset.fail); }));
   $$("[data-tick]").forEach(b => b.addEventListener("click", () => {
     const rEl = b.closest(".round"), r = +b.dataset.tick, on = !rEl.classList.contains("done");
     saveRound(r, on); if (on) checkPR(r); vibrate(10); afterTick(); const ctx = blockCtx();
@@ -1413,8 +1538,8 @@ function act(a, el) {
   const iso = todayISO();
   if (a === "start") {
     const d = onb.d;
-    S.profile = { name: cleanName(d.name), sex: d.sex, age: +d.age, h: +d.h, kg: parseFloat(d.kg), level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, adj: 0, equip: { bench: d.bench !== "no", bar: d.bar === "si", dbMax: +d.dbMax, pull: d.pull === "si", dips: d.dips === "si" } };
-    const keepW = onb.redo ? S.weights : {}; S.swaps = {}; S.reviews = {}; S.start = d.date || iso; S.weekend = d.weekend; S.mode = d.mode; S.weights = { ...keepW, [S.start]: S.profile.kg }; _plan = { k: "", v: null };
+    S.profile = { name: cleanName(d.name), health: cleanHealth(d.health), sex: d.sex, age: +d.age, h: +d.h, kg: parseFloat(d.kg), level: d.level, goal: d.goal, pct: d.pct ?? C.goals[d.goal].pace, days: +d.days, diet: d.diet, adj: 0, equip: { bench: d.bench !== "no", bar: d.bar === "si", dbMax: +d.dbMax, pull: d.pull === "si", dips: d.dips === "si" } };
+    const keepW = onb.redo ? S.weights : {}; S.swaps = {}; S.reviews = {}; S.picks = {}; if (!onb.redo) S.avoid = {}; const wv = parseFloat(d.waist); S.start = d.date || iso; S.weekend = d.weekend; S.mode = d.mode; S.weights = { ...keepW, [S.start]: S.profile.kg }; if (wv >= 30 && wv <= 250) S.waists[S.start] = wv; S.goalKg = suggestGoalKg(S.profile, S.profile.kg, wv >= 30 ? wv : lastWaist()).goal; _plan = { k: "", v: null };
     save(); onb = ONB(); if (window.Store) Store.persist(); go("#/hoy"); toast("Listo: día 1");
   } else if (a === "saveweight") {
     const v = parseFloat($("#w-today").value);
@@ -1426,7 +1551,7 @@ function act(a, el) {
     S.waists[iso] = v; save(); toast("Cintura guardada"); render();
   } else if (a === "intro") { S.intro = true; save(); refresh();
   } else if (a === "finish") {
-    const c = checksOf(iso), k = "s_" + el.dataset.id; c[k] = !c[k]; save(); vibrate(15); toast(c[k] ? "Entrenamiento completado" : "Desmarcado"); render();
+    const c = checksOf(iso), k = "s_" + el.dataset.id; c[k] = !c[k]; save(); vibrate(15); toast(c[k] ? "Entrenamiento completado" : "Desmarcado"); render(); if (c[k] && !S.fb[iso]) askFeedback(el.dataset.id);
   } else if (a === "review") {
     const ans = {}; C.reviewQuestions.forEach(q => { const i = $("#rq-" + q.id); ans[q.id] = q.yesno ? i.checked : +i.value; });
     const adv = reviewAdvice(ans); S.reviews[weekNum()] = { ...ans, ...adv.flags }; save();
@@ -1450,10 +1575,16 @@ function act(a, el) {
   } else if (a === "install") {
     if (!installEv) return toast("Usa el menú del navegador para instalar");
     installEv.prompt(); installEv.userChoice.then(r => { installEv = null; toast(r.outcome === "accepted" ? "Instalando…" : "Cuando quieras, desde Ajustes"); refresh(); }, () => {});
+  } else if (a === "hurt") {
+    const k = el.dataset.k; if (!D.EX[k]) return; S.avoid[k] = true; S.swaps = {}; _plan = { k: "", v: null }; save(); vibrate(12);
+    toast("Lo cambiamos por uno seguro. Si el dolor sigue, consulta a un médico."); go(`#/entreno/${el.dataset.sid}`);
+  } else if (a === "calapply") {
+    const d = +el.dataset.d; S.calAt = todayISO(); adjustKcal(d);
+  } else if (a === "calsnooze") { S.calAt = todayISO(); save(); refresh();
   } else if (a === "savegoal") {
     const v = parseFloat($("#goal-kg").value); if (!(v >= 30 && v <= 250)) return toast("Escribe un peso válido (kg)");
     S.goalKg = v; save(); vibrate(10); toast("Meta guardada"); refresh();
-  } else if (a === "delgoal") { S.goalKg = null; save(); toast("Meta quitada"); refresh();
+  } else if (a === "delgoal") { S.goalKg = null; save(); toast("Usando la meta sugerida"); refresh();
   } else if (a === "ics") {
     const pad = n => String(n).padStart(2, "0"), ymd = d => d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()), now = new Date();
     const stamp = now.getUTCFullYear() + pad(now.getUTCMonth() + 1) + pad(now.getUTCDate()) + "T" + pad(now.getUTCHours()) + pad(now.getUTCMinutes()) + pad(now.getUTCSeconds()) + "Z";
@@ -1492,7 +1623,7 @@ function act(a, el) {
       el.querySelectorAll("[data-rs]").forEach(b => b.addEventListener("click", () => {
         const k = b.dataset.rs;
         if (k === "new") { S.start = todayISO(); S.swaps = {}; S.reviews = {}; _plan = { k: "", v: null }; save(); closeSheet(); toast("Nuevo reto: día 1"); go("#/hoy"); }
-        else if (k === "redo") { const p = S.profile, e = equip(); onb = ONB(); onb.redo = true; Object.assign(onb.d, { name: p.name || "", goal: p.goal, sex: p.sex, age: String(p.age), h: String(p.h), kg: String(Math.round(currentKg() * 10) / 10), level: p.level, days: p.days, mode: S.mode, bench: e.bench ? "si" : "no", dbMax: e.dbMax, bar: e.bar ? "si" : "no", pull: e.pull ? "si" : "no", dips: e.dips ? "si" : "no", diet: p.diet, pct: p.pct, weekend: S.weekend }); closeSheet(true); go("#/inicio"); render(); }
+        else if (k === "redo") { const p = S.profile, e = equip(); onb = ONB(); onb.redo = true; Object.assign(onb.d, { name: p.name || "", goal: p.goal, sex: p.sex, age: String(p.age), h: String(p.h), kg: String(Math.round(currentKg() * 10) / 10), health: JSON.parse(JSON.stringify(health())), level: p.level, days: p.days, mode: S.mode, bench: e.bench ? "si" : "no", dbMax: e.dbMax, bar: e.bar ? "si" : "no", pull: e.pull ? "si" : "no", dips: e.dips ? "si" : "no", diet: p.diet, pct: p.pct, weekend: S.weekend }); closeSheet(true); go("#/inicio"); render(); }
         else { closeSheet(true); act("reset"); }
       }));
     });
@@ -1535,7 +1666,7 @@ if (window.Store && Store.available()) {
   if (!LS.getItem(KEY)) Store.getKV("backup").then(b => { if (b) { try { const n = normalizeState(JSON.parse(b)); if (!n.profile || !n.start) return; S = n; LS.setItem(KEY, JSON.stringify(n)); _plan = { k: "", v: null }; toast("Recuperamos tus datos"); go("#/hoy"); if (parseHash()[0] === "hoy") render(); } catch {} } }).catch(() => {});
   if (S.start) Store.persist();
 }
-if (location.hostname === "localhost" && LS.getItem("reto90.debug")) window.__reto = { get S() { return S; }, set S(v) { S = v; }, SESSIONS, planCalc, D, C, blocksOf, altsFor, suggest, equip, render };
+if (location.hostname === "localhost" && LS.getItem("reto90.debug")) window.__reto = { get S() { return S; }, set S(v) { S = v; }, MEALS, weekMenu, shopData, avoidSet, ALG, cons, SESSIONS, planCalc, D, C, blocksOf, altsFor, suggest, equip, render };
 const applyTheme = () => {
   const t = S.theme === "light" || S.theme === "dark" ? S.theme : null, root = document.documentElement;
   if (t) root.dataset.theme = t; else delete root.dataset.theme;
