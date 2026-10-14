@@ -210,7 +210,7 @@ function adaptSession(a, wd, goal, lv, days, sex, cyc = 0, dl = false) {
   });
   return s;
 }
-/* Después de las primeras 13 semanas el plan sigue: cada ciclo cambia ejercicios del mismo músculo y patrón, y sube el volumen cada 2 ciclos */
+/* Después de la etapa inicial el plan sigue: cada ciclo cambia ejercicios del mismo músculo y patrón, y sube el volumen cada 2 ciclos */
 function rotateBlocks(blocks, mode, cyc) {
   if (!cyc) return blocks;
   const mch = mode === "gym" ? "g" : mode === "db" ? "d" : "h", eq = equip(), present = new Set(blocks.flatMap(b => b.items.map(i => i.k)));
@@ -1450,7 +1450,7 @@ const BADGES = [
   ["r7", "Racha de 7 días", "7 días seguidos con actividad", () => bestStreak() >= 7], ["r14", "Racha de 14 días", "14 días seguidos", () => bestStreak() >= 14], ["r30", "Racha de 30 días", "30 días seguidos", () => bestStreak() >= 30],
   ["pr", "Primer récord", "Rompe un récord personal", () => Object.keys(S.prs || {}).length >= 1], ["wk", "Semana perfecta", "Haz todos los entrenos de una semana", perfectWeek],
   ["f10", "+10 % de fuerza", "Sube 10 % tu fuerza en un músculo", () => MUSC_NAMES.some(([g]) => { const v = muscleStrength(g); return v !== null && v >= 10; })],
-  ["m1", "Un mes", "30 días desde que empezaste", () => dayNum() >= 30], ["d90", "Tres meses", "13 semanas desde que empezaste", () => dayNum() >= 90], ["c2", "Segundo ciclo", "Entra al ciclo 2", () => weekNum() >= 14],
+  ["m1", "Buen comienzo", "Sigue tu plan durante varias semanas", () => dayNum() >= 30], ["d90", "Etapa completa", "Termina la etapa inicial de tu plan", () => dayNum() >= 90], ["c2", "Segundo ciclo", "Entra al ciclo 2", () => weekNum() >= 14],
   ["goal", "Meta de peso", "Llega a tu meta de peso", () => { const g = goalInfo(); return !!S.goalKg && g.left <= 0 && Object.keys(S.weights).length >= 7; }],
 ].map(([id, t, d, ok]) => ({ id, t, d, ok }));
 function checkBadges() {
@@ -1509,9 +1509,9 @@ function drawShare() {
 function vRoute() {
   const wk = weekNum(), n = dayNum(), ph = phaseOf(wk);
   return `${nav("Tu plan", { back: "Entreno", to: "#/entreno", sub: n > 90 ? `Continuación, ${weekLabel(wk)}` : `Día ${Math.max(n, 0)}, fase ${ph.n}: ${ph.name}` })}
-  <div class="group"><div class="row top"><div class="main"><div class="title">Después de las primeras 13 semanas</div><div class="meta">El plan sigue en ciclos de 4 semanas: cambian ejercicios del mismo músculo, el volumen sube cada 2 ciclos y la cuarta semana es de descarga.</div></div></div></div>
+  <div class="group"><div class="row top"><div class="main"><div class="title">Después de la etapa inicial</div><div class="meta">El plan sigue en ciclos de 4 semanas: cambian ejercicios del mismo músculo, el volumen sube cada 2 ciclos y la cuarta semana es de descarga.</div></div></div></div>
   ${wk <= 13 ? `<div class="group"><button class="row" data-go="#/entreno/semana/${wk}"><div class="main"><div class="title">Semana ${wk}</div><div class="meta">${esc(C.weekFocus[wk])}</div></div>${I.chev}</button></div>` : `<div class="group"><div class="row top"><div class="main"><div class="title">${weekLabel(wk)}</div><div class="meta">${deloadWeek(wk) ? "Descarga: una vuelta menos y 3–4 repeticiones en reserva." : "Esfuerzo: " + esc(phaseOf(wk).rir) + " repeticiones en reserva."}</div></div></div></div>`}
-  <h2 class="sec">Primeras 13 semanas</h2>
+  <h2 class="sec">Etapa inicial</h2>
   <div class="group">${Array.from({ length: 13 }, (_, i) => i + 1).map(w => `<button class="row" data-go="#/entreno/semana/${w}"><div class="main"><div class="title">Semana ${w}${w === wk ? ' <span class="badge">Actual</span>' : ""}</div><div class="meta">${esc(phaseOf(w).name)}${[4, 8].includes(w) ? ", descarga" : ""}</div></div>${I.chev}</button>`).join("")}</div>
   <h2 class="sec">Metas intermedias</h2>
   <div class="group">${C.milestones.map(m => { const k0 = S.profile.kg, wtxt = m.pct ? `Peso −${fmt(wd(k0 * m.pct[0] / 100), 1)} a −${fmt(wd(k0 * m.pct[1] / 100), 1)} ${wU()}, ` : ""; return `<div class="row top"><div class="main"><div class="title">Semana ${Math.ceil(m.day / 7)}, ${esc(m.t)}</div><div class="meta">${esc(wtxt + (m.cm ? m.d.replace("{cm}", m.cm[0] + " a " + m.cm[1]) : m.d))}</div></div></div>`; }).join("")}</div>`;
@@ -1529,7 +1529,7 @@ function vWeek(n) {
     <div class="row top"><div class="main"><div class="title">Comida</div><div class="meta">Entreno ≈ ${num(planCalc().train.kcal)} kcal, descanso ≈ ${num(planCalc().rest.kcal)} kcal, proteína ≈ ${planCalc().train.p} g</div></div></div>
     <div class="row top"><div class="main"><div class="title">Recuperación</div><div class="meta">${deload ? "Duerme 8 h y camina; no se buscan marcas" : "Sueño 7–9 h, 2.5–3 L de agua"}</div></div></div>
     <div class="row top"><div class="main"><div class="title">Mediciones</div><div class="meta">Peso diario, cintura el domingo${[3, 5, 7, 9, 11, 13].includes(n) ? "" : ""}</div></div></div>
-    <div class="row top"><div class="main"><div class="title">Revisión</div><div class="meta">${n === 4 ? "Revisión mensual: día 28–30" : n === 9 ? "Revisión de mes 2: día 56–60" : n === 13 ? "Revisión final y decisión de la siguiente fase" : "Revisión semanal el domingo"}</div></div></div>
+    <div class="row top"><div class="main"><div class="title">Revisión</div><div class="meta">${n === 4 || n === 9 ? "Revisión de avance: peso, cintura y fuerza" : n === 13 ? "Revisión final y decisión de la siguiente fase" : "Revisión semanal el domingo"}</div></div></div>
   </div>`;
 }
 function vHabits() { return `${nav("Hábitos", { back: "Progreso", to: "#/progreso", sub: "Constancia, no perfección." })}${C.habits.map(h => `<h2 class="sec">${esc(h.title)}</h2><div class="group"><div class="prose">${h.body}</div></div>`).join("")}`; }
