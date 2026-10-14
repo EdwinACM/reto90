@@ -6,7 +6,9 @@
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} }, del: k => { try { localStorage.removeItem(k); } catch (e) {} } };
   const U = { draft: {}, pw: "", asked: false, booting: false, pushT: null, pushing: false, again: false, seenReq: "", pollT: null, hiddenAt: 0 };
+  const nm = u => String(u || "").split(/[_\s]+/).filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ");
   const ago = t => { if (!t) return "nunca"; const m = Math.round((Date.now() - new Date(t).getTime()) / 60000); return m < 1 ? "hace un momento" : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`; };
+  const seen = t => t ? "Última vez " + ago(t) : "Aún no ha entrado";
   const dt = t => t ? new Date(t).toLocaleDateString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
   const toast = m => R().toast(m);
   const ready = () => C.state.status === "ok" || C.state.status === "offline_ok";
@@ -158,7 +160,7 @@
       if (!U.pending.length) return `${nav("Crea tu cuenta", "Todavía no hay ningún usuario esperando registro.")}<div class="group"><div class="prose"><p>Pide a quien administra la app que cree tu usuario. Te enviará un código para que termines aquí.</p></div></div><div class="btn-wrap"><button class="btn" data-act="acct-refreshpend">Revisar de nuevo</button></div>`;
       return `${nav("Crea tu cuenta", "Elige tu usuario y escribe el código que te enviaron.")}
       <form data-acct="signup" novalidate><div class="group">
-        <div class="field"><label for="u">Tu usuario</label><select id="u" name="u" required><option value="" disabled selected>Elige tu usuario</option>${U.pending.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("")}</select></div>
+        <div class="field"><label for="u">Tu usuario</label><select id="u" name="u" required><option value="" disabled selected>Elige tu usuario</option>${U.pending.map(n => `<option value="${esc(n)}">${esc(nm(n))}</option>`).join("")}</select></div>
         <div class="field"><label for="i">Tu código</label><input id="i" name="i" type="text" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="XXXXX-XXXXX" maxlength="14" enterkeyhint="next" required></div>
         ${pwField("p", "Crea tu contraseña", "new-password", pwHint)}${showPw}</div>
       <p class="form-err note err" role="alert" hidden></p>
@@ -242,7 +244,7 @@
     const me = C.state.me || {}, R_ = R(), lock = ls.get("reto90.lock");
     const row = (t, m, a, val) => `<button class="row" data-act="${a}"><div class="main"><div class="title">${t}</div>${m ? `<div class="meta">${m}</div>` : ""}</div>${val ? `<span class="val">${val}</span>` : ""}${R_.I.chev}</button>`;
     return `${R_.nav("Cuenta", { back: "Ajustes", to: "#/plan" })}
-    <div class="group"><div class="row top"><div class="main"><div class="title">${esc(me.username || "—")}${me.role === "admin" ? ' <span class="tag">Admin</span>' : ""}</div><div class="meta" id="ac-sync">${esc(syncLine())}</div></div></div>
+    <div class="group"><div class="row top"><div class="main"><div class="title">${esc(nm(me.username) || "—")}${me.role === "admin" ? ' <span class="tag">Admin</span>' : ""}</div><div class="meta" id="ac-sync">${esc(syncLine())}</div></div></div>
     ${row("Sincronizar ahora", "", "acct-sync")}</div>
     <h2 class="sec">Dispositivo</h2>
     <div class="group"><div class="row top"><div class="main"><div class="title">${esc(me.device_name || C.deviceName())}</div><div class="meta">Solo este dispositivo puede usar tu cuenta. Para cambiar, entra desde el nuevo y aprueba la solicitud aquí o pide al administrador que la apruebe.</div></div></div></div>
@@ -263,7 +265,7 @@
   let AD = { users: [], invites: [], audit: [], tab: "users", code: "" };
   function invLists() {
     const now = new Date(), pend = AD.invites.filter(i => !i.used_by && new Date(i.expires_at) >= now), done = AD.invites.filter(i => i.used_by), exp = AD.invites.filter(i => !i.used_by && new Date(i.expires_at) < now);
-    const row = (i, meta, x) => `<div class="row top"><div class="main"><div class="title">${esc(i.username || "Sin usuario")} <span class="tag">${i.role === "admin" ? "Admin" : "Usuario"}</span></div><div class="meta">${meta}</div></div>${x ? `<button class="nb-btn" data-act="acct-revinv" data-id="${esc(i.id)}">Quitar</button>` : ""}</div>`;
+    const row = (i, meta, x) => `<div class="row top"><div class="main"><div class="title">${esc(i.username ? nm(i.username) : "Sin usuario")} <span class="tag">${i.role === "admin" ? "Admin" : "Usuario"}</span></div><div class="meta">${meta}</div></div>${x ? `<button class="nb-btn" data-act="acct-revinv" data-id="${esc(i.id)}">Quitar</button>` : ""}</div>`;
     const box = (t, list, fn, empty) => `<h2 class="sec">${t} (${list.length})</h2>${list.length ? `<div class="group">${list.map(fn).join("")}</div>` : `<p class="note">${empty}</p>`}`;
     return box("Esperando registro", pend, i => row(i, `El código vence ${dt(i.expires_at)}`, true), "Nadie tiene un código pendiente.")
       + box("Ya se dieron de alta", done, i => row(i, `Se registró el ${dt(i.used_at)}`, false), "Todavía nadie ha terminado su registro.")
@@ -284,15 +286,15 @@
     const pendN = AD.invites.filter(i => !i.used_by && new Date(i.expires_at) >= new Date()).length, doneN = AD.invites.filter(i => i.used_by).length;
     const joinBox = AD.invites.length ? `<button class="row-card group" data-adtab="invites" style="margin-bottom:12px;width:100%;text-align:left;border:0;color:inherit"><div class="row"><div class="main"><div class="title">${pendN} esperando registro, ${doneN} ya se dieron de alta</div><div class="meta">Toca para ver quién falta y quién ya entró.</div></div>${R_.I.chev}</div></button>` : "";
     const pushBox = PS.sup && PS.ready && !PS.on ? `<div class="group" style="margin-bottom:12px"><div class="row top"><div class="main"><div class="title">Activa tus avisos</div><div class="meta">Así te enteras al instante cuando alguien se registra o pide cambiar de dispositivo, y puedes aprobarlo.</div></div><button class="btn small" data-go="#/plan/notificaciones">Activar</button></div></div>` : "";
-    const adminsBox = !AD.users.length ? "" : `<h2 class="sec">Administradores activos (${act_admins.length})</h2><div class="group">${act_admins.map(u => `<button class="row" data-act="acct-user" data-id="${esc(u.id)}"><div class="main"><div class="title">${esc(u.username)}${u.username === meName ? " (tú)" : ""}</div><div class="meta">${esc(u.device_name || "Sin dispositivo")}, visto ${ago(u.last_seen)}</div></div>${R_.I.chev}</button>`).join("")}</div>`;
-    if (t === "users") body = adminsBox + (AD.users.length ? `<h2 class="sec">Todos los usuarios</h2>` : "") + (AD.users.length ? `<div class="group">${AD.users.map(u => `<button class="row" data-act="acct-user" data-id="${esc(u.id)}"><div class="main"><div class="title">${esc(u.username)}${u.role === "admin" ? ' <span class="tag">Admin</span>' : ""}${u.blocked ? ' <span class="tag bad">Bloqueado</span>' : ""}${u.pending ? ' <span class="tag warn">Pide cambio</span>' : ""}</div><div class="meta">${esc(u.device_name || "Sin dispositivo")}, visto ${ago(u.last_seen)}</div></div>${R_.I.chev}</button>`).join("")}</div>` : `<div class="group"><div class="empty">Sin usuarios.</div></div>`);
+    const adminsBox = !AD.users.length ? "" : `<h2 class="sec">Administradores activos (${act_admins.length})</h2><div class="group">${act_admins.map(u => `<button class="row" data-act="acct-user" data-id="${esc(u.id)}"><div class="main"><div class="title">${esc(nm(u.username))}${u.username === meName ? " (tú)" : ""}</div><div class="meta">${esc(u.device_name || "Sin dispositivo")}, ${seen(u.last_seen)}</div></div>${R_.I.chev}</button>`).join("")}</div>`;
+    if (t === "users") body = adminsBox + (AD.users.length ? `<h2 class="sec">Todos los usuarios</h2>` : "") + (AD.users.length ? `<div class="group">${AD.users.map(u => `<button class="row" data-act="acct-user" data-id="${esc(u.id)}"><div class="main"><div class="title">${esc(nm(u.username))}${u.role === "admin" ? ' <span class="tag">Admin</span>' : ""}${u.blocked ? ' <span class="tag bad">Bloqueado</span>' : ""}${u.pending ? ' <span class="tag warn">Pide cambio</span>' : ""}</div><div class="meta">${esc(u.device_name || "Sin dispositivo")}, ${seen(u.last_seen)}</div></div>${R_.I.chev}</button>`).join("")}</div>` : `<div class="group"><div class="empty">Sin usuarios.</div></div>`);
     if (t === "invites") body = `<div class="group"><div class="field"><label for="iv-user">Usuario nuevo</label><input id="iv-user" type="text" maxlength="20" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="por ejemplo: ana" value="${esc(AD.draftUser || "")}"><p class="hint">Es el nombre con el que entrará. De 3 a 20 letras minúsculas, números o guion bajo.</p></div>
       <div class="field"><label for="iv-role">Tipo de cuenta</label><select id="iv-role"><option value="user" ${AD.role === "admin" ? "" : "selected"}>Usuario</option><option value="admin" ${AD.role === "admin" ? "selected" : ""}>Administrador</option></select></div>
       <div class="field"><label for="iv-days">El código sirve durante</label><select id="iv-days"><option value="1">1 día</option><option value="3">3 días</option><option value="7" selected>7 días</option><option value="30">30 días</option></select></div></div>
       <div class="btn-wrap"><button class="btn" data-act="acct-newinv">Crear usuario y código</button></div>
-      ${AD.code ? `<div class="group" style="margin-top:14px"><div class="row top"><div class="main"><div class="title">Código para ${esc(AD.codeUser)}</div><div class="code" aria-label="Código">${esc(AD.code)}</div><div class="meta">Envíaselo a esa persona. Para entrar elegirá su usuario en “Crear mi cuenta” y escribirá este código. No se vuelve a mostrar.</div></div></div><div class="btn-wrap" style="display:flex;gap:8px;padding:0 16px 14px"><button class="btn" data-act="acct-share">Enviar</button><button class="btn quiet" data-act="acct-copy">Copiar código</button></div></div>` : ""}
+      ${AD.code ? `<div class="group" style="margin-top:14px"><div class="row top"><div class="main"><div class="title">Código para ${esc(nm(AD.codeUser))}</div><div class="code" aria-label="Código">${esc(AD.code)}</div><div class="meta">Envíaselo a esa persona. Para entrar elegirá su usuario en “Crear mi cuenta” y escribirá este código. No se vuelve a mostrar.</div></div></div><div class="btn-wrap" style="display:flex;gap:8px;padding:0 16px 14px"><button class="btn" data-act="acct-share">Enviar</button><button class="btn quiet" data-act="acct-copy">Copiar código</button></div></div>` : ""}
       ${invLists()}`;
-    if (t === "audit") body = `${AD.audit.length ? `<div class="group">${AD.audit.map(a => `<div class="row top"><div class="main"><div class="title">${esc(EVT[a.event] || a.event)}</div><div class="meta">${esc(a.user || "—")}, ${dt(a.at)}</div></div></div>`).join("")}</div>` : `<div class="group"><div class="empty">Sin eventos.</div></div>`}
+    if (t === "audit") body = `${AD.audit.length ? `<div class="group">${AD.audit.map(a => `<div class="row top"><div class="main"><div class="title">${esc(EVT[a.event] || a.event)}</div><div class="meta">${esc(a.user ? nm(a.user) : "Sistema")}, ${dt(a.at)}</div></div></div>`).join("")}</div>` : `<div class="group"><div class="empty">Sin eventos.</div></div>`}
       <h2 class="sec">Respaldo</h2><div class="group"><button class="row" data-act="acct-backup"><div class="main"><div class="title">Descargar respaldo cifrado</div><div class="meta">Los datos de todos, cifrados con tu frase. Hazlo cada semana.</div></div>${R_.I.chev}</button></div>`;
     return `${R_.nav("Administración", { back: "Cuenta", to: "#/plan/cuenta" })}${seg}<div style="height:12px"></div>${t === "users" ? pushBox + joinBox + warn + recov : ""}${body}`;
   }
@@ -306,7 +308,7 @@
   function userSheet(id) {
     const u = AD.users.find(x => x.id === id); if (!u) return;
     const me = C.state.me || {}, self = u.username === me.username;
-    R().openSheet(u.username, `<div class="group"><div class="row top"><div class="main"><div class="title">${esc(u.device_name || "Sin dispositivo")}</div><div class="meta">Alta ${dt(u.created_at)}, visto ${ago(u.last_seen)}</div></div></div></div>
+    R().openSheet(nm(u.username), `<div class="group"><div class="row top"><div class="main"><div class="title">${esc(u.device_name || "Sin dispositivo")}</div><div class="meta">Alta ${dt(u.created_at)}. ${seen(u.last_seen)}</div></div></div></div>
       ${u.pending ? `<h2 class="sec">Solicitud de cambio</h2><div class="group"><div class="row top"><div class="main"><div class="title">${esc(u.pending)}</div><div class="meta">Aprueba solo si confirmaste con la persona que es ella.</div></div></div></div><div class="btn-wrap" style="display:flex;gap:8px"><button class="btn" data-act="acct-dec" data-id="${esc(id)}" data-ok="1">Aprobar</button><button class="btn quiet" data-act="acct-dec" data-id="${esc(id)}" data-ok="0">Rechazar</button></div>` : ""}
       ${self ? `<p class="note">Esta es tu cuenta.</p>` : `<h2 class="sec">Acciones</h2><div class="group">
         <button class="row" data-act="acct-role" data-id="${esc(id)}" data-r="${u.role === "admin" ? "user" : "admin"}"><div class="main"><div class="title">${u.role === "admin" ? "Quitar permisos de administrador" : "Hacer administrador"}</div><div class="meta">${u.role === "admin" ? "Pasará a ser un usuario normal." : "Podrá gestionar invitaciones, dispositivos y usuarios."}</div></div></button>
@@ -395,20 +397,20 @@
       }
       else if (a === "acct-copy") { try { await navigator.clipboard.writeText(AD.code); toast("Código copiado"); } catch (e) { toast("Selecciona y copia el código"); } }
       else if (a === "acct-share") {
-        const msg = `Hola, ya puedes crear tu cuenta en R90: ${location.origin}${location.pathname.replace(/index\.html$/, "")}\nToca “Crear mi cuenta”, elige el usuario ${AD.codeUser} y escribe este código: ${AD.code}`;
+        const msg = `Hola, ya puedes crear tu cuenta en R90: ${location.origin}${location.pathname.replace(/index\.html$/, "")}\nToca “Crear mi cuenta”, elige el usuario ${nm(AD.codeUser)} y escribe este código: ${AD.code}`;
         try { if (navigator.share) await navigator.share({ text: msg }); else { await navigator.clipboard.writeText(msg); toast("Mensaje copiado"); } } catch (e) { if (e && e.name !== "AbortError") toast("No se pudo enviar. Copia el código."); }
       }
       else if (a === "acct-revinv") { if (confirm("¿Quitar este usuario pendiente? Su código dejará de funcionar.")) { await C.rpc("admin_revoke_invite", { p_id: el.dataset.id }); adminRefresh(); } }
       else if (a === "acct-user") userSheet(el.dataset.id);
       else if (a === "acct-dec") { if (el.dataset.ok === "1" && !(await bio())) return; await C.rpc("admin_decide_request", { p_user: el.dataset.id, p_approve: el.dataset.ok === "1" }); R().closeSheet(); toast(el.dataset.ok === "1" ? "Cambio aprobado" : "Cambio rechazado"); adminRefresh(); }
       else if (a === "acct-blk") { await C.rpc("admin_set_blocked", { p_user: el.dataset.id, p_blocked: el.dataset.b === "1" }); R().closeSheet(); toast(el.dataset.b === "1" ? "Cuenta bloqueada" : "Cuenta desbloqueada"); adminRefresh(); }
-      else if (a === "acct-deluser") { const u = AD.users.find(x => x.id === el.dataset.id); if (u && prompt(`Se eliminará a ${u.username} y todos sus datos. Escribe su usuario para confirmar.`) === u.username && await bio()) { await C.rpc("admin_delete_user", { p_user: el.dataset.id }); R().closeSheet(); toast("Usuario eliminado"); adminRefresh(); } }
+      else if (a === "acct-deluser") { const u = AD.users.find(x => x.id === el.dataset.id); if (u && prompt(`Se eliminará a ${nm(u.username)} y todos sus datos. Escribe su usuario para confirmar.`)?.trim().toLowerCase() === u.username && await bio()) { await C.rpc("admin_delete_user", { p_user: el.dataset.id }); R().closeSheet(); toast("Usuario eliminado"); adminRefresh(); } }
       else if (a === "acct-pw") { if (!(await bio())) return; R().openSheet("Contraseña temporal", `<form data-acct="adminpw" data-id="${esc(el.dataset.id)}" novalidate><div class="group">${pwField("t", "Contraseña temporal", "off", "Díctala por un canal seguro. La persona deberá cambiarla al entrar.")}</div><p class="form-err note err" role="alert" hidden></p><div class="btn-wrap"><button class="btn" type="submit">Guardar</button></div></form>`); }
       else if (a === "acct-backup") backup();
       else if (a === "acct-role") {
         const u = AD.users.find(x => x.id === el.dataset.id); if (!u) return; const to = el.dataset.r;
-        if (!confirm(to === "admin" ? `¿Dar permisos de administrador a ${u.username}? Podrá ver y gestionar a todos los usuarios.` : `¿Quitar los permisos de administrador a ${u.username}?`)) return;
-        if (!(await bio())) return; await C.rpc("admin_set_role", { p_user: u.id, p_role: to }); R().closeSheet(); toast(to === "admin" ? `${u.username} ahora es administrador` : `${u.username} ya no es administrador`); adminRefresh();
+        if (!confirm(to === "admin" ? `¿Dar permisos de administrador a ${nm(u.username)}? Podrá ver y gestionar a todos los usuarios.` : `¿Quitar los permisos de administrador a ${nm(u.username)}?`)) return;
+        if (!(await bio())) return; await C.rpc("admin_set_role", { p_user: u.id, p_role: to }); R().closeSheet(); toast(to === "admin" ? `${nm(u.username)} ahora es administrador` : `${nm(u.username)} ya no es administrador`); adminRefresh();
       }
       else if (a === "acct-pntest") { await C.rpc("push_test"); toast("Enviada. Debe llegar en unos segundos."); }
       else if (a === "acct-recinv") { AD.tab = "invites"; AD.role = "admin"; R().refresh(); setTimeout(() => { const f = $("#iv-user"); if (f) f.focus(); }, 80); toast("Escribe el usuario del nuevo administrador"); }
@@ -457,7 +459,7 @@
     try {
       const st = await C.rpc("push_status"), granted = Notification.permission === "granted";
       PS.prefs = st.subscribed ? { ...defPrefs(), ...st.prefs } : defPrefs();
-      const days = defPrefs().days; if (st.subscribed && JSON.stringify(st.prefs.days) !== JSON.stringify(days)) { PS.prefs.days = days; pushSave(); }
+      const days = defPrefs().days; if (st.subscribed && JSON.stringify(st.prefs.days) !== JSON.stringify(days)) { PS.prefs.days = days; pushSave(); } const mt = R().mealTimes ? R().mealTimes() : []; if (st.subscribed && mt.length && JSON.stringify(st.prefs.t_meals) !== JSON.stringify(mt)) { PS.prefs.t_meals = mt; pushSave(); }
       PS.on = !!st.subscribed && granted; PS.ready = true;
       if (st.subscribed && granted) { const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription(); if (!sub || sub.endpoint !== st.endpoint) await pushEnable(); }
     } catch (e) { PS.ready = true; PS.prefs = PS.prefs || defPrefs(); }
