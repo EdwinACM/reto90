@@ -30,7 +30,7 @@ function cleanMap(src, fn) { const out = {}; if (!isObj(src)) return out; Object
 /* Nada de lo que viene de fuera (archivo importado, copia restaurada) entra al estado sin pasar por aquí:
    solo claves conocidas, tipos y rangos válidos. Así no puede inyectar HTML ni romper la app. */
 const SLOTS = new Set([...D.MEALS, ...D.MEALS_VEG].map(m => m.slot).concat("Snack", "Merienda"));
-const HEALTH_OPTS = { inj: ["hombro", "rodilla", "espalda", "muñeca"], cond: ["presion", "diabetes", "corazon", "embarazo"], alg: ["lactosa", "gluten", "huevo", "nueces", "pescado"] };
+const HEALTH_OPTS = { inj: ["hombro", "rodilla", "espalda", "muñeca"], cond: ["presion", "diabetes", "corazon", "rinon", "embarazo"], alg: ["lactosa", "gluten", "huevo", "nueces", "pescado"] };
 const cleanHealth = h => { const o = {}; Object.keys(HEALTH_OPTS).forEach(k => { o[k] = isObj(h) && Array.isArray(h[k]) ? HEALTH_OPTS[k].filter(x => h[k].includes(x)) : []; }); return o; };
 const cleanName = v => typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f<>&"]/g, "").replace(/\s+/g, " ").trim().slice(0, 30) : "";
 const MYEX_MUSC = ["pecho", "espalda", "hombro", "hombro posterior", "bíceps", "tríceps", "cuádriceps", "femoral", "glúteo", "pantorrilla", "abdomen"];
@@ -142,7 +142,7 @@ const INJ_AVOID = {
   rodilla: ["split_db", "bulg", "bw_lunge", "db_lunge", "db_rear_lunge", "step_up", "leg_ext", "hack", "squat_bb", "smith_sq", "goblet", "db_squat", "bw_squat"],
   espalda: ["rdl", "db_rdl", "deadlift", "row_bb", "tbar", "db_row2", "superman", "squat_bb", "ohp_bb", "ab_roller"],
   "muñeca": ["skull", "db_skull", "curl_bb", "preacher", "dips", "bench_dips", "ab_roller", "cgbp"],
-  embarazo: ["crunch", "rev_crunch", "ab_roller", "hang_leg", "cable_crunch", "dec_crunch", "leg_raise", "v_up", "w_crunch", "ab_mach", "hang_pike", "bicycle", "obl_crunch", "russian", "plank", "deadlift", "dead_bug"],
+  embarazo: ["bench_bb", "bench_db", "db_floor", "db_fly", "skull", "db_skull", "cgbp", "db_pullover", "crunch", "rev_crunch", "ab_roller", "hang_leg", "cable_crunch", "dec_crunch", "leg_raise", "v_up", "w_crunch", "ab_mach", "hang_pike", "bicycle", "obl_crunch", "russian", "plank", "deadlift", "dead_bug"],
 };
 function avoidSet() { const h = health(), out = new Set(Object.keys(S.avoid || {})); h.inj.forEach(i => (INJ_AVOID[i] || []).forEach(k => out.add(k))); if (h.cond.includes("embarazo")) INJ_AVOID.embarazo.forEach(k => out.add(k)); return out; }
 const HEALTH_FALLBACK = { "cuádriceps": ["leg_press", "hip_thrust", "glute_br", "db_rdl", "leg_curl"], hombro: ["lat_raise"], pecho: ["pec_deck", "chest_mach", "db_fly", "db_floor", "cross"], espalda: ["row_cable", "db_row_inc", "row_db", "lat_pd"], "tríceps": ["tri_push", "oh_tri", "db_kickback"], "bíceps": ["hammer", "db_curl", "inc_curl"], femoral: ["leg_curl", "hip_thrust", "glute_br"], "glúteo": ["hip_thrust", "glute_br"], abdomen: ["pallof", "side_bridge", "woodchop", "side_bend"] };
@@ -279,9 +279,9 @@ const volOf = (blocks, vol = {}) => { blocks.forEach(b => { if (b.t === "cardio"
 /* Si algún músculo queda corto en la semana, se añade un bloque de aislamiento en un día que ya trabaja esa zona */
 function balanceMuscles(ss, lv) {
   ["gym", "db", "home"].forEach(m => {
-    const vol = {}; ss.forEach(x => volOf(x[m], vol)); const added = new Map();
+    const vol = {}; ss.forEach(x => volOf(x[m], vol)); const added = new Map(), gl = (S.profile && S.profile.goal) || "recomp", vs = gl === "muscle" ? 1.1 : gl === "fat" && ((S.profile && S.profile.pct) || 0) >= 15 ? 0.9 : 1;
     Object.keys(MUSC_MIN).forEach(g => {
-      const need = lv === "alto" ? MUSC_MIN_ADV[g] : Math.round(MUSC_MIN[g] * (lv === "nuevo" ? 0.75 : 1)), reg = MUSC_REGION[g] || [g];
+      const need = Math.round((lv === "alto" ? MUSC_MIN_ADV[g] : MUSC_MIN[g] * (lv === "nuevo" ? 0.75 : 1)) * vs), reg = MUSC_REGION[g] || [g];
       let guard = 0;
       while ((vol[g] || 0) < need && guard++ < (lv === "alto" ? 4 : 3)) {
         const cands = ss.filter(x => x[m].some(b => b.t !== "cardio" && b.items.some(it => reg.includes(D.MUSCLE[it.k]))) && (added.get(x.id) || 0) < (m === "home" ? 3 : lv === "alto" ? (ss.length <= 3 ? 5 : 3) : 2)).sort((a, b) => (added.get(a.id) || 0) - (added.get(b.id) || 0) || a[m].length - b[m].length);
@@ -310,9 +310,23 @@ function drive() {
   if (cons() || sf.minor || sf.senior || sf.preg) { cardio = Math.min(cardio, 5); heavy = 0; note = cardio ? `Por tu salud, el cardio solo sube ${cardio} min aunque tu meta esté lejos.` : ""; }
   return { cardio, heavy, note, gap };
 }
+function mealAdvice() {
+  const c = planCalc(), per = Math.round(c.train.p / MEAL_N()), top = Math.round(0.4 * c.kg), rec = clamp(Math.ceil(c.train.p / (0.4 * c.kg)), 3, 6);
+  let t = `Con ${MEAL_N()} comidas, cada una lleva unos ${per} g de proteína.`;
+  if (per > top + 5) t += ` Es más de lo que el cuerpo aprovecha de una vez (de 20 a ${top} g): con ${Math.max(rec, MEAL_N() + 1)} comidas te queda mejor.`;
+  else if (per < 20) t += " Es poco por comida: con menos comidas, cada una rinde más.";
+  if (c.safe.diab) t += " Con diabetes conviene repartir los carbohidratos en 4 o más comidas y no pasar más de 4 o 5 horas sin comer.";
+  if (c.safe.heart) t += " Con presión o corazón, cocina con poca sal y evita embutidos y caldos instantáneos.";
+  return { t, rec, per };
+}
+const coachBox = () => { const n = [...planCalc().notes, mealAdvice().t]; return `<h2 class="sec">Cómo se ajustó a ti</h2><div class="group">${n.map(t => `<div class="row top"><div class="main"><div class="meta" style="margin:0;color:var(--label)">${esc(t)}</div></div></div>`).join("")}</div>`; };
+function activityBox() {
+  const ss = SESSIONS(), cardio = ss.reduce((a, x) => a + blocksOf(x).filter(b => b.t === "cardio").reduce((q, b) => q + (b.min || 0), 0), 0), walk = (7 - ss.length) * restWalk();
+  return `<h2 class="sec">Tu semana</h2><div class="group"><div class="row top"><div class="main"><div class="meta" style="margin:0;color:var(--label)">${ss.length} días de pesas, unos ${cardio} min de cardio y ${walk} min de caminata en tus días de descanso. Suman ${cardio + walk} min de actividad aparte de las pesas. La OMS recomienda entre 150 y 300 min de actividad moderada por semana y fuerza al menos 2 días.</div></div></div></div>`;
+}
 const driveBox = () => { const d = drive(); return d.note ? `<h2 class="sec">Ajustado a tu meta</h2><div class="group"><div class="row top"><div class="main"><div class="meta" style="margin:0;color:var(--label)">${esc(d.note)}</div></div></div></div>` : ""; };
 function SESSIONS() {
-  const p = S.profile, wkN = S.start ? weekNum() : 1, cyc = cycleIdx(wkN), dl = deloadWeek(wkN) || autoDlOn(), drv = drive(), k = [drv.cardio, drv.heavy, p.goal, p.days, p.level, S.weekend, p.sex, JSON.stringify(p.equip || {}), cyc, dl, JSON.stringify(health()), Object.keys(S.avoid || {}).join(",")].join("|");
+  const p = S.profile, wkN = S.start ? weekNum() : 1, cyc = cycleIdx(wkN), dl = deloadWeek(wkN) || autoDlOn(), drv = drive(), k = [drv.cardio, drv.heavy, p.pct, p.goal, p.days, p.level, S.weekend, p.sex, JSON.stringify(p.equip || {}), cyc, dl, JSON.stringify(health()), Object.keys(S.avoid || {}).join(",")].join("|");
   if (_plan.k === k) return _plan.v;
   const d = SPLITS[p.days] ? p.days : 6, wds = d === 3 ? [1, 3, 5] : d === 4 ? [1, 2, 4, 5] : d === 5 ? [1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, S.weekend === "sab" ? 6 : 0];
   _plan = { k, v: balanceMuscles(SPLITS[d].map((id, i) => adaptSession(D.ARCH[id], wds[i], p.goal || "recomp", effLevel(), d, p.sex, cyc, dl, drv)), effLevel()) };
@@ -363,7 +377,7 @@ const currentKg = () => avgWeight(todayISO()) || latestWeight() || S.profile.kg;
 const num = n => Number(n).toLocaleString("es-MX");
 function safety(kg) {
   const p = S.profile, h = health(), ht = p.h / 100, bmi = kg / (ht * ht), ideal = 25 * ht * ht;
-  return { bmi, ideal, preg: h.cond.includes("embarazo"), minor: p.age < 18, senior: p.age >= 60, under: bmi < 18.5, low: bmi < 20, obese: bmi >= 30, severe: bmi >= 35, heart: h.cond.some(c => ["presion", "corazon"].includes(c)), diab: h.cond.includes("diabetes") };
+  return { bmi, ideal, preg: h.cond.includes("embarazo"), minor: p.age < 18, senior: p.age >= 60, under: bmi < 18.5, low: bmi < 20, obese: bmi >= 30, severe: bmi >= 35, heart: h.cond.some(c => ["presion", "corazon"].includes(c)), diab: h.cond.includes("diabetes"), kid: h.cond.includes("rinon") };
 }
 function safetyNotes() {
   const sf = safety(currentKg()), n = [];
@@ -374,30 +388,47 @@ function safetyNotes() {
   if (sf.severe) n.push("Con tu peso actual el plan evita correr y saltar para cuidar tus articulaciones. Prioriza caminata inclinada y elíptica.");
   if (sf.senior) n.push("A tu edad el plan usa más descanso, menos intensidad y proteína moderada. Calienta bien y detente si sientes dolor o mareo.");
   if (sf.heart) n.push("Por tu presión o corazón se evitan los esfuerzos al máximo: deja siempre repeticiones en reserva, respira sin contener el aire y consulta a tu médico.");
+  if (sf.kid) n.push("Con enfermedad del riñón la proteína baja a 0.8 g por kg y no se usan suplementos de proteína sin que tu médico lo apruebe.");
   if (sf.diab) n.push("Con diabetes: no entrenes en ayunas largos, ten a la mano algo con azúcar y vigila tu glucosa antes y después. Consulta a tu médico.");
   return n;
 }
 const safetyBox = () => { const n = safetyNotes(); return n.length ? `<h2 class="sec">Cuidamos tu salud</h2><div class="group">${n.map(t => `<div class="row top"><div class="main"><div class="meta" style="margin:0;color:var(--label)">${esc(t)}</div></div></div>`).join("")}</div>` : ""; };
 function planCalc() {
-  const p = S.profile, kg = r5(currentKg() * 2) / 2 || currentKg(), g0 = p.goal || "recomp", sf = safety(kg), g = sf.preg && g0 === "muscle" ? "recomp" : g0;
-  const bmr = 10 * kg + 6.25 * p.h - 5 * p.age + (p.sex === "f" ? -161 : 5);
-  const maint = bmr * 1.55, pct0 = (p.pct ?? p.def ?? C.goals[g].pace) / 100, pct = g === "muscle" ? pct0 : (sf.preg || sf.minor || sf.under) ? 0 : sf.low ? Math.min(pct0, 0.08) : pct0, floor = p.sex === "f" ? 1400 : 1700, adj = p.adj || 0;
+  const p = S.profile, kg = r5(currentKg() * 2) / 2 || currentKg(), g0 = p.goal || "recomp", sf = safety(kg), g = sf.preg && g0 === "muscle" ? "recomp" : g0, notes = [];
+  const bmr = 10 * kg + 6.25 * p.h - 5 * p.age + (p.sex === "f" ? -161 : 5), maint = bmr * 1.55;
+  const bf = p.sex === "f" ? 30 : 22, ffm = kg * (1 - bf / 100), lv = p.level || "medio", wc = lastWaist(), wh = wc ? wc / p.h : null;
+  let pct = (p.pct ?? p.def ?? C.goals[g].pace) / 100;
+  /* El ritmo se limita según tu composición y tu nivel: más grasa permite bajar más rápido, y con más experiencia conviene subir más despacio */
+  if (g === "muscle") { const cap = { nuevo: .15, medio: .12, alto: .08 }[lv] ?? .12; if (pct > cap) { pct = cap; notes.push(`Tu superávit se limitó a ${Math.round(cap * 100)} %: con tu nivel, comer más no suma más músculo y sí más grasa.`); } }
+  else if (sf.preg || sf.minor || sf.under) pct = 0;
+  else {
+    const cap0 = g === "recomp" ? .15 : wh !== null ? (wh < .45 ? .10 : wh < .5 ? .15 : .20) : (sf.bmi < 23 ? .10 : sf.bmi < 27 ? .15 : .20), cap = sf.low ? Math.min(cap0, .08) : cap0;
+    if (pct > cap) { pct = cap; notes.push(`Tu déficit se limitó a ${Math.round(cap * 100)} %: con tu composición, bajar más rápido costaría músculo.`); }
+  }
+  const floor = p.sex === "f" ? 1400 : 1700, adj = p.adj || 0, floorT = Math.max(floor + 250, r50(36 * ffm)), floorR = Math.max(floor, r50(32 * ffm));
+  const brk = (g === "fat" || g === "recomp") && pct > 0 && !!S.start && deloadWeek(weekNum());
   let tKcal, rKcal, floorHit = false;
   if (g === "muscle") { tKcal = r50(maint * (1 + pct)) + adj; rKcal = r50(tKcal * 0.92); }
-  else { const raw = maint * (1 - pct) + 45; floorHit = raw < floor + 250; tKcal = Math.max(r50(raw), floor + 250) + adj; rKcal = Math.max(r50(tKcal - tKcal * 0.14), floor); }
+  else if (brk) { tKcal = r50(maint) + adj; rKcal = r50(maint * 0.93) + adj; notes.push("Esta semana es de descarga: comes en mantenimiento para recuperarte y volver con más fuerza. Después retomas el déficit."); }
+  else { const raw = maint * (1 - pct) + 45; floorHit = raw < floorT; tKcal = Math.max(r50(raw), floorT) + adj; rKcal = Math.max(r50(tKcal - tKcal * 0.14), floorR); }
   tKcal = Math.max(tKcal, floor + 100);
-  const pk = sf.bmi > 30 ? sf.ideal + 0.25 * (kg - sf.ideal) : kg, prot = Math.min(200, r5((sf.preg ? 1.2 : (sf.minor || sf.senior) ? 1.6 : g === "muscle" ? 1.8 : 2.2) * pk)), fat = r5(Math.max(0.8 * kg, 0.22 * tKcal / 9));
+  const pk = sf.bmi > 30 && !sf.kid ? sf.ideal + 0.25 * (kg - sf.ideal) : kg;
+  const per = sf.kid ? 0.8 : sf.preg ? 1.2 : sf.minor ? 1.6 : sf.senior ? 1.4 : g === "muscle" ? ({ nuevo: 1.6, medio: 1.8, alto: 2.0 }[lv] ?? 1.8) : 2.2;
+  const prot = Math.min(200, r5(per * pk)), fat = r5(Math.max(0.8 * kg, 0.22 * tKcal / 9));
+  if (sf.kid) notes.push("Con enfermedad del riñón la proteína se limita a 0.8 g por kg. Tu médico debe decirte la cantidad exacta.");
+  else if (sf.senior) notes.push("A tu edad la proteína se ajusta a 1.4 g por kg, repartida en todas las comidas, junto con el trabajo de fuerza.");
+  if (floorHit) notes.push("Tu meta de calorías quedaba por debajo de lo que tu cuerpo necesita para entrenar y recuperarse, así que se subió.");
   const carb = k => Math.max(80, r5((k - 4 * prot - 9 * fat) / 4));
-  const bf = p.sex === "f" ? 30 : 22, f1 = x => wd(x).toFixed(1);
+  const f1 = x => wd(x).toFixed(1);
   const rate = pct === 0 && g !== "muscle" ? "peso estable" : g === "fat" ? `${f1(kg * 0.0035)}–${f1(kg * 0.008)} ${wU()}` : g === "recomp" ? `${f1(kg * 0.001)}–${f1(kg * 0.004)} ${wU()}` : `${f1(kg * 0.0025)}–${f1(kg * 0.005)} ${wU()}`;
-  return { kg, goal: g, safe: sf, pct: Math.round(pct * 100), adj, maint: r50(maint), maintLo: r50(bmr * 1.45), maintHi: r50(bmr * 1.65), floorHit,
+  return { kg, goal: g, safe: sf, pct: Math.round(pct * 100), adj, maint: r50(maint), maintLo: r50(bmr * 1.45), maintHi: r50(bmr * 1.65), floorHit, brk, notes, ffm,
     train: { kcal: tKcal, range: `${num(tKcal - 100)}–${num(tKcal + 100)}`, p: prot, c: carb(tKcal), g: fat },
     rest: { kcal: rKcal, range: `${num(rKcal - 100)}–${num(rKcal + 100)}`, p: prot, c: carb(rKcal), g: fat },
-    rate, bf, protFfm: (prot / (kg * (1 - bf / 100))).toFixed(1), protMeal: r5(0.4 * kg), fatPct: Math.round(fat * 9 / tKcal * 100) };
+    rate, bf, protFfm: (prot / ffm).toFixed(1), protMeal: r5(0.4 * kg), fatPct: Math.round(fat * 9 / tKcal * 100) };
 }
 function fill(str) {
   const c = planCalc(), lv = C.levels[S.profile.level];
-  const map = { MAINT: `${num(c.maintLo)}–${num(c.maintHi)}`, KCAL_T: num(c.train.kcal), KCAL_R: num(c.rest.kcal), RATE: c.rate, PROT: c.train.p, PROT_FFM: c.protFfm, BF: c.bf, PROT_MEAL: r5(c.train.p / MEAL_N()), MEALS: MEAL_N(), FAT: c.train.g, CARB: c.train.c, FAT_PCT: c.fatPct, PCT: c.pct, GOAL_KCAL: c.pct === 0 && c.goal !== "muscle" ? "mantenimiento, sin déficit" : c.goal === "recomp" ? `casi mantenimiento (≈ ${c.pct} % por debajo)` : `déficit moderado (≈ ${c.pct} %)`, LEVEL: lv.name.toLowerCase(), GAIN: lv.gain };
+  const map = { MAINT: `${num(c.maintLo)}–${num(c.maintHi)}`, KCAL_T: num(c.train.kcal), KCAL_R: num(c.rest.kcal), RATE: c.rate, PROT: c.train.p, PROT_FFM: c.protFfm, BF: c.bf, PROT_MEAL: r5(c.train.p / MEAL_N()), MEALS: MEAL_N(), PROT_KG: (c.train.p / c.kg).toFixed(1), FAT: c.train.g, CARB: c.train.c, FAT_PCT: c.fatPct, PCT: c.pct, GOAL_KCAL: c.pct === 0 && c.goal !== "muscle" ? "mantenimiento, sin déficit" : c.goal === "recomp" ? `casi mantenimiento (≈ ${c.pct} % por debajo)` : `déficit moderado (≈ ${c.pct} %)`, LEVEL: lv.name.toLowerCase(), GAIN: lv.gain };
   return String(str).replace(/\{\{(\w+)\}\}/g, (_, k) => map[k] ?? "");
 }
 /* Porciones: el plan base (≈ 2,100 kcal en día de entreno) se escala a las calorías de cada persona */
@@ -622,7 +653,7 @@ function radioRows(name, options, cur) {
 }
 const segRow = (name, options, cur) => `<div class="seg" role="group" style="--n:${options.length};--i:${Math.max(0, options.findIndex(([v]) => String(v) === String(cur)))}">${options.map(([v, t]) => `<button data-choice="${name}|${v}" aria-pressed="${String(cur) === String(v)}">${esc(t)}</button>`).join("")}</div>`;
 const multiRows = (name, opts, cur) => `<div class="group" role="group">${opts.map(([v, t, m]) => `<button class="row top" role="checkbox" aria-checked="${cur.includes(v)}" data-multi="${name}|${v}"><span class="opt-check ${cur.includes(v) ? "on" : ""}"></span><div class="main"><div class="title">${esc(t)}</div>${m ? `<div class="meta">${esc(m)}</div>` : ""}</div></button>`).join("")}</div>`;
-const HL = { inj: [["hombro", "Hombro"], ["rodilla", "Rodilla"], ["espalda", "Espalda baja"], ["muñeca", "Muñeca o codo"]], cond: [["presion", "Presión alta"], ["diabetes", "Diabetes"], ["corazon", "Problema del corazón"], ["embarazo", "Embarazo o posparto"]], alg: [["lactosa", "Lactosa"], ["gluten", "Gluten"], ["huevo", "Huevo"], ["nueces", "Cacahuate y frutos secos"], ["pescado", "Pescado y atún"]] };
+const HL = { inj: [["hombro", "Hombro"], ["rodilla", "Rodilla"], ["espalda", "Espalda baja"], ["muñeca", "Muñeca o codo"]], cond: [["presion", "Presión alta"], ["diabetes", "Diabetes"], ["corazon", "Problema del corazón"], ["rinon", "Enfermedad del riñón"], ["embarazo", "Embarazo o posparto"]], alg: [["lactosa", "Lactosa"], ["gluten", "Gluten"], ["huevo", "Huevo"], ["nueces", "Cacahuate y frutos secos"], ["pescado", "Pescado y atún"]] };
 const healthBlocks = h => `<h2 class="sec">Molestias o lesiones</h2>${multiRows("inj", HL.inj, h.inj)}<h2 class="sec">Condiciones de salud</h2>${multiRows("cond", HL.cond, h.cond)}<h2 class="sec">Alergias o intolerancias</h2>${multiRows("alg", HL.alg, h.alg)}${h.cond.length ? `<p class="note">Consulta a tu médico antes de empezar. Tu plan será más conservador: sin técnicas extremas y con descansos largos.</p>` : ""}`;
 function onbValid(step, d) {
   if (step === 0 && !d.goal) return "Elige lo que quieres lograr";
@@ -655,7 +686,7 @@ function vSetup() {
   if (step === 3) body = healthBlocks(d.health);
   if (step === 4) { const g = C.goals[d.goal]; body = `<h2 class="sec">Cómo comes</h2>${radioRows("diet", Object.entries(C.diets), d.diet)}
     <h2 class="sec">Comidas al día</h2>${radioRows("meals", [[3, "3 comidas", "Desayuno, comida y cena."], [4, "4 comidas", "Con una colación antes de entrenar o por la tarde."], [5, "5 comidas", "Reparte mejor la proteína durante el día."], [6, "6 comidas", "Cinco comidas y un snack."]], d.meals)}
-    <p class="note">Las porciones y las calorías se reparten según las comidas que elijas, y cambian en tus días de pesas y de descanso.</p>
+    <p class="note">${withDraft(() => mealAdvice().t)} Las porciones y las calorías se reparten según las comidas que elijas, y cambian en tus días de pesas y de descanso.</p>
     <h2 class="sec">Ritmo</h2>${radioRows("pct", g.paces, d.pct ?? g.pace)}
     ${+d.days === 6 ? `<h2 class="sec">Tu día de pesas del fin de semana</h2>${segRow("weekend", [["sab", "Sábado"], ["dom", "Domingo"]], d.weekend)}` : ""}
     <h2 class="sec">Tu horario</h2><div class="group"><div class="field"><label for="ob-train">¿A qué hora sueles entrenar?</label><input id="ob-train" type="time" value="${esc(d.train || "18:00")}"></div></div>
@@ -663,7 +694,7 @@ function vSetup() {
     <h2 class="sec">Inicio</h2><div class="group"><div class="field"><label for="ob-date">Empiezas el</label><input id="ob-date" type="date" value="${esc(d.date)}"></div></div>`; }
   if (step === 5) body = withDraft(() => {
     const c = planCalc(), ss = SESSIONS(), g = C.goals[d.goal];
-    return `${safetyBox()}<div class="group">
+    return `${safetyBox()}${coachBox()}<div class="group">
       <div class="row top"><div class="main"><div class="title">Objetivo</div><div class="meta">${esc(g.name)}, ${esc(C.levels[d.level].name.toLowerCase())}</div></div></div>
       <div class="row top"><div class="main"><div class="title">Calorías</div><div class="meta">${num(c.train.kcal)} kcal en día de entreno, ${num(c.rest.kcal)} en descanso</div></div></div>
       <div class="row top"><div class="main"><div class="title">Proteína, carbohidratos y grasas</div><div class="meta">${c.train.p} g, ${c.train.c} g, ${c.train.g} g en día de entreno</div></div></div>
@@ -703,7 +734,7 @@ function vToday() {
   if (ses) {
     const pr = sessionProgress(ses), done = sessionDoneOn(iso, ses.id), started = pr.done > 0;
     sesBlock = `<h2 class="sec">Entrenamiento</h2><div class="group"><button class="row" data-go="#/entreno/${ses.id}"><div class="main"><div class="title" style="font-size:20px;font-weight:600">${esc(ses.name)}</div><div class="meta">${esc(ses.focus)}</div><div class="meta">${blocksOf(ses).length} bloques, ${totalRounds(ses)} vueltas, ${sessMin(ses)} min</div></div>${done ? '<span class="badge good">Hecho</span>' : started ? `<span class="badge">${pr.done}/${pr.total}</span>` : ""}${I.chev}</button></div>`;
-  } else sesBlock = `<h2 class="sec">Entrenamiento</h2><div class="group"><div class="row"><div class="main"><div class="title">Descanso activo</div><div class="meta">Camina 45 minutos y estira. Hoy no hay pesas.</div></div></div></div>`;
+  } else sesBlock = `<h2 class="sec">Entrenamiento</h2><div class="group"><div class="row"><div class="main"><div class="title">Descanso activo</div><div class="meta">Camina ${restWalk()} minutos a paso ligero y estira. Hoy no hay pesas.</div></div></div></div>`;
   const w = S.weights[iso], delta = weekDelta(), steps = ck.steps || 0, water = ck.water || 0;
   return `<div class="navbar" id="navbar"><span class="nb-title" aria-hidden="true">Hoy</span>${window.Acct ? Acct.chip() : ""}<button class="nb-btn gear" data-go="#/plan" aria-label="Ajustes">${I.gear}</button></div><h1 class="large" id="lt">${n < 1 ? "Hoy" : "Día " + n}</h1>
     <p class="sub" style="margin-bottom:8px">${S.profile.name ? "Hola, " + esc(prop(S.profile.name)) + ". " : ""}${longDate(iso)}${n >= 1 ? `. ${weekLabel(wk)}` : ""}</p>
@@ -720,8 +751,8 @@ function vToday() {
     <div class="group">${mealRows(iso, true)}${intake(iso)}</div>
     <h2 class="sec">Hábitos</h2>
     <div class="group">
-      <div class="row"><div class="main"><div class="title">Agua</div><div class="meta">Meta 2.5–3 L</div></div><div class="stepper"><button data-water="-500" aria-label="Quitar 500 mililitros">−</button><span class="v">${fmt(water / 1000, 1)} L</span><button data-water="500" aria-label="Sumar 500 mililitros">+</button></div></div>
-      <div class="row"><div class="main"><div class="title">Pasos</div><div class="meta">Meta ${ph.steps.toLocaleString("es-MX")}</div></div><input class="inline-num" id="steps" type="number" inputmode="numeric" placeholder="0" value="${steps || ""}" aria-label="Pasos de hoy"></div>
+      <div class="row"><div class="main"><div class="title">Agua</div><div class="meta">Meta ${fmt(waterGoal(iso) / 1000, 1)} L</div></div><div class="stepper"><button data-water="-500" aria-label="Quitar 500 mililitros">−</button><span class="v">${fmt(water / 1000, 1)} L</span><button data-water="500" aria-label="Sumar 500 mililitros">+</button></div></div>
+      <div class="row"><div class="main"><div class="title">Pasos</div><div class="meta">Meta ${stepsGoal(ph).toLocaleString("es-MX")}</div></div><input class="inline-num" id="steps" type="number" inputmode="numeric" placeholder="0" value="${steps || ""}" aria-label="Pasos de hoy"></div>
       ${C.dailyChecks.map(c => `<div class="row check-row"><label for="ck-${c.id}">${esc(c.label)}</label><input class="switch" id="ck-${c.id}" type="checkbox" data-check="${c.id}" ${ck[c.id] ? "checked" : ""}></div>`).join("")}
     </div>
     <h2 class="sec">Peso en ayunas</h2>
@@ -731,8 +762,16 @@ function vToday() {
     ${new Date().getDay() === 0 ? `<h2 class="sec">Esta semana</h2><div class="group"><button class="row" data-go="#/progreso/revision"><div class="main"><div class="title">Revisión semanal</div><div class="meta">Cinco preguntas y el ajuste recomendado</div></div>${I.chev}</button></div>` : ""}`;
 }
 const backupDue = () => dayNum() >= 7 && (Object.keys(S.weights).length >= 3 || totalSessions() >= 3) && (!S.lastExport || diffDays(todayISO(), S.lastExport) >= 14);
+const waterGoal = iso => clamp(Math.round((35 * currentKg() + (isTrainDay(iso) ? 500 : 0)) / 100) * 100, 2000, 4000);
+const stepsGoal = ph => safety(currentKg()).senior ? Math.min(ph.steps, 7000) : ph.steps;
+const restWalk = () => { const sf = safety(currentKg()), g = S.profile.goal || "recomp"; let m = (g === "muscle" ? 30 : g === "fat" ? 45 : 40) + drive().cardio; if (sf.senior || sf.severe || cons()) m = Math.min(m, 40); return Math.min(75, Math.round(m / 5) * 5); };
 const slotName = (m, iso) => m.slot === "Cena (post-entreno)" && !isTrainDay(iso) ? "Cena" : m.slot;
 /* "Ahora" sigue los horarios de la persona: su hora de entrenar, la de pesarse y las de sus comidas */
+function recoveryFlag(iso) {
+  let n = 0, bad = 0; for (let i = 0; i < 3; i++) { const c = S.checks[addDays(iso, -i)]; if (!c || !Object.keys(c).length) continue; n++; if (c.sleep !== true) bad++; }
+  const ses = sessionFor(iso); if (n >= 2 && bad >= 2 && ses && !sessionDoneOn(iso, ses.id)) return `En ${bad} de tus últimos ${n} días registrados no dormiste 7 horas. Hoy entrena con 3 repeticiones en reserva y una serie menos por ejercicio; si sigue así, avisa de cansancio fuerte en tu sesión y se baja la carga unos días.`;
+  return "";
+}
 function suggestions(iso) {
   const now = new Date(), hr = now.getHours() + now.getMinutes() / 60, T = targetFor(iso), t = eatenTotals(iso), ck = S.checks[iso] || {}, water = ck.water || 0, out = [];
   const needP = Math.round(T.p - t.p), needK = Math.round(T.kcal - t.kcal), L = x => fmt(x / 1000, 1);
@@ -740,11 +779,13 @@ function suggestions(iso) {
     const goal = Math.min(needP, 45), best = snackList().map(o => optView(o)).filter(o => o.m.kcal <= Math.max(350, needK)).sort((a, b) => Math.abs(a.m.p - goal) - Math.abs(b.m.p - goal))[0];
     if (best) out.push(`Te faltan ${needP} g de proteína hoy. Una opción: ${best.name}, con ${best.m.p} g de proteína y ${best.m.kcal} kcal.`);
   }
-  const expected = clamp((hr - 7) / 14, 0, 1) * 2800;
+  const wg = waterGoal(iso), expected = clamp((hr - 7) / 14, 0, 1) * wg;
   if (hr >= 10 && water < expected - 500) out.push(`Llevas ${L(water)} L de agua y a esta hora conviene ir en ${L(expected)} L. Toma un vaso ahora.`);
   if (hr >= 20 && needK > 500) out.push(`Hoy llevas ${num(t.kcal)} de ${num(T.kcal)} kcal. Si te queda una comida, hazla completa para no quedarte corto de energía mañana.`);
   const d = weekDelta(); if (d !== null && hr < 12 && out.length < 2) { const g = S.profile.goal || "recomp"; if (g === "fat" && d > 0.5) out.push(`Tu peso subió ${fmt(wd(d), 1)} ${wU()} en 7 días. Revisa porciones y sal de los últimos días; si sigue así, abre “Ajustes de calorías”.`); if (g === "muscle" && d < -0.3) out.push(`Tu peso bajó ${fmt(wd(Math.abs(d)), 1)} ${wU()} en 7 días y quieres subir. Agrega una comida o porciones un poco más grandes.`); }
-  return out.slice(0, 2);
+  const rf = recoveryFlag(iso); if (rf) out.unshift(rf);
+  const pc = planCalc(); if (pc.brk) out.unshift(`Esta semana es de descarga: comes en mantenimiento (unas ${num(T.kcal)} kcal) y bajas la carga. Así te recuperas y retomas el déficit con más fuerza.`);
+  return out.slice(0, 3);
 }
 const sugBox = iso => { const l = suggestions(iso); return l.length ? `<h2 class="sec">Sugerencias para hoy</h2><div class="group">${l.map(x => `<div class="row top"><div class="main"><div class="meta" style="margin:0;color:var(--label)">${esc(x)}</div></div></div>`).join("")}</div>` : ""; };
 function nextAction(iso) {
@@ -762,7 +803,7 @@ function nextAction(iso) {
   if (ses && !done) return { label: "Pendiente", t: `Aún puedes entrenar: ${ses.name}`, m: `${blocksOf(ses).length} bloques, ${sessMin(ses)} min`, go: `#/entreno/${ses.id}` };
   const snack = mealsToday(iso).find(m => !e[m.slot] && tMin(m.time) === 9999);
   if (snack) return { label: "Cuando quieras", t: "Snack con proteína", m: pick(snack, iso).name, go: `#/comida/slot/${all.indexOf(snack)}` };
-  if ((ck.water || 0) < 2500 && mins < 21 * 60) return { label: "Pendiente", t: "Toma agua", m: `Llevas ${fmt((ck.water || 0) / 1000, 1)} L de 2.5 a 3 L`, go: "" };
+  if ((ck.water || 0) < waterGoal(iso) - 300 && mins < 21 * 60) return { label: "Pendiente", t: "Toma agua", m: `Llevas ${fmt((ck.water || 0) / 1000, 1)} L de ${fmt(waterGoal(iso) / 1000, 1)} L`, go: "" };
   return null;
 }
 function nowCard(iso) {
@@ -806,7 +847,7 @@ function tipHoy() {
 }
 function ringsHtml(iso) {
   const t = eatenTotals(iso), T = targetFor(iso), water = (S.checks[iso] || {}).water || 0;
-  const rows = [["Calorías", `${num(t.kcal)} de ${num(T.kcal)} kcal`, t.kcal / T.kcal], ["Proteína", `${t.p} de ${T.p} g`, t.p / T.p], ["Agua", `${fmt(water / 1000, 1)} de 2.8 L`, water / 2800]];
+  const rows = [["Calorías", `${num(t.kcal)} de ${num(T.kcal)} kcal`, t.kcal / T.kcal], ["Proteína", `${t.p} de ${T.p} g`, t.p / T.p], ["Agua", `${fmt(water / 1000, 1)} de ${fmt(waterGoal(iso) / 1000, 1)} L`, water / waterGoal(iso)]];
   return rows.map(([l, v, p]) => `<div class="row top meter-row"><div class="main"><div class="mhead"><span class="title">${l}</span><span class="val">${v}</span></div><div class="bar" role="progressbar" aria-label="${l}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(Math.min(1, Math.max(0, p)) * 100)}"><i style="--p:${Math.min(1, Math.max(0, p)).toFixed(3)}"></i></div></div></div>`).join("");
 }
 function calSuggestion() {
@@ -846,7 +887,7 @@ function trendText(d) {
 function vTrain() {
   const iso = todayISO(), todayId = sessionFor(iso)?.id, doneN = SESSIONS().filter(s => sessionDoneThisWeek(s.id)).length;
   return `${nav("Entreno", { sub: `${doneN} de ${SESSIONS().length} sesiones esta semana`, gear: true })}
-  ${modeSeg()}${driveBox()}
+  ${modeSeg()}${driveBox()}${activityBox()}
   <div class="group">${SESSIONS().map(s => {
     const done = sessionDoneThisWeek(s.id), isT = s.id === todayId;
     return `<button class="row" data-go="#/entreno/${s.id}"><span class="daycol">${s.day}</span><div class="main"><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.focus)}</div></div>${done ? '<span class="badge good">Hecho</span>' : isT ? '<span class="badge">Hoy</span>' : ""}${I.chev}</button>`;
@@ -855,7 +896,7 @@ function vTrain() {
 }
 function restDays() {
   const wds = SESSIONS().map(x => x.wd), off = [1, 2, 3, 4, 5, 6, 0].filter(d => !wds.includes(d));
-  return off.map(d => `<div class="row"><span class="daycol">${WD_NAME[d]}</span><div class="main"><div class="title">Descanso activo</div><div class="meta">Camina 45 min y estira</div></div></div>`).join("");
+  return off.map(d => `<div class="row"><span class="daycol">${WD_NAME[d]}</span><div class="main"><div class="title">Descanso activo</div><div class="meta">Camina ${restWalk()} min y estira</div></div></div>`).join("");
 }
 const BARBELL = new Set(["squat_bb", "bench_bb", "ohp_bb", "inc_bb", "deadlift", "row_bb", "cgbp", "curl_bb", "skull", "rdl", "hip_thrust"]);
 function platesFor(total, bar, set) {
@@ -1007,7 +1048,8 @@ function vWhy(kind) {
   return `${nav(kind === "train" ? "Por qué este plan" : "Por qué esta dieta", { back: kind === "train" ? "Entreno" : "Comida", to: kind === "train" ? "#/entreno" : "#/comida" })}
   ${volTable}
   <h2 class="sec">${kind === "train" ? "Decisiones" : "Cómo se calcula"}</h2>
-  <div class="group">${list.map(x => { return `<div class="row top"><div class="main"><div class="title">${esc(fill(x.t))}</div><div class="meta">${esc(fill(x.d))}</div></div></div>`; }).join("")}</div>`;
+  <div class="group">${list.map(x => { return `<div class="row top"><div class="main"><div class="title">${esc(fill(x.t))}</div><div class="meta">${esc(fill(x.d))}</div></div></div>`; }).join("")}</div>
+  <h2 class="sec">En qué nos basamos</h2><div class="group">${C.sources.map(x => `<a class="row top" href="${esc(x.u)}" target="_blank" rel="noopener noreferrer"><div class="main"><div class="title" style="font-size:15px">${esc(x.t)}</div><div class="meta">${esc(x.w)}</div></div></a>`).join("")}</div><p class="note">Son guías y estudios revisados. Los cálculos son aproximados y no sustituyen a un médico ni a un nutriólogo.</p>`;
 }
 function vLimited() { return `${nav("Mancuernas limitadas", { back: "Entreno" })}<div class="group"><div class="prose">${C.limitedGuide}</div></div>`; }
 function vCardioGuide() { return `${nav("Guía de cardio", { back: "Entreno" })}<div class="group"><div class="prose">${C.cardioGuide}</div></div>`; }
@@ -1051,7 +1093,7 @@ function vFood() {
   </div>`;
 }
 function vDiet() {
-  return `${nav("Tu dieta", { back: "Comida", to: "#/comida", sub: "Menú de 7 días y lista de compras con tus porciones" })}
+  return `${nav("Tu dieta", { back: "Comida", to: "#/comida", sub: "Menú semanal y lista de compras con tus porciones" })}${coachBox()}
   <div class="group">
     <button class="row" data-go="#/imprimir"><div class="main"><div class="title">Imprimir o guardar PDF</div><div class="meta">Formato ordenado para papel</div></div>${I.chev}</button>
     <button class="row" data-act="csv"><div class="main"><div class="title">Descargar para Excel</div><div class="meta">Archivo para Excel con comidas y macros</div></div></button>
@@ -1146,7 +1188,7 @@ function vPrint() {
   <article class="print-doc"><header class="pd-head"><div><p class="pd-kicker">R90: plan de alimentación</p><h2>Menú semanal${who ? "<br><span>" + who + "</span>" : ""}</h2></div><p class="pd-meta">${esc(g.name)}<br>${hoy}</p></header>
   <div class="pd-stats">${stat(num(c.train.kcal), "kcal en día de entreno")}${stat(num(c.rest.kcal), "kcal en descanso")}${stat(c.train.p + " g", "proteína")}${stat(c.train.c + " g", "carbohidratos")}${stat(c.train.g + " g", "grasas")}</div>
   <p class="pd-note">Porciones ajustadas a tu plan. Las cantidades de comida están en crudo. P = proteína, C = carbohidratos, G = grasas (en gramos).</p>
-  ${days}<section class="pd-shopwrap"><h2 class="pd-h">Lista de compras, 7 días</h2><div class="pd-shop">${shop}</div><p class="pd-note">Despensa: sal, especias, limón, cebolla, cilantro, chile, salsa casera, mostaza, aceite en aerosol, té verde y agua mineral.</p></section>
+  ${days}<section class="pd-shopwrap"><h2 class="pd-h">Lista de compras de la semana</h2><div class="pd-shop">${shop}</div><p class="pd-note">Despensa: sal, especias, limón, cebolla, cilantro, chile, salsa casera, mostaza, aceite en aerosol, té verde y agua mineral.</p></section>
   <footer>Son estimaciones; no sustituyen a un médico o nutriólogo. Generado con R90.</footer></article>`;
 }
 function vShop() {
@@ -1427,7 +1469,7 @@ function vSched() {
     <div class="field"><label for="rm-train">Hora de entrenar</label><input id="rm-train" type="time" value="${esc(r.train)}"></div>
     <div class="field"><label for="rm-weigh">Hora de pesarte, en ayunas</label><input id="rm-weigh" type="time" value="${esc(r.weigh)}"></div></div>
   <h2 class="sec">Comidas</h2><div class="group">${ms.map(m => { const t = m.time.padStart(5, "0"); return `<div class="field"><label for="sm-${esc(m.slot)}">${esc(m.slot.startsWith("Cena") ? "Cena" : m.slot)}</label><input id="sm-${esc(m.slot)}" data-sm="${esc(m.slot)}" type="time" value="${t}">${note(m) ? `<p class="hint">${note(m)}</p>` : ""}</div>`; }).join("")}</div>
-  <p class="note">Tienes ${MEAL_N()} comidas al día. Puedes cambiar cuántas en Ajustes, Perfil y equipo.</p>
+  <p class="note">Tienes ${MEAL_N()} comidas al día. ${mealAdvice().t} Puedes cambiar cuántas en Ajustes, Perfil y equipo.</p>
   <h2 class="sec">Agua</h2><div class="group">${sc.water.map((t, i) => `<div class="field"><label for="sw-${i}">Recordatorio ${i + 1}</label><input id="sw-${i}" data-sw="${i}" type="time" value="${esc(t)}"></div>`).join("")}</div>
   <h2 class="sec">Revisión semanal</h2><div class="group"><div class="field"><label for="sc-review">Hora de la revisión del domingo</label><input id="sc-review" type="time" value="${esc(sc.review)}"></div></div>
   <div class="btn-wrap"><button class="btn quiet" data-act="schedreset">Volver a los horarios sugeridos</button></div>`;
@@ -1588,7 +1630,7 @@ function vWeek(n) {
   <div class="group">
     <div class="row top"><div class="main"><div class="title">Entrenamiento</div><div class="meta">${deload ? "Descarga: quita 1 vuelta por bloque y deja 3–4 repeticiones en reserva" : SESSIONS().length + " sesiones, " + ph.rir + " repeticiones en reserva"}</div></div></div>
     <div class="row top"><div class="main"><div class="title">Cardio</div><div class="meta">${ph.cardio} (zona 2)</div></div></div>
-    <div class="row top"><div class="main"><div class="title">Pasos</div><div class="meta">${ph.steps.toLocaleString("es-MX")} al día</div></div></div>
+    <div class="row top"><div class="main"><div class="title">Pasos</div><div class="meta">${stepsGoal(ph).toLocaleString("es-MX")} al día</div></div></div>
     <div class="row top"><div class="main"><div class="title">Comida</div><div class="meta">Entreno ≈ ${num(planCalc().train.kcal)} kcal, descanso ≈ ${num(planCalc().rest.kcal)} kcal, proteína ≈ ${planCalc().train.p} g</div></div></div>
     <div class="row top"><div class="main"><div class="title">Recuperación</div><div class="meta">${deload ? "Duerme 8 h y camina; no se buscan marcas" : "Sueño 7–9 h, 2.5–3 L de agua"}</div></div></div>
     <div class="row top"><div class="main"><div class="title">Mediciones</div><div class="meta">Peso diario, cintura el domingo${[3, 5, 7, 9, 11, 13].includes(n) ? "" : ""}</div></div></div>
