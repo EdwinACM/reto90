@@ -33,7 +33,7 @@ const SLOTS = new Set([...D.MEALS, ...D.MEALS_VEG].map(m => m.slot).concat("Snac
 const HEALTH_OPTS = { inj: ["hombro", "rodilla", "espalda", "muñeca"], cond: ["presion", "diabetes", "corazon", "rinon", "embarazo"], alg: ["lactosa", "gluten", "huevo", "nueces", "pescado"] };
 const cleanHealth = h => { const o = {}; Object.keys(HEALTH_OPTS).forEach(k => { o[k] = isObj(h) && Array.isArray(h[k]) ? HEALTH_OPTS[k].filter(x => h[k].includes(x)) : []; }); return o; };
 const cleanName = v => typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f<>&"]/g, "").replace(/\s+/g, " ").trim().slice(0, 30) : "";
-const MYEX_MUSC = ["pecho", "espalda", "hombro", "hombro posterior", "bíceps", "tríceps", "cuádriceps", "femoral", "glúteo", "pantorrilla", "abdomen"];
+const MYEX_MUSC = ["pecho", "espalda", "hombro", "hombro posterior", "bíceps", "tríceps", "cuádriceps", "femoral", "glúteo", "pantorrilla", "abdomen", "trapecio", "antebrazo", "aductores"];
 function registerMyEx(id, e) {
   D.EX[id] = { id: "custom", name: e.name, muscle: e.muscle.charAt(0).toUpperCase() + e.muscle.slice(1), cues: ["Ejercicio propio."], custom: true };
   D.MUSCLE[id] = e.muscle; D.ALT_DEF[id] = { reps: "8–12", w: e.unit === "kg" ? { n: 10, u: "total" } : null, note: "" };
@@ -159,7 +159,7 @@ function applyHealth(blocks, mode) {
   }).filter(Boolean); });
   return blocks.filter(b => b.t === "cardio" || b.items.length).map(b => (b.t !== "cardio" && b.items.length === 1 && b.t !== "uni") ? { ...b, t: "uni" } : b);
 }
-const ADV = new Set(["squat_bb", "deadlift", "ohp_bb", "inc_bb", "cgbp", "hang_pike"]);
+const ADV = new Set(["squat_bb", "deadlift", "ohp_bb", "inc_bb", "cgbp", "hang_pike", "ghr"]);
 const effLevel = () => { const lv = (S.profile && S.profile.level) || "medio"; return lv === "alto" && (cons() || safety(currentKg()).severe) ? "medio" : lv; };
 const okLevel = k => (!ADV.has(k) || (S.profile && S.profile.level === "alto" && !cons())) && !avoidSet().has(k);
 const COMPOUND = new Set(["bench_db", "bench_bb", "inc_db", "inc_bb", "ohp_db", "ohp_bb", "sh_mach", "chest_mach", "lat_pd", "pullup", "chinup", "row_cable", "row_db", "row_bb", "tbar", "db_row2", "dips", "cgbp", "smith_sq", "squat_bb", "leg_press", "hack", "rdl", "deadlift", "hip_thrust", "goblet", "db_squat", "db_rdl", "split_db", "bulg", "db_lunge", "step_up", "arnold", "inv_row", "pushup", "pushup_dec"]);
@@ -258,17 +258,18 @@ function applyEquip(blocks, mode) {
   if (eq.bar) blocks.forEach(b => { b.items = b.items.map(it => { const t = D.BARSWAP[it.k]; return t && !has(t) ? resolveItem(t) : it; }); });
   return blocks.filter(b => b.t === "cardio" || b.items.length).map(b => (b.t !== "cardio" && b.items.length === 1 && b.t !== "uni") ? { ...b, t: "uni" } : b);
 }
-const MUSC_MIN_ADV = { pecho: 14, espalda: 14, hombro: 12, "hombro posterior": 8, "bíceps": 12, "tríceps": 12, "cuádriceps": 14, femoral: 12, "glúteo": 8, pantorrilla: 10 };
-const MUSC_MIN = { pecho: 10, espalda: 10, hombro: 8, "hombro posterior": 6, "bíceps": 8, "tríceps": 8, "cuádriceps": 10, femoral: 8, "glúteo": 6, pantorrilla: 8 };
+const MUSC_MIN_ADV = { pecho: 14, espalda: 14, hombro: 12, "hombro posterior": 8, "bíceps": 12, "tríceps": 12, "cuádriceps": 14, femoral: 12, "glúteo": 8, pantorrilla: 10, trapecio: 6, antebrazo: 4, aductores: 4 };
+const MUSC_MIN = { pecho: 10, espalda: 10, hombro: 8, "hombro posterior": 6, "bíceps": 8, "tríceps": 8, "cuádriceps": 10, femoral: 8, "glúteo": 6, pantorrilla: 8, trapecio: 0, antebrazo: 0, aductores: 0 };
 const MUSC_PREF = {
-  hombro: ["lat_raise"], "hombro posterior": ["rev_fly", "face"],
-  "bíceps": ["inc_curl", "hammer", "db_curl", "curl_bb", "preacher", "db_conc"],
-  "tríceps": ["oh_tri", "db_oh_tri", "tri_push", "db_kickback", "skull", "bench_dips", "pushup_cl"],
+  hombro: ["lat_raise", "seat_lat"], "hombro posterior": ["rev_fly", "face"],
+  "bíceps": ["inc_curl", "hammer", "zottman", "db_curl", "curl_bb", "preacher", "db_conc"],
+  "tríceps": ["oh_tri", "db_oh_tri", "tri_push", "db_kickback", "skull", "bench_dips", "cg_push_db", "body_tri", "pushup_cl"],
+  trapecio: ["shrug"], antebrazo: ["farmer", "wrist_curl"], aductores: ["adduct"],
   pecho: ["pec_deck", "db_fly", "cross", "inc_pushup", "pushup_dec"], espalda: ["row_cable", "db_row2", "inv_row", "straight_pd", "db_pullover"],
-  "cuádriceps": ["leg_ext", "split_db", "db_lunge", "bulg", "bw_lunge"], femoral: ["leg_curl", "db_rdl", "rdl"],
-  "glúteo": ["hip_thrust", "glute_br", "abductor"], pantorrilla: ["calf_st", "calf_se", "calf_one", "calf_home"],
+  "cuádriceps": ["leg_ext", "split_db", "db_lunge", "bulg", "bw_lunge"], femoral: ["leg_curl", "db_rdl", "sl_dl", "ham_slide", "rdl", "ghr"],
+  "glúteo": ["hip_thrust", "glute_br", "abductor"], pantorrilla: ["calf_st", "calf_se", "calf_db", "calf_one", "calf_home"],
 };
-const MUSC_REGION = { pecho: ["pecho", "hombro", "tríceps"], hombro: ["pecho", "hombro", "tríceps"], "tríceps": ["pecho", "hombro", "tríceps"], espalda: ["espalda", "bíceps", "hombro posterior"], "hombro posterior": ["espalda", "bíceps", "hombro posterior"], "bíceps": ["espalda", "bíceps", "hombro posterior"], "cuádriceps": ["cuádriceps", "femoral", "glúteo", "pantorrilla"], femoral: ["cuádriceps", "femoral", "glúteo", "pantorrilla"], "glúteo": ["cuádriceps", "femoral", "glúteo", "pantorrilla"], pantorrilla: ["cuádriceps", "femoral", "glúteo", "pantorrilla"] };
+const MUSC_REGION = { pecho: ["pecho", "hombro", "tríceps"], hombro: ["pecho", "hombro", "tríceps"], "tríceps": ["pecho", "hombro", "tríceps"], espalda: ["espalda", "bíceps", "hombro posterior"], "hombro posterior": ["espalda", "bíceps", "hombro posterior"], "bíceps": ["espalda", "bíceps", "hombro posterior"], "cuádriceps": ["cuádriceps", "femoral", "glúteo", "pantorrilla"], femoral: ["cuádriceps", "femoral", "glúteo", "pantorrilla"], "glúteo": ["cuádriceps", "femoral", "glúteo", "pantorrilla"], pantorrilla: ["cuádriceps", "femoral", "glúteo", "pantorrilla"], trapecio: ["espalda", "hombro posterior", "bíceps", "trapecio"], antebrazo: ["espalda", "bíceps", "hombro posterior", "antebrazo"], aductores: ["cuádriceps", "femoral", "glúteo", "pantorrilla", "aductores"] };
 function exAvail(k, mode) {
   const mch = mode === "gym" ? "g" : mode === "db" ? "d" : "h", eq = equip(); let ok = false;
   Object.values(D.FAMILIES).forEach(f => f.items.forEach(i => { if (i.k === k && i.m.includes(mch) && (!i.n || mode === "gym" || (i.n === "bench" ? eq.bench : eq.bar))) ok = true; }));
@@ -276,29 +277,78 @@ function exAvail(k, mode) {
   return ok && okLevel(k);
 }
 const volOf = (blocks, vol = {}) => { blocks.forEach(b => { if (b.t === "cardio") return; b.items.forEach(it => { const g = D.MUSCLE[it.k]; if (g) vol[g] = (vol[g] || 0) + b.rounds; }); }); return vol; };
+/* Sesión larga: el aislamiento nuevo se une como biserie a un aislamiento de otro músculo (ahorra descanso, mismo trabajo) */
+function mergeBi(bl, nb) {
+  if (estMin(bl.filter(b => b.t !== "cardio")) <= 75) return false;
+  const g = D.MUSCLE[nb.items[0].k];
+  const host = bl.find(b => b.t === "uni" && b.items.length === 1 && b.rounds <= 4 && !COMPOUND.has(b.items[0].k) && !ABS.has(b.items[0].k) && D.MUSCLE[b.items[0].k] !== g && !["pantorrilla", "abdomen"].includes(D.MUSCLE[b.items[0].k]));
+  if (!host) return false;
+  host.t = "bi"; host.items.push(nb.items[0]); host.rounds = Math.max(host.rounds, nb.rounds); host.rest = Math.max(host.rest, 60);
+  return true;
+}
+/* La meta cambia el ritmo: para bajar grasa el aislamiento descansa menos (se mantiene el peso y se gasta más); para ganar músculo los básicos descansan más */
+function goalTune(bl, goal) {
+  bl.forEach(b => {
+    if (b.t === "cardio") return;
+    const comp = b.items.some(it => COMPOUND.has(it.k)), abs = b.items.every(it => ABS.has(it.k));
+    if (goal === "fat" && !comp && !abs) b.rest = Math.max(45, b.rest - 15);
+    if (goal === "muscle" && comp) b.rest = Math.min(150, b.rest + 15);
+  });
+}
+const ACCESORIOS = new Set(["trapecio", "antebrazo", "aductores"]); // entran aunque la sesión pase del tope de tiempo
+const roomFor = bl => estMin(bl) < 112 && estMin(bl.filter(b => b.t !== "cardio")) < 92; // tope: ~92 min de pesas y ~112 con cardio
+const estMin = bl => 8 + bl.reduce((a, b) => a + (b.t === "cardio" ? b.min : b.rounds * (b.items.length * 0.75 + b.rest / 60)), 0);
 /* Si algún músculo queda corto en la semana, se añade un bloque de aislamiento en un día que ya trabaja esa zona */
 function balanceMuscles(ss, lv) {
   ["gym", "db", "home"].forEach(m => {
     const vol = {}; ss.forEach(x => volOf(x[m], vol)); const added = new Map(), gl = (S.profile && S.profile.goal) || "recomp", vs = gl === "muscle" ? 1.1 : gl === "fat" && ((S.profile && S.profile.pct) || 0) >= 15 ? 0.9 : 1;
-    Object.keys(MUSC_MIN).forEach(g => {
-      const need = Math.round((lv === "alto" ? MUSC_MIN_ADV[g] : MUSC_MIN[g] * (lv === "nuevo" ? 0.75 : 1)) * vs), reg = MUSC_REGION[g] || [g];
+    const capFor = m === "home" ? 3 : lv === "alto" ? (ss.length <= 3 ? 5 : 3) : (ss.length <= 3 ? 4 : 2);
+    // Mínimo por músculo; la espalda al menos iguala al pecho (tirón ≥ empuje) y el femoral guarda proporción con el cuádriceps
+    const needOf = g => {
+      let n = Math.round((lv === "alto" ? MUSC_MIN_ADV[g] : MUSC_MIN[g] * (lv === "nuevo" ? 0.75 : 1)) * vs);
+      if (g === "espalda") n = Math.max(n, Math.min(Math.round((vol.pecho || 0) + 0.5 * (vol.hombro || 0)), 20)); // tirón ≥ empuje: los press de hombro y pecho cuentan
+      if (g === "femoral" && m !== "home") n = Math.max(n, Math.round(0.6 * (vol["cuádriceps"] || 0)));
+      return n;
+    };
+    // Se atiende primero el músculo con más déficit, para que el cupo de bloques no se agote antes de llegar a los últimos
+    Object.keys(MUSC_MIN).sort((a, b) => (needOf(b) - (vol[b] || 0)) - (needOf(a) - (vol[a] || 0))).forEach(g => {
+      const need = needOf(g), reg = MUSC_REGION[g] || [g];
       let guard = 0;
-      while ((vol[g] || 0) < need && guard++ < (lv === "alto" ? 4 : 3)) {
-        const cands = ss.filter(x => x[m].some(b => b.t !== "cardio" && b.items.some(it => reg.includes(D.MUSCLE[it.k]))) && (added.get(x.id) || 0) < (m === "home" ? 3 : lv === "alto" ? (ss.length <= 3 ? 5 : 3) : 2)).sort((a, b) => (added.get(a.id) || 0) - (added.get(b.id) || 0) || a[m].length - b[m].length);
+      while ((vol[g] || 0) < need && guard++ < (lv === "alto" ? 8 : 6)) {
+        const cands = ss.filter(x => x[m].some(b => b.t !== "cardio" && b.items.some(it => reg.includes(D.MUSCLE[it.k]))) && ((added.get(x.id) || 0) < capFor && roomFor(x[m]) || ACCESORIOS.has(g))).sort((a, b) => (added.get(a.id) || 0) - (added.get(b.id) || 0) || a[m].length - b[m].length);
         let done = false;
         for (const x of cands) {
           const present = new Set(x[m].flatMap(b => b.items.map(i => i.k))), k = (MUSC_PREF[g] || []).find(e => !present.has(e) && exAvail(e, m)); if (!k) continue;
           const nb = { t: "uni", rounds: 3, rest: 60, items: [resolveItem(k)], key: x.id + "-" + m + "-f" + (added.get(x.id) || 0), sid: x.id };
           nb.items.forEach(it => { it.tag = effortTag(it, lv, false); });
           let at = x[m].findIndex(b => b.t === "cardio" || b.items.every(it => ABS.has(it.k))); if (at < 0) at = x[m].length;
-          x[m].splice(at, 0, nb); x[m].forEach((b, i) => { b.idx = i; }); added.set(x.id, (added.get(x.id) || 0) + 1); vol[D.MUSCLE[k]] = (vol[D.MUSCLE[k]] || 0) + 3; done = true; break;
+          if (!mergeBi(x[m], nb)) x[m].splice(at, 0, nb); x[m].forEach((b, i) => { b.idx = i; }); added.set(x.id, (added.get(x.id) || 0) + 1); vol[D.MUSCLE[k]] = (vol[D.MUSCLE[k]] || 0) + 3; done = true; break;
+        }
+        // Sin ejercicio nuevo disponible (casa, pocas opciones): una serie más en un bloque que ya trabaja ese músculo
+        if (!done) for (const x of ss) {
+          const b = roomFor(x[m]) ? x[m].find(q => q.t !== "cardio" && q.rounds < (m === "home" ? 6 : 5) && q.items.some(it => D.MUSCLE[it.k] === g && !ABS.has(it.k))) : null;
+          if (b) { b.rounds++; vol[g] = (vol[g] || 0) + b.items.filter(it => D.MUSCLE[it.k] === g).length; done = true; break; }
         }
         if (!done) break;
       }
     });
+    ss.forEach(x => { x[m] = sequenceBlocks(x[m]); goalTune(x[m], gl); x[m].forEach((b, i) => { b.idx = i; }); });
   });
   return ss;
 }
+/* Orden lógico de cada sesión: básicos grandes, básico de hombro, básico de brazo, aislamiento de músculos grandes,
+   hombro lateral, brazos y deltoide posterior, pantorrillas, abdomen y cardio. Dentro de cada nivel se respeta el orden original. */
+const SMALL_MUSC = new Set(["tríceps", "bíceps", "hombro posterior", "trapecio", "antebrazo"]);
+function blockTier(b) {
+  if (b.t === "cardio") return 9;
+  const its = b.items.filter(it => !["pantorrilla", "abdomen"].includes(D.MUSCLE[it.k]));
+  if (!its.length) return b.items.every(it => D.MUSCLE[it.k] === "abdomen") ? 8 : 7;
+  return Math.max(...its.map(it => {
+    const g = D.MUSCLE[it.k], c = COMPOUND.has(it.k);
+    return c ? (g === "hombro" ? 2 : SMALL_MUSC.has(g) ? 3 : 1) : (g === "hombro" ? 5 : SMALL_MUSC.has(g) ? 6 : 4);
+  }));
+}
+const sequenceBlocks = bl => bl.map((b, i) => [b, i]).sort((a, c) => blockTier(a[0]) - blockTier(c[0]) || a[1] - c[1]).map(x => x[0]);
 /* La meta de peso decide el empuje: para bajar mucho, más cardio; para subir mucho, más trabajo pesado */
 function drive() {
   const none = { cardio: 0, heavy: 0, note: "", gap: 0 }, p = S.profile; if (!p) return none;
@@ -966,7 +1016,7 @@ function vSession(id) {
   const intro = "";
   return `${nav(s.name, { back: "Entreno", sub: `${esc(s.focus)}, ${sessMin(s)} min` })}
   ${modeSeg()}
-  ${prepRows()}<h2 class="sec">${bl.length} bloques, ${pr.done} de ${pr.total} vueltas</h2>
+  ${prepRows(s)}<h2 class="sec">${bl.length} bloques, ${pr.done} de ${pr.total} vueltas</h2>
   ${bl.map((b, bi) => {
     const p = blockProgress(b), cd = b.t === "cardio";
     return `<a class="blk" href="#/bloque/${id}/${bi}" aria-label="Bloque ${bi + 1}: ${typeLabel(b.t)}"><div class="blk-head"><span class="chip ${b.t}">${bi + 1}, ${typeLabel(b.t)}</span><span class="info">${cd ? cardioMin(b) + " min, zona 2" : b.rounds + " vueltas, " + fmtRest(b.rest)}</span><span class="prog ${p === b.rounds ? "done" : ""}">${p === b.rounds ? "Hecho" : cd ? "" : p + "/" + b.rounds}</span></div>
@@ -974,28 +1024,79 @@ function vSession(id) {
   }).join("")}
   <div class="group"><button class="row" data-go="#/editar/${id}"><div class="main"><div class="title">Editar sesión</div><div class="meta">${S.custom && S.custom[id + "|" + S.mode] ? "Personalizada: " : ""}Agrega, quita o reordena ejercicios</div></div>${I.chev}</button></div>
   <div class="group"><div class="field"><label for="sn">Notas de hoy</label><textarea id="sn" data-sid="${id}" rows="2" maxlength="500" placeholder="Cómo te sentiste, ajustes de máquinas…">${esc(S.notes[todayISO() + "|" + id] || "")}</textarea></div></div>
-  ${coolRow()}
+  ${coolRow(s)}
   ${bl.length === 0 ? cta(`<button class="btn" data-go="#/editar/${id}">Agregar ejercicios</button>`) : cta(first >= 0 ? `<button class="btn" data-go="#/bloque/${id}/${first}">${pr.done ? "Continuar" : "Empezar"}, bloque ${first + 1}</button>` : `<button class="btn ${done ? "secondary" : ""}" data-act="finish" data-id="${id}">${done ? "Entrenamiento completado" : "Terminar entrenamiento"}</button>`)}`;
 }
 
 const deloadWeek = w => [4, 8].includes(w) || (w > 13 && (w - 14) % 4 === 3);
 const cycleIdx = w => w <= 13 ? 0 : Math.floor((w - 14) / 4) + 1;
 const weekLabel = w => w <= 13 ? `Semana ${w}` : `Ciclo ${cycleIdx(w) + 1}, semana ${((w - 14) % 4) + 1}`;
-function prepRows() {
-  const w = weekNum(), ph = phaseOf(w), dl = deloadWeek(w) || autoDlOn();
-  return `<div class="group">
-    <div class="row top"><div class="main"><div class="title">Calentamiento de 8 min</div><div class="meta">5 min de bici o caminadora, movilidad de hombros y cadera, y 2 series de aproximación del primer ejercicio.</div></div></div>
+/* Calentamiento y enfriamiento específicos: se arman con los músculos que más series tienen en la sesión */
+const WARM_KEY = { "hombro posterior": "hombro", "bíceps": "brazos", "tríceps": "brazos", trapecio: "brazos", antebrazo: "brazos" };
+const WARM = {
+  pecho: ["Pecho", "Círculos amplios de brazos, 10 hacia adelante y 10 hacia atrás, y 8 flexiones lentas con las rodillas apoyadas."],
+  espalda: ["Espalda", "Gato-camello, 8 repeticiones lentas, y 10 retracciones de escápulas (junta los omóplatos y suelta)."],
+  hombro: ["Hombros", "Rotación externa con el codo pegado, 12 por lado, y 8 elevaciones en Y con los brazos sin peso."],
+  "cuádriceps": ["Piernas", "Sentadilla con peso corporal, 10 repeticiones con pausa de 2 s abajo, círculos de tobillo y 8 zancadas por pierna."],
+  femoral: ["Femoral", "Bisagra de cadera sin peso, 10 repeticiones, y 10 balanceos de pierna adelante y atrás por lado."],
+  "glúteo": ["Glúteo", "Puente de glúteo con pausa de 2 s, 12 repeticiones, y 10 pasos laterales por lado."],
+  brazos: ["Brazos", "Círculos de muñeca y de codo, 10 cada uno, y una serie ligera de tu primer ejercicio de brazos."],
+  aductores: ["Aductores", "Sentadilla sumo sin peso, 10 repeticiones."],
+};
+const COOL = {
+  pecho: "Pecho en el marco de una puerta, 30 s por lado.", espalda: "Postura del niño, 30 a 45 s.", hombro: "Brazo cruzado frente al pecho, 30 s por lado.",
+  "cuádriceps": "Cuádriceps de pie tomando el tobillo, 30 s por pierna.", femoral: "Femoral sentado con una pierna extendida, 30 s por pierna.", "glúteo": "Figura 4 acostado, 30 s por lado.",
+  pantorrilla: "Talón al piso contra una pared, 30 s por pierna.", brazos: "Tríceps con el codo detrás de la cabeza y bíceps con la palma contra la pared, 30 s cada uno.", aductores: "Mariposa sentado, 30 s.",
+};
+function sessMuscles(s) {
+  const v = {}; blocksOf(s).forEach(b => { if (b.t === "cardio") return; b.items.forEach(it => { const g = D.MUSCLE[it.k]; if (g) v[g] = (v[g] || 0) + b.rounds; }); });
+  return Object.entries(v).sort((a, b) => b[1] - a[1]).map(x => x[0]);
+}
+function pickKeys(s, table, max) {
+  const out = [];
+  sessMuscles(s).forEach(g => { const k = WARM_KEY[g] || g; if (table[k] && !out.includes(k) && out.length < max) out.push(k); });
+  return out;
+}
+const lvKey = () => (S.profile && S.profile.level) || "medio";
+function goalFocus() {
+  const g = (S.profile && S.profile.goal) || "recomp";
+  return g === "fat" ? ["Enfoque: bajar grasa conservando músculo", "En déficit, mantén el peso de tus básicos: ese es el estímulo que protege el músculo. Si dos semanas seguidas pierdes más de 2 repeticiones en un básico, descansa más o quita una vuelta. El cardio va después de las pesas."]
+    : g === "muscle" ? ["Enfoque: ganar músculo", "Busca más repeticiones o más peso cada semana. Descansa lo suficiente entre vueltas de los básicos (2 a 3 min) y come en superávit moderado."]
+    : ["Enfoque: recomposición", "Progresa en los básicos, come la proteína de tu plan y mide cintura y peso cada 2 semanas: el peso cambia lento y la cintura dice más."];
+}
+function prepRows(s) {
+  const w = weekNum(), ph = phaseOf(w), dl = deloadWeek(w) || autoDlOn(), gf = goalFocus();
+  const raise = S.mode === "gym" ? "5 min de bici o caminadora a ritmo suave, que apenas se note el esfuerzo." : "5 min de caminata rápida, saltos ligeros o cuerda.";
+  const drills = pickKeys(s, WARM, 4).map(k => `<div class="row top"><div class="main"><div class="title">${esc(WARM[k][0])}</div><div class="meta">${esc(WARM[k][1])}</div></div></div>`).join("");
+  return `<h2 class="sec">Calentamiento, unos 8 min</h2><div class="group">
+    <div class="row top"><div class="main"><div class="title">Elevar la temperatura</div><div class="meta">${raise}</div></div></div>
+    ${drills}
+    <div class="row top"><div class="main"><div class="title">Series de aproximación</div><div class="meta">Antes del primer básico de cada patrón, 2 o 3 series ligeras (aparecen en el bloque). Sin llegar al cansancio.</div></div></div>
+  </div>
+  <div class="group">
+    <div class="row top"><div class="main"><div class="title">${esc(gf[0])}</div><div class="meta">${esc(gf[1])}</div></div></div>
     <div class="row top"><div class="main"><div class="title">Recomendación</div><div class="meta">${esc(levelTip())}</div></div></div>
     <div class="row top"><div class="main"><div class="title">${dl ? "Semana de descarga" : "Esfuerzo"}</div><div class="meta">${dl ? "Una vuelta menos por bloque y 3–4 repeticiones en reserva." : esc(ph.rir) + " en reserva en las primeras vueltas; la última, " + (cons() ? "con 3 en reserva" : "al fallo (en barra libre, 1–2 en reserva)") + ". Sube peso al llegar al máximo del rango en todas."}</div></div></div>
   </div>`;
 }
 const levelTip = () => ({ nuevo: "Aprende el movimiento con pesos que dominas; la técnica antes que el peso.", medio: "Anota cada serie: más repeticiones o más peso cada semana es lo que construye músculo.", alto: "Técnica estricta, 1 s de pausa en el estiramiento y última vuelta de aislamiento al límite." })[S.profile.level || "medio"];
-const coolRow = () => `<div class="group"><div class="row top"><div class="main"><div class="title">Al terminar, 5 min</div><div class="meta">Estira lo que trabajaste y respira lento. Si hoy toca cardio, aparece como un bloque más.</div></div></div></div>`;
-function warmup(b, bi) {
+const coolRow = s => { const ks = pickKeys(s, COOL, 5); return `<h2 class="sec">Al terminar, 5 min</h2><div class="group">${ks.map(k => `<div class="row top"><div class="main"><div class="meta" style="margin:0;color:var(--label)">${esc(COOL[k])}</div></div></div>`).join("")}<div class="row top"><div class="main"><div class="meta">Es opcional: estirar después no evita las agujetas, pero baja el ritmo y suma flexibilidad con el tiempo. Si hoy toca cardio, aparece como un bloque más.</div></div></div></div>`; };
+function warmup(b, bi, bl) {
   const it = b.items[0], sg = it && suggest(it);
-  if (bi !== 0 || S.mode === "home" || !sg || !sg.n) return "";
+  if (S.mode === "home" || !sg || !sg.n || !COMPOUND.has(it.k)) return "";
+  const g = D.MUSCLE[it.k];
+  if (bl.slice(0, bi).some(x => x.t !== "cardio" && x.items.some(i => COMPOUND.has(i.k) && D.MUSCLE[i.k] === g))) return "";
+  const steps = lvKey() === "nuevo" ? [[0.5, 8], [0.75, 4]] : [[0.5, 8], [0.7, 5], [0.85, 2]];
   const w = x => { const v = sg.n * x, r = it.w.u === "c/mano" ? Math.round(v) : Math.round(v / 2.5) * 2.5; return fwi(Math.max(r, 2)); };
-  return `<h2 class="sec">Calentamiento</h2><div class="group"><div class="row top"><div class="main"><div class="title">${S.mode === "gym" ? "5 min de caminadora o bici" : "5 min de movimiento suave (caminata, saltos ligeros o bici)"} y 3 series de aproximación</div><div class="meta">${w(0.5)} ${wU()} × 8, ${w(0.7)} ${wU()} × 5, ${w(0.85)} ${wU()} × 2 (${esc(D.EX[it.k].name)}). Sin llegar al cansancio.</div></div></div></div>`;
+  const first = bl.slice(0, bi).every(x => x.t === "cardio");
+  return `<h2 class="sec">${first ? "Calentamiento" : "Series de aproximación"}</h2><div class="group"><div class="row top"><div class="main"><div class="title">${first ? (S.mode === "gym" ? "5 min de caminadora o bici y " : "5 min de movimiento suave y ") : ""}${steps.length} series de aproximación</div><div class="meta">${steps.map(([f, r]) => `${w(f)} ${wU()} × ${r}`).join(", ")} (${esc(D.EX[it.k].name)}). Sin llegar al cansancio.</div></div></div></div>`;
+}
+// Vuelta activa: peso y repeticiones con botones − / + (registro con un toque; "Vuelta lista" usa lo sugerido)
+function entryBig(it, ii, r, n, sg, cur) {
+  const nm = esc(D.EX[it.k].name), wst = lbOn() ? 5 : 2.5;
+  const wph = sg.n != null ? fwi(sg.n) : (S.mode === "home" ? "—" : "pc"), rph = lowReps(it.reps) ?? "reps";
+  const fld = (f, label, step, ph, val) => `<div class="stp"><span class="stp-l">${label}</span><div class="stp-row"><button type="button" class="stp-b" data-step="${-step}" aria-label="Menos ${label.toLowerCase()}, ${nm}">−</button><input type="number" inputmode="${f === "w" ? "decimal" : "numeric"}" step="${f === "w" ? "0.5" : "1"}" min="0" data-i="${ii}" data-r="${r}" data-f="${f}" placeholder="${ph}" value="${val}" aria-label="${nm} vuelta ${r + 1}, ${f === "w" ? "peso" : "repeticiones"}"><button type="button" class="stp-b" data-step="${step}" aria-label="Más ${label.toLowerCase()}, ${nm}">+</button></div></div>`;
+  return `<div class="entry big"><div class="big-nm"><span class="letter">${n > 1 ? letters[ii] : (ii + 1)}</span><span class="nm">${nm}<small>${esc(it.reps)}</small></span></div>${fld("w", S.mode === "home" ? "Extra " + wU() : (lbOn() ? "Lb" : "Kg"), wst, wph, cur.w != null ? fwi(cur.w) : "")}${fld("r", "Reps", 1, rph, cur.r ?? "")}</div>`;
 }
 function vBlock(id, bi) {
   const s = sessionById(id), b = s && blocksOf(s)[bi]; if (!b) return vTrain();
@@ -1008,13 +1109,13 @@ function vBlock(id, bi) {
     const on = b.items.every(it => roundDone(it, r));
     rounds.push(`<div class="round ${on ? "done" : ""} ${r === active ? "active" : ""}" data-round="${r}"><div class="round-head"><b>Vuelta ${r + 1}</b>${r === b.rounds - 1 ? `<span class="effort">${effortLabel(b)}</span>` : ""}<button class="tick" data-tick="${r}" aria-pressed="${on}" aria-label="Vuelta ${r + 1} terminada">${I.check}</button></div>
       ${r === b.rounds - 1 && b.items.some(it => it.tag === "fail") ? `<button class="failbtn" data-fail="${r}" aria-pressed="${!!(getSets(b.items[0].k)[r] || {}).f}">Llegué al fallo</button>` : ""}<div class="entry-head"><span></span><span>Ejercicio</span><span>${S.mode === "home" ? "Extra " + wU() : (lbOn() ? "Lb" : "Kg")}</span><span>Reps</span></div>
-      ${b.items.map((it, ii) => { const sg = suggest(it), cur = getSets(it.k)[r] || {}; return `<div class="entry"><span class="letter">${b.items.length > 1 ? letters[ii] : (ii + 1)}</span><span class="nm">${esc(D.EX[it.k].name)}<small>${esc(it.reps)}</small></span><input type="number" inputmode="decimal" step="0.5" min="0" data-i="${ii}" data-r="${r}" data-f="w" placeholder="${sg.n != null ? fwi(sg.n) : (S.mode === "home" ? "—" : "pc")}" value="${cur.w != null ? fwi(cur.w) : ""}" aria-label="${esc(D.EX[it.k].name)} vuelta ${r + 1}, kilos"><input type="number" inputmode="numeric" min="0" data-i="${ii}" data-r="${r}" data-f="r" placeholder="${lowReps(it.reps) ?? "reps"}" value="${cur.r ?? ""}" aria-label="${esc(D.EX[it.k].name)} vuelta ${r + 1}, repeticiones"></div>`; }).join("")}${r === active ? `<div style="padding:8px 16px 4px"><button class="btn" data-tick="${r}" aria-label="Terminar vuelta ${r + 1}">Vuelta ${r + 1} lista</button></div>` : ""}</div>`);
+      ${b.items.map((it, ii) => { const sg = suggest(it), cur = getSets(it.k)[r] || {}; if (r === active) return entryBig(it, ii, r, b.items.length, sg, cur); return `<div class="entry"><span class="letter">${b.items.length > 1 ? letters[ii] : (ii + 1)}</span><span class="nm">${esc(D.EX[it.k].name)}<small>${esc(it.reps)}</small></span><input type="number" inputmode="decimal" step="0.5" min="0" data-i="${ii}" data-r="${r}" data-f="w" placeholder="${sg.n != null ? fwi(sg.n) : (S.mode === "home" ? "—" : "pc")}" value="${cur.w != null ? fwi(cur.w) : ""}" aria-label="${esc(D.EX[it.k].name)} vuelta ${r + 1}, kilos"><input type="number" inputmode="numeric" min="0" data-i="${ii}" data-r="${r}" data-f="r" placeholder="${lowReps(it.reps) ?? "reps"}" value="${cur.r ?? ""}" aria-label="${esc(D.EX[it.k].name)} vuelta ${r + 1}, repeticiones"></div>`; }).join("")}${r === active ? `<div style="padding:8px 16px 4px"><button class="btn" data-tick="${r}" aria-label="Terminar vuelta ${r + 1}">Vuelta ${r + 1} lista</button></div>` : ""}</div>`);
   }
   const p = blockProgress(b);
   const how = b.t === "uni" ? "Una serie, descansa, repite." : b.t === "bi" ? "Haz A, pasa directo a B y descansa al terminar la vuelta." : "Haz A, B y C seguidos y descansa al terminar la vuelta.";
   return `${nav(`Bloque ${bi + 1}`, { back: s.name, to: `#/entreno/${id}`, sub: `<span class="chip ${b.t}">${typeLabel(b.t)}</span> &nbsp;${b.rounds} vueltas, descanso ${fmtRest(b.rest)}<br><span style="font-size:14px">${how}</span>` })}
   ${strip}
-  ${warmup(b, bi)}
+  ${warmup(b, bi, bl)}
   <h2 class="sec">Vueltas: ${p} de ${b.rounds}</h2>
   <div class="group">${rounds.join("")}</div>
   ${S.mode === "gym" && b.items.some(it => BARBELL.has(it.k)) ? `<div class="group"><button class="row" data-act="plates" data-k="${b.items.find(it => BARBELL.has(it.k)).k}" data-sid="${id}"><div class="main"><div class="title">Calculadora de discos</div><div class="meta">Qué discos poner en cada lado</div></div>${I.chev}</button></div>` : ""}
@@ -1043,7 +1144,7 @@ function vCardio(s, b, bi) {
 function vWhy(kind) {
   const list = C.why[kind].filter(x => !x.only || x.only.includes(S.profile.goal || "recomp")), used = [];
   const vol = {}; SESSIONS().forEach(se => blocksOf(se).forEach(b => b.items.forEach(it => { const g = D.MUSCLE[it.k]; vol[g] = (vol[g] || 0) + b.rounds; })));
-  const order = ["pecho", "espalda", "hombro", "hombro posterior", "bíceps", "tríceps", "cuádriceps", "femoral", "glúteo", "pantorrilla", "abdomen"];
+  const order = ["pecho", "espalda", "hombro", "hombro posterior", "bíceps", "tríceps", "cuádriceps", "femoral", "glúteo", "pantorrilla", "abdomen", "trapecio", "antebrazo", "aductores"];
   const volTable = kind === "train" ? `<h2 class="sec">Series directas por semana</h2><div class="group">${order.filter(m => vol[m]).map(m => `<div class="row"><div class="main"><div class="title">${esc(m.charAt(0).toUpperCase() + m.slice(1))}</div></div><span class="val" style="color:var(--label);font-weight:600">${vol[m]}</span></div>`).join("")}</div><p class="note">Son series directas. Los press también trabajan el tríceps y los jalones y remos el bíceps, así que su trabajo real es mayor. Rango habitual para hipertrofia: 10–20.</p>` : "";
   return `${nav(kind === "train" ? "Por qué este plan" : "Por qué esta dieta", { back: kind === "train" ? "Entreno" : "Comida", to: kind === "train" ? "#/entreno" : "#/comida" })}
   ${volTable}
@@ -1486,7 +1587,7 @@ function vRemind() {
   <div class="row check-row"><label for="wk-on">Mantener la pantalla encendida al entrenar</label><input class="switch" id="wk-on" type="checkbox" ${S.wake ? "checked" : ""}></div>
   <div class="row check-row"><label for="nt-on">Notificación si la app está en segundo plano</label><input class="switch" id="nt-on" type="checkbox" ${S.notify ? "checked" : ""}></div></div>`;
 }
-const MUSC_NAMES = [["pecho", "Pecho"], ["espalda", "Espalda"], ["hombro", "Hombros"], ["hombro posterior", "Hombro posterior"], ["bíceps", "Bíceps"], ["tríceps", "Tríceps"], ["cuádriceps", "Cuádriceps"], ["femoral", "Femoral"], ["glúteo", "Glúteo"], ["pantorrilla", "Pantorrilla"], ["abdomen", "Abdomen"]];
+const MUSC_NAMES = [["pecho", "Pecho"], ["espalda", "Espalda"], ["hombro", "Hombros"], ["hombro posterior", "Hombro posterior"], ["bíceps", "Bíceps"], ["tríceps", "Tríceps"], ["cuádriceps", "Cuádriceps"], ["femoral", "Femoral"], ["glúteo", "Glúteo"], ["pantorrilla", "Pantorrilla"], ["abdomen", "Abdomen"], ["trapecio", "Trapecio"], ["antebrazo", "Antebrazo"], ["aductores", "Aductores"]];
 const MUSC_MEAS = { pecho: "pecho", "bíceps": "brazo", "tríceps": "brazo", "cuádriceps": "muslo", femoral: "muslo", "glúteo": "cadera", hombro: "hombros", pantorrilla: "pantorrilla", abdomen: "cintura" };
 function muscleStrength(g) {
   const ch = [];
@@ -1840,6 +1941,7 @@ function bind() {
   $$("[data-pick]").forEach(b => b.addEventListener("click", () => { S.picks[b.dataset.slot] = +b.dataset.pick; save(); $$("[data-pick]").forEach(x => { const on = x === b; x.setAttribute("aria-checked", on); x.querySelector(".opt-radio").classList.toggle("on", on); }); vibrate(8); }));
   $$("[data-rq]").forEach(i => i.type === "range" && i.addEventListener("input", () => { $("#rv-" + i.dataset.rq).textContent = i.value; }));
   $$("[data-f]").forEach(i => i.addEventListener("input", () => saveRound(+i.dataset.r)));
+  $$("[data-step]").forEach(b => b.addEventListener("click", () => { const i = b.parentElement.querySelector("input"), base = i.value !== "" ? +i.value : (parseFloat(i.placeholder) || 0); i.value = trimN(Math.max(0, base + +b.dataset.step), 1); vibrate(6); saveRound(+i.dataset.r); }));
   $$("[data-fail]").forEach(b => b.addEventListener("click", () => { const on = b.getAttribute("aria-pressed") !== "true"; b.setAttribute("aria-pressed", String(on)); vibrate(10); saveRound(+b.dataset.fail); }));
   $$("[data-tick]").forEach(b => b.addEventListener("click", () => {
     const rEl = b.closest(".round"), r = +b.dataset.tick, on = !rEl.classList.contains("done");
@@ -2087,7 +2189,7 @@ if (window.Store && Store.available()) {
   if (!LS.getItem(KEY)) Store.getKV("backup").then(b => { if (b) { try { const n = normalizeState(JSON.parse(b)); if (!n.profile || !n.start) return; S = n; LS.setItem(KEY, JSON.stringify(n)); _plan = { k: "", v: null }; toast("Recuperamos tus datos"); go("#/hoy"); if (parseHash()[0] === "hoy") render(); } catch {} } }).catch(() => {});
   if (S.start) Store.persist();
 }
-if (location.hostname === "localhost" && LS.getItem("reto90.debug")) window.__reto = { nextAction, suggestions, drive, get S() { return S; }, set S(v) { S = v; }, MEALS, weekMenu, shopData, avoidSet, ALG, cons, SESSIONS, planCalc, D, C, blocksOf, altsFor, suggest, equip, render };
+if (location.hostname === "localhost" && LS.getItem("reto90.debug")) window.__reto = { exAvail, okLevel, MUSC_PREF, nextAction, suggestions, drive, get S() { return S; }, set S(v) { S = v; }, MEALS, weekMenu, shopData, avoidSet, ALG, cons, SESSIONS, planCalc, D, C, blocksOf, altsFor, suggest, equip, render };
 const applyTheme = () => {
   const t = S.theme === "light" || S.theme === "dark" ? S.theme : null, root = document.documentElement;
   if (t) root.dataset.theme = t; else delete root.dataset.theme;
