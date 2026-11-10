@@ -258,8 +258,8 @@ function applyEquip(blocks, mode) {
   if (eq.bar) blocks.forEach(b => { b.items = b.items.map(it => { const t = D.BARSWAP[it.k]; return t && !has(t) ? resolveItem(t) : it; }); });
   return blocks.filter(b => b.t === "cardio" || b.items.length).map(b => (b.t !== "cardio" && b.items.length === 1 && b.t !== "uni") ? { ...b, t: "uni" } : b);
 }
-const MUSC_MIN_ADV = { pecho: 14, espalda: 14, hombro: 12, "hombro posterior": 8, "bíceps": 12, "tríceps": 12, "cuádriceps": 14, femoral: 12, "glúteo": 8, pantorrilla: 10, trapecio: 6, antebrazo: 4, aductores: 4 };
-const MUSC_MIN = { pecho: 10, espalda: 10, hombro: 8, "hombro posterior": 6, "bíceps": 8, "tríceps": 8, "cuádriceps": 10, femoral: 8, "glúteo": 6, pantorrilla: 8, trapecio: 0, antebrazo: 0, aductores: 0 };
+const MUSC_MIN_ADV = { pecho: 14, espalda: 14, hombro: 12, "hombro posterior": 8, "bíceps": 16, "tríceps": 16, "cuádriceps": 14, femoral: 12, "glúteo": 8, pantorrilla: 10, trapecio: 6, antebrazo: 4, aductores: 4 };
+const MUSC_MIN = { pecho: 10, espalda: 10, hombro: 8, "hombro posterior": 6, "bíceps": 12, "tríceps": 12, "cuádriceps": 10, femoral: 8, "glúteo": 6, pantorrilla: 8, trapecio: 0, antebrazo: 0, aductores: 0 };
 const MUSC_PREF = {
   hombro: ["lat_raise", "seat_lat"], "hombro posterior": ["rev_fly", "face"],
   "bíceps": ["inc_curl", "hammer", "zottman", "db_curl", "curl_bb", "preacher", "db_conc"],
@@ -295,7 +295,7 @@ function goalTune(bl, goal) {
     if (goal === "muscle" && comp) b.rest = Math.min(150, b.rest + 15);
   });
 }
-const ACCESORIOS = new Set(["trapecio", "antebrazo", "aductores"]); // entran aunque la sesión pase del tope de tiempo
+const ACCESORIOS = new Set(["trapecio", "antebrazo", "aductores", "bíceps", "tríceps"]); // entran aunque la sesión pase del tope de tiempo
 const roomFor = bl => estMin(bl) < 112 && estMin(bl.filter(b => b.t !== "cardio")) < 92; // tope: ~92 min de pesas y ~112 con cardio
 const estMin = bl => 8 + bl.reduce((a, b) => a + (b.t === "cardio" ? b.min : b.rounds * (b.items.length * 0.75 + b.rest / 60)), 0);
 /* Si algún músculo queda corto en la semana, se añade un bloque de aislamiento en un día que ya trabaja esa zona */
@@ -1034,14 +1034,14 @@ const weekLabel = w => w <= 13 ? `Semana ${w}` : `Ciclo ${cycleIdx(w) + 1}, sema
 /* Calentamiento y enfriamiento específicos: se arman con los músculos que más series tienen en la sesión */
 const WARM_KEY = { "hombro posterior": "hombro", "bíceps": "brazos", "tríceps": "brazos", trapecio: "brazos", antebrazo: "brazos" };
 const WARM = {
-  pecho: ["Pecho", "Círculos amplios de brazos, 10 hacia adelante y 10 hacia atrás, y 8 flexiones lentas con las rodillas apoyadas."],
-  espalda: ["Espalda", "Gato-camello, 8 repeticiones lentas, y 10 retracciones de escápulas (junta los omóplatos y suelta)."],
-  hombro: ["Hombros", "Rotación externa con el codo pegado, 12 por lado, y 8 elevaciones en Y con los brazos sin peso."],
-  "cuádriceps": ["Piernas", "Sentadilla con peso corporal, 10 repeticiones con pausa de 2 s abajo, círculos de tobillo y 8 zancadas por pierna."],
-  femoral: ["Femoral", "Bisagra de cadera sin peso, 10 repeticiones, y 10 balanceos de pierna adelante y atrás por lado."],
-  "glúteo": ["Glúteo", "Puente de glúteo con pausa de 2 s, 12 repeticiones, y 10 pasos laterales por lado."],
-  brazos: ["Brazos", "Círculos de muñeca y de codo, 10 cada uno, y una serie ligera de tu primer ejercicio de brazos."],
-  aductores: ["Aductores", "Sentadilla sumo sin peso, 10 repeticiones."],
+  pecho: ["Pecho", "Ejemplo: 10 círculos amplios de brazos hacia adelante y 10 hacia atrás, y 8 flexiones lentas (con las rodillas apoyadas si cuesta).", "pushup"],
+  espalda: ["Espalda", "Ejemplo: gato-camello, 8 repeticiones lentas, y 10 retracciones de escápulas (junta los omóplatos 2 s y suelta). Después, superman de 8 repeticiones.", "superman"],
+  hombro: ["Hombros", "Ejemplo: rotación externa con el codo pegado, 12 por lado, y 8 elevaciones laterales con 1 a 2 kg o sin peso.", "lat_raise"],
+  "cuádriceps": ["Piernas", "Ejemplo: 10 sentadillas con peso corporal (pausa de 2 s abajo), círculos de tobillo y 8 zancadas por pierna.", "bw_squat"],
+  femoral: ["Femoral", "Ejemplo: 10 bisagras de cadera sin peso (espalda recta, cadera atrás) y 10 balanceos de pierna adelante y atrás por lado.", "rdl"],
+  "glúteo": ["Glúteo", "Ejemplo: 12 puentes de glúteo con pausa de 2 s arriba y 10 pasos laterales por lado.", "glute_br"],
+  brazos: ["Brazos", "Ejemplo: 10 círculos de muñeca y de codo, y una serie ligera (50 % del peso, 12 repeticiones) del primer ejercicio de bíceps y otra del primero de tríceps.", "hammer"],
+  aductores: ["Aductores", "Ejemplo: 10 sentadillas amplias (pies más abiertos que los hombros) sin peso y 8 balanceos laterales de pierna por lado.", "bw_squat"],
 };
 const COOL = {
   pecho: "Pecho en el marco de una puerta, 30 s por lado.", espalda: "Postura del niño, 30 a 45 s.", hombro: "Brazo cruzado frente al pecho, 30 s por lado.",
@@ -1049,8 +1049,9 @@ const COOL = {
   pantorrilla: "Talón al piso contra una pared, 30 s por pierna.", brazos: "Tríceps con el codo detrás de la cabeza y bíceps con la palma contra la pared, 30 s cada uno.", aductores: "Mariposa sentado, 30 s.",
 };
 function sessMuscles(s) {
-  const v = {}; blocksOf(s).forEach(b => { if (b.t === "cardio") return; b.items.forEach(it => { const g = D.MUSCLE[it.k]; if (g) v[g] = (v[g] || 0) + b.rounds; }); });
-  return Object.entries(v).sort((a, b) => b[1] - a[1]).map(x => x[0]);
+  // Orden de aparición en la sesión (los básicos grandes van primero), no por número de series
+  const seen = []; blocksOf(s).forEach(b => { if (b.t === "cardio") return; b.items.forEach(it => { const g = D.MUSCLE[it.k]; if (g && !seen.includes(g)) seen.push(g); }); });
+  return seen;
 }
 function pickKeys(s, table, max) {
   const out = [];
@@ -1067,7 +1068,7 @@ function goalFocus() {
 function prepRows(s) {
   const w = weekNum(), ph = phaseOf(w), dl = deloadWeek(w) || autoDlOn(), gf = goalFocus();
   const raise = S.mode === "gym" ? "5 min de bici o caminadora a ritmo suave, que apenas se note el esfuerzo." : "5 min de caminata rápida, saltos ligeros o cuerda.";
-  const drills = pickKeys(s, WARM, 4).map(k => `<div class="row top"><div class="main"><div class="title">${esc(WARM[k][0])}</div><div class="meta">${esc(WARM[k][1])}</div></div></div>`).join("");
+  const drills = pickKeys(s, WARM, 4).map(k => { const ex = D.EX[WARM[k][2]]; return `<div class="row">${ex ? `<img class="thumb" loading="lazy" decoding="async" alt="" src="gifs/${ex.id}.gif" width="56" height="56">` : ""}<div class="main"><div class="title">${esc(WARM[k][0])}</div><div class="meta">${esc(WARM[k][1])}</div></div></div>`; }).join("");
   return `<h2 class="sec">Calentamiento, unos 8 min</h2><div class="group">
     <div class="row top"><div class="main"><div class="title">Elevar la temperatura</div><div class="meta">${raise}</div></div></div>
     ${drills}
