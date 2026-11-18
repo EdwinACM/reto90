@@ -1,6 +1,6 @@
 importScripts("precache.js");
-const V = "reto90-v52";
-const SHELL = ["./", "index.html", "styles.css", "app.js", "data.js", "boot.js", "store.js", "content.js", "cloud.js", "account.js", "clock.js", "fonts/barlow-condensed-500.woff2", "fonts/barlow-condensed-600.woff2", "fonts/barlow-condensed-700.woff2", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
+const V = "reto90-v54";
+const SHELL = ["./", "index.html", "styles.css", "app.js", "data.js", "boot.js", "store.js", "content.js", "cloud.js", "account.js", "clock.js", "pdf.js", "fonts/barlow-condensed-500.woff2", "fonts/barlow-condensed-600.woff2", "fonts/barlow-condensed-700.woff2", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {

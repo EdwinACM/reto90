@@ -647,3 +647,4 @@ body.hud-on .navbar.scrolled .nb-title { right: 240px; }
 .weekstrip > [role="listitem"] .wd { width: 100%; }
 #lt:focus { outline: none; }
 .wd.today.off i { border-color: var(--accent); border-style: solid; }
+#app { overflow-x: clip; }   /* la entrada de página (desliza 14 px) no genera desplazamiento lateral */

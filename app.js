@@ -620,6 +620,8 @@ function scaleQty(key, qty, f = mealScale()) {
   return x >= 100 ? Math.round(x / 10) * 10 : Math.max(5, Math.round(x / 5) * 5);
 }
 /* Cantidades de una opción para su meta; si la grasa queda muy corta en un plato principal, se completa con aceite de oliva */
+const UNO = { pan: "rebanada de pan integral", whey: "scoop de proteína en polvo" };
+const PLURAL = { huevo: "huevos enteros", tortilla: "tortillas de maíz", pan: "rebanadas de pan integral", tostada: "tostadas horneadas", whey: "scoops de proteína en polvo", manzana: "manzanas", huevo_c: "huevos cocidos" };
 const MAIN_CARB = ["verdura", "arroz", "papa", "pasta", "tortilla", "frijol", "camote", "tostada"];
 function optItems(o, f0) {
   let f = fFor(o, f0), items = o.raw.map(([k, q]) => [k, scaleQty(k, q, f)]);
@@ -636,7 +638,7 @@ function optView(o, f) {
   const items = optItems(o, f), m = { kcal: 0, p: 0, c: 0, g: 0 };
   items.forEach(([k, q]) => { const f = D.FOODS[k], r = (f.unit === "pza" ? q * f.gpu : q) / 100; m.kcal += f.k * r; m.p += f.p * r; m.c += f.c * r; m.g += f.g * r; });
   Object.keys(m).forEach(k => m[k] = Math.round(m[k]));
-  return { name: o.name, tip: o.tip, m, items: items.map(([k, q]) => { const f = D.FOODS[k]; return f.unit === "pza" ? `${q} ${f.name}` : `${q} g de ${f.name}`; }) };
+  return { name: o.name, tip: o.tip, m, items: items.map(([k, q]) => { const f = D.FOODS[k]; return f.unit === "pza" ? `${q} ${q === 1 ? (UNO[k] || f.name) : (PLURAL[k] || f.name)}` : `${q} g de ${f.name}`; }) };
 }
 /* Pesos sugeridos: referencia (≈ 75 kg, hombre, nivel intermedio) escalada por peso, sexo y nivel */
 const LOWER = new Set(["squat_bb", "deadlift", "smith_sq", "leg_press", "split_db", "leg_ext", "hack", "rdl", "leg_curl", "hip_thrust", "abductor", "calf_st", "calf_se", "goblet", "db_squat", "db_lunge", "db_rear_lunge", "step_up", "db_rdl", "glute_br", "calf_home", "calf_one"]);
@@ -895,7 +897,7 @@ function mealRows(iso, showHint) {
   return mealsToday(iso).map(m => {
     const o = pick(m, iso), on = !!e[m.slot], idx = all.indexOf(m);
     return `<div class="row"><button class="hit" role="checkbox" aria-checked="${on}" aria-label="Marcar ${esc(m.slot)} como comida" data-eat="${esc(m.slot)}"><span class="circle ${on ? "on" : ""}">${I.check}</span></button>
-      <button class="main" style="background:none;border:0;text-align:left;padding:0;color:inherit;cursor:pointer;min-height:44px" data-go="#/comida/slot/${idx}"><div class="title">${esc(slotName(m, iso))} <span class="pill">${m.time}</span>${showHint && nxt === m.slot ? ' <span class="badge">Sigue</span>' : ""}</div><div class="meta">${esc(o.name)}</div><div class="meta">${o.m.kcal} kcal y ${o.m.p} g de proteína</div></button></div>`;
+      <button class="main" style="background:none;border:0;text-align:left;padding:0;color:inherit;cursor:pointer;min-height:44px" data-go="#/comida/slot/${idx}"><div class="title">${esc(slotName(m, iso))} <span class="pill">${m.time}</span>${showHint && nxt === m.slot ? ' <span class="badge">Sigue</span>' : ""}</div><div class="meta">${esc(o.name)}</div><div class="meta">${o.m.kcal} kcal y ${o.m.p} g de proteína · <span class="t-accent">${m.opts.length} opciones</span></div></button></div>`;
   }).join("");
 }
 function intake(iso) {
@@ -1385,25 +1387,85 @@ function vFood() {
   <div class="group">
     <button class="row" data-go="#/comida/menu"><div class="main"><div class="title">Menú de la semana</div></div>${I.chev}</button>
     <button class="row" data-go="#/comida/compras"><div class="main"><div class="title">Lista de compras</div></div>${I.chev}</button>
-    <button class="row" data-go="#/comida/dieta"><div class="main"><div class="title">Descargar o compartir dieta</div></div>${I.chev}</button>
+    <button class="row" data-go="#/comida/dieta"><div class="main"><div class="title">Tu dieta completa</div><div class="meta">Todas las opciones de cada comida, en PDF o texto</div></div>${I.chev}</button>
     <button class="row" data-go="#/comida/snacks"><div class="main"><div class="title">Snacks</div></div>${I.chev}</button>
     <button class="row" data-go="#/comida/guias"><div class="main"><div class="title">Guías</div></div>${I.chev}</button>
   </div>`;
 }
+/* La dieta como la da un nutriólogo: cada comida con varias opciones equivalentes, para día de entreno y de descanso */
+let dietKind = "t";
+function dietPlan(rest) {
+  return dayMeals(rest).map(m => { const time = (rest ? (m.times.r || m.times.t) : (m.times.t || m.times.r)) || m.time; return { slot: rest && m.slot === "Cena (post-entreno)" ? "Cena" : m.slot, time, opts: m.opts.map(o => optView(o, slotF(m, rest))) }; });
+}
+const macroLine = m => `${num(m.kcal)} kcal, P ${m.p} g, C ${m.c} g, G ${m.g} g`;
 function vDiet() {
-  return `${nav("Tu dieta", { back: "Comida", to: "#/comida", sub: "Menú semanal y lista de compras con tus porciones" })}${coachBox()}
+  const rest = dietKind === "r", c = planCalc(), T = rest ? c.rest : c.train, plan = dietPlan(rest);
+  return `${nav("Tu dieta", { back: "Comida", to: "#/comida", sub: "Cada comida con varias opciones equivalentes: elige la que quieras" })}
   <div class="group">
-    <button class="row" data-go="#/imprimir"><div class="main"><div class="title">Imprimir o guardar PDF</div><div class="meta">Formato ordenado para papel</div></div>${I.chev}</button>
-    <button class="row" data-act="csv"><div class="main"><div class="title">Descargar para Excel</div><div class="meta">Archivo para Excel con comidas y macros</div></div></button>
+    <button class="row" data-act="dietpdf"><div class="main"><div class="title">Descargar PDF</div><div class="meta">Plan completo con todas las opciones y la lista de compras</div></div></button>
     <button class="row" data-act="sharediet"><div class="main"><div class="title">Compartir como texto</div><div class="meta">Por mensaje, correo o notas</div></div></button>
-  </div>`;
+    <button class="row" data-act="csv"><div class="main"><div class="title">Descargar para Excel</div><div class="meta">Menú de la semana con comidas y macros</div></div></button>
+    <button class="row" data-go="#/imprimir"><div class="main"><div class="title">Ver para imprimir</div><div class="meta">El mismo plan en formato de hoja</div></div>${I.chev}</button>
+  </div>
+  <h2 class="sec">Opciones por comida</h2>
+  ${segHtml([["t", "Día de entreno"], ["r", "Día de descanso"]], dietKind, "dietk", "Tipo de día")}
+  <p class="note">Meta del día: ${macroLine({ kcal: T.kcal, p: T.p, c: T.c, g: T.g })}. Las opciones de una misma comida aportan lo mismo; cantidades en crudo salvo arroz, papa y frijol (cocidos).</p>
+  ${plan.map(m => `<h2 class="sec">${esc(m.slot)} <span class="pill">${esc(m.time)}</span></h2><div class="group">${m.opts.map((o, i) => `<div class="row top"><span class="letter">${i + 1}</span><div class="main"><div class="title">${esc(o.name)}</div><div class="meta">${o.items.map(esc).join(", ")}</div><div class="meta">${macroLine(o.m)}</div></div></div>`).join("")}</div>`).join("")}
+  ${coachBox()}`;
 }
 function dietText() {
   const c = planCalc(), nm = S.profile.name ? " de " + prop(S.profile.name) : "";
-  let t = `Menú semanal${nm}\nMeta en día de entreno: ${num(c.train.kcal)} kcal, proteína ${c.train.p} g, carbohidratos ${c.train.c} g, grasas ${c.train.g} g\n`;
-  weekMenu().forEach(d => { t += `\n${d.dn.toUpperCase()}${d.rest ? " (descanso)" : ""}, ${num(d.tot.kcal)} kcal\n` + d.meals.map(x => `• ${x.slot} (${x.time}): ${x.v.name} — ${x.v.items.join(", ")}, ${x.v.m.kcal} kcal`).join("\n") + "\n"; });
+  let t = `Plan de alimentación${nm} (1Repe+)\nElige una opción por comida; todas aportan lo mismo.\n`;
+  [[false, "DÍAS DE ENTRENO", c.train], [true, "DÍAS DE DESCANSO", c.rest]].forEach(([rest, title, T]) => {
+    t += `\n${title}: ${num(T.kcal)} kcal, proteína ${T.p} g, carbohidratos ${T.c} g, grasas ${T.g} g\n`;
+    dietPlan(rest).forEach(m => { t += `\n${m.slot} (${m.time})\n` + m.opts.map((o, i) => `${i + 1}. ${o.name}: ${o.items.join(", ")} (${o.m.kcal} kcal, P ${o.m.p} g)`).join("\n") + "\n"; });
+  });
   t += "\nLISTA DE COMPRAS (7 días)\n"; shopData().forEach(([g, it]) => { t += `${g}: ` + it.map(([n, q]) => `${n} ${q}`).join(", ") + "\n"; });
   return t.trim();
+}
+/* PDF real (no depende de imprimir, que no funciona en la app instalada en iPhone) */
+function dietPdf() {
+  const c = planCalc(), who = S.profile.name ? prop(S.profile.name) : "", g = C.goals[S.profile.goal || "recomp"], RED = [200, 32, 42], INK = [20, 21, 22], MUT = [90, 91, 94], RULE = [210, 208, 202];
+  const d = window.MiniPDF.create(), M = 42, X1 = d.W - M, top = 52; let y = top;
+  const need = h => { if (y + h > d.H - 50) { d.addPage(); y = top; } };
+  // portada compacta
+  d.text("1REPE", M, y, { size: 22, bold: true }); d.text("+", M + d.width("1REPE", 22, true) + 1, y, { size: 22, bold: true, color: RED });
+  d.text(new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" }), X1, y, { size: 9, color: MUT, align: "right" });
+  y += 26; d.text("PLAN DE ALIMENTACIÓN", M, y, { size: 18, bold: true }); y += 16;
+  d.text(`${who ? who + ", " : ""}${g.name}`, M, y, { size: 10.5, color: MUT }); y += 12; d.line(M, y, X1, y, { w: 2 }); y += 20;
+  [["Entreno", c.train], ["Descanso", c.rest]].forEach(([l, T], i) => { const x = M + i * 260; d.text(`${l.toUpperCase()}`, x, y, { size: 8.5, bold: true, color: MUT }); d.text(`${num(T.kcal)} kcal`, x, y + 18, { size: 16, bold: true }); d.text(`P ${T.p} g  ·  C ${T.c} g  ·  G ${T.g} g`, x, y + 32, { size: 9.5, color: MUT }); });
+  y += 50; d.wrap("Elige una opción por comida: todas aportan lo mismo. Cantidades en crudo salvo arroz, papa y frijol (cocidos). P = proteína, C = carbohidratos, G = grasas.", X1 - M, 9, false).forEach(l => { d.text(l, M, y, { size: 9, color: MUT }); y += 12; });
+  y += 8;
+  [[false, "DÍAS DE ENTRENO"], [true, "DÍAS DE DESCANSO"]].forEach(([rest, title], k) => {
+    if (k) { d.addPage(); y = top; }
+    need(40); d.text(title, M, y, { size: 14, bold: true, color: RED }); y += 8; d.line(M, y, X1, y, { w: 2, color: RED }); y += 18;
+    dietPlan(rest).forEach(m => {
+      need(48); d.text(m.slot.toUpperCase(), M, y, { size: 12, bold: true }); d.text(m.time, X1, y, { size: 10, color: MUT, align: "right" }); y += 7; d.line(M, y, X1, y, { w: 1.2 }); y += 15;
+      m.opts.forEach((o, i) => {
+        const ing = d.wrap(o.items.join(", "), X1 - M - 22, 9, false), h = 14 + ing.length * 11.5 + 8; need(h);
+        d.circle(M + 7, y - 3.5, 7.5, { fill: INK }); d.text(String(i + 1), M + 7, y - 0.5, { size: 8.5, bold: true, color: [243, 242, 238], align: "center" });
+        const mac = macroLine(o.m), mw = d.width(mac, 8.5, false), nm = d.wrap(o.name, X1 - M - 26 - mw - 10, 10.5, true);
+        d.text(nm[0], M + 22, y, { size: 10.5, bold: true }); d.text(mac, X1, y, { size: 8.5, color: MUT, align: "right" }); y += 13;
+        nm.slice(1).forEach(l => { d.text(l, M + 22, y, { size: 10.5, bold: true }); y += 12; });
+        ing.forEach(l => { d.text(l, M + 22, y, { size: 9, color: MUT }); y += 11.5; });
+        y += 2; d.line(M + 22, y, X1, y, { w: 0.5, color: RULE }); y += 15;
+      });
+      y += 8;
+    });
+  });
+  d.addPage(); y = top; d.text("LISTA DE COMPRAS DE LA SEMANA", M, y, { size: 14, bold: true, color: RED }); y += 8; d.line(M, y, X1, y, { w: 2, color: RED }); y += 20;
+  shopData().forEach(([t, it]) => { need(30); d.text(t.toUpperCase(), M, y, { size: 10.5, bold: true }); y += 6; d.line(M, y, X1, y, { w: 1 }); y += 14; it.forEach(([n, q]) => { need(14); d.text(n, M + 4, y, { size: 9.5 }); d.text(q, X1, y, { size: 9.5, bold: true, align: "right" }); y += 13; }); y += 8; });
+  need(40); y += 6; d.wrap("Despensa: sal, especias, limón, cebolla, cilantro, chile, salsa casera, mostaza, aceite en aerosol, té verde y agua mineral.", X1 - M, 9, false).forEach(l => { d.text(l, M, y, { size: 9, color: MUT }); y += 12; });
+  // pie de página en todas las hojas
+  const n = d.pages.length; d.pages.forEach((_, i) => { d.onPage(i); d.line(M, d.H - 36, X1, d.H - 36, { w: 0.5, color: RULE }); d.text("Son estimaciones; no sustituyen a un médico o nutriólogo. Generado con 1Repe+.", M, d.H - 24, { size: 7.5, color: MUT }); d.text(`${i + 1} / ${n}`, X1, d.H - 24, { size: 7.5, color: MUT, align: "right" }); });
+  return d.blob();
+}
+async function downloadDietPdf() {
+  let blob; try { blob = dietPdf(); } catch (e) { return toast("No se pudo crear el PDF"); }
+  const name = `dieta-1repe${S.profile.name ? "-" + S.profile.name.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") : ""}.pdf`, file = new File([blob], name, { type: "application/pdf" });
+  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: "Mi plan de alimentación" }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
+  const url = URL.createObjectURL(blob), a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000); toast("PDF descargado");
 }
 function vFoodGuides() {
   const rows = [["#/comida/guia/semaforo", "Qué comer"], ["#/comida/guia/evitar", "Qué evitar"], ["#/comida/guia/cambios", "Cambios inteligentes"], ["#/comida/guia/ideas", "Ideas de comidas"], ["#/comida/guia/fuera", "Comer fuera"], ["#/comida/guia/etiquetas", "Etiquetas y porciones"], ["#/comida/guia/prep", "Meal prep y ahorro"], ["#/comida/guia/alt", "Alternativas"], ["#/comida/reglas", "Reglas, agua y suplementos"], ["#/comida/porque", "Por qué esta dieta"]];
@@ -1423,10 +1485,10 @@ function shopData() {
   const grp = [["Proteínas", ["pollo", "bistec", "molida", "tilapia", "atun", "huevo", "huevo_c", "claras", "jamon", "panela", "yogurt", "requeson", "leche", "tofu", "soya", "lentejas", "garbanzo", "whey"]], ["Carbohidratos", ["arroz", "papa", "camote", "frijol", "avena", "tortilla", "pan", "pasta", "tostada", "platano", "fresas", "manzana"]], ["Grasas y verdura", ["aguacate", "aceite", "cacahuate", "verdura", "jicama"]]];
   const line = k => {
     const q = Math.ceil(tot[k] || 0); if (!q || !F[k]) return null; const f = F[k]; let txt;
-    if (f.unit === "pza") txt = k === "tortilla" ? `${(q * 30 / 1000).toFixed(1)} kg (≈ ${q} tortillas)` : `${q} pzas`;
+    if (f.unit === "pza") txt = k === "tortilla" ? `${(q * 30 / 1000).toFixed(1)} kg (≈ ${q} tortillas)` : `${q} ${q === 1 ? "pza" : "pzas"}`;
     else if (k === "atun") { const n = Math.ceil(q / 140); txt = `${n} ${n === 1 ? "lata" : "latas"}`; }
     else if (k === "leche") txt = q >= 1000 ? `${(Math.ceil(q / 100) / 10).toFixed(1)} L` : `${Math.ceil(q / 50) * 50} ml`;
-    else txt = q >= 1000 ? `${(Math.ceil(q / 100) / 10).toFixed(1)} kg` : `${Math.ceil(q / 50) * 50} g`;
+    else { const r = Math.ceil(q / 50) * 50; txt = r >= 1000 ? `${(Math.ceil(q / 100) / 10).toFixed(1)} kg` : `${r} g`; }
     if (k === "aceite") txt = "1 botella chica"; if (k === "whey") txt = `${q} ${q === 1 ? "scoop" : "scoops"} (opcional)`;
     return [f.name.charAt(0).toUpperCase() + f.name.slice(1), txt];
   };
@@ -1473,20 +1535,20 @@ function vFoodRules() {
   <h2 class="sec">Suplementos</h2><div class="group"><div class="prose">${C.supplements}</div></div>`;
 }
 function vPrint() {
-  const c = planCalc(), wm = weekMenu(), who = S.profile.name ? esc(prop(S.profile.name)) : "", g = C.goals[S.profile.goal || "recomp"];
+  const c = planCalc(), who = S.profile.name ? esc(prop(S.profile.name)) : "", g = C.goals[S.profile.goal || "recomp"];
   const hoy = new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
   const stat = (v, l) => `<div><b>${v}</b><span>${l}</span></div>`;
-  const days = wm.map((d, i) => `<section class="pd-day${d.rest ? " rest" : ""}"><h3><em>${i + 1}</em>${d.dn}${d.rest ? "<small>Descanso</small>" : "<small>Entreno</small>"}</h3>
-    <table><thead><tr><th>Comida</th><th>Platillo</th><th>Ingredientes</th><th class="n">kcal</th><th class="n">P</th><th class="n">C</th><th class="n">G</th></tr></thead>
-    <tbody>${d.meals.map(x => `<tr><td><b>${esc(x.slot)}</b><br><small>${esc(x.time)}</small></td><td class="dish">${esc(x.v.name)}</td><td class="ing">${x.v.items.map(esc).join(", ")}</td><td class="n">${x.v.m.kcal}</td><td class="n">${x.v.m.p}</td><td class="n">${x.v.m.c}</td><td class="n">${x.v.m.g}</td></tr>`).join("")}</tbody>
-    <tfoot><tr><td colspan="3">Total del día</td><td class="n">${num(d.tot.kcal)}</td><td class="n">${d.tot.p}</td><td class="n">${d.tot.c}</td><td class="n">${d.tot.g}</td></tr></tfoot></table></section>`).join("");
+  const kind = (rest, title) => `<section class="pd-kind"><h2 class="pd-h">${title}</h2>${dietPlan(rest).map(m => `<section class="pd-day"><h3>${esc(m.slot)}<small>${esc(m.time)}</small></h3>
+    <table><thead><tr><th>#</th><th>Opción</th><th>Ingredientes</th><th class="n">kcal</th><th class="n">P</th><th class="n">C</th><th class="n">G</th></tr></thead>
+    <tbody>${m.opts.map((o, i) => `<tr><td>${i + 1}</td><td class="dish">${esc(o.name)}</td><td class="ing">${o.items.map(esc).join(", ")}</td><td class="n">${o.m.kcal}</td><td class="n">${o.m.p}</td><td class="n">${o.m.c}</td><td class="n">${o.m.g}</td></tr>`).join("")}</tbody></table></section>`).join("")}</section>`;
   const shop = shopData().map(([t, it]) => `<div class="pd-col"><h4>${esc(t)}</h4><ul>${it.map(([n, q]) => `<li><i></i><span>${esc(n)}</span><b>${esc(q)}</b></li>`).join("")}</ul></div>`).join("");
-  return `${nav("Imprimir menú", { back: "Dieta", to: "#/comida/dieta", sub: "Elige “Guardar como PDF” al imprimir" })}
-  <div class="btn-wrap noprint"><button class="btn" data-act="print">Imprimir o guardar PDF</button></div>
-  <article class="print-doc"><header class="pd-head"><div><h2>Menú semanal${who ? "<br><span>" + who + "</span>" : ""}</h2></div><p class="pd-meta"><b>1Repe+</b><br>${esc(g.name)}<br>${hoy}</p></header>
+  return `${nav("Plan para imprimir", { back: "Dieta", to: "#/comida/dieta", sub: "Para un archivo, usa «Descargar PDF»" })}
+  <div class="btn-wrap noprint"><button class="btn" data-act="dietpdf">Descargar PDF</button></div>
+  <article class="print-doc"><header class="pd-head"><div><h2>Plan de alimentación${who ? "<br><span>" + who + "</span>" : ""}</h2></div><p class="pd-meta"><b>1Repe+</b><br>${esc(g.name)}<br>${hoy}</p></header>
   <div class="pd-stats">${stat(num(c.train.kcal), "kcal en día de entreno")}${stat(num(c.rest.kcal), "kcal en descanso")}${stat(c.train.p + " g", "proteína")}${stat(c.train.c + " g", "carbohidratos")}${stat(c.train.g + " g", "grasas")}</div>
-  <p class="pd-note">Porciones ajustadas a tu plan. Las cantidades de comida están en crudo. P = proteína, C = carbohidratos, G = grasas (en gramos).</p>
-  ${days}<section class="pd-shopwrap"><h2 class="pd-h">Lista de compras de la semana</h2><div class="pd-shop">${shop}</div><p class="pd-note">Despensa: sal, especias, limón, cebolla, cilantro, chile, salsa casera, mostaza, aceite en aerosol, té verde y agua mineral.</p></section>
+  <p class="pd-note">Elige una opción por comida; todas aportan lo mismo. Cantidades en crudo salvo arroz, papa y frijol (cocidos). P = proteína, C = carbohidratos, G = grasas (en gramos).</p>
+  ${kind(false, "Días de entreno")}${kind(true, "Días de descanso")}
+  <section class="pd-shopwrap"><h2 class="pd-h">Lista de compras de la semana</h2><div class="pd-shop">${shop}</div><p class="pd-note">Despensa: sal, especias, limón, cebolla, cilantro, chile, salsa casera, mostaza, aceite en aerosol, té verde y agua mineral.</p></section>
   <footer>Son estimaciones; no sustituyen a un médico o nutriólogo. Generado con 1Repe+.</footer></article>`;
 }
 function vShop() {
@@ -1495,10 +1557,10 @@ function vShop() {
   const line = k => {
     const q = Math.ceil((T[k] || 0) * mealScale()); if (!q) return "";
     const f = F[k]; let txt;
-    if (f.unit === "pza") txt = k === "tortilla" ? `${(q * 30 / 1000).toFixed(1)} kg (≈ ${q} tortillas)` : `${q} pzas`;
+    if (f.unit === "pza") txt = k === "tortilla" ? `${(q * 30 / 1000).toFixed(1)} kg (≈ ${q} tortillas)` : `${q} ${q === 1 ? "pza" : "pzas"}`;
     else if (k === "atun") { const n = Math.ceil(q / 140); txt = `${n} ${n === 1 ? "lata" : "latas"}`; }
     else if (k === "leche") txt = q >= 1000 ? `${(Math.ceil(q / 100) / 10).toFixed(1)} L` : `${Math.ceil(q / 50) * 50} ml`;
-    else txt = q >= 1000 ? `${(Math.ceil(q / 100) / 10).toFixed(1)} kg` : `${Math.ceil(q / 50) * 50} g`;
+    else { const r = Math.ceil(q / 50) * 50; txt = r >= 1000 ? `${(Math.ceil(q / 100) / 10).toFixed(1)} kg` : `${r} g`; }
     if (k === "aceite") txt = "1 botella chica"; if (k === "whey") txt = `${q} ${q === 1 ? "scoop" : "scoops"} (opcional)`;
     return `<div class="row"><div class="main"><div class="title">${esc(f.name.charAt(0).toUpperCase() + f.name.slice(1))}</div></div><span class="val">${txt}</span></div>`;
   };
@@ -2254,6 +2316,7 @@ function bind() {
     else if (on) { if (blockProgress(ctx.b) === ctx.b.rounds) toast("Bloque terminado"); }
     if (on && blockProgress(ctx.b) < ctx.b.rounds) startRest(ctx.b.rest, "Descanso", Clock.nextText(ctx.b));
   }));
+  $$("[data-dietk]").forEach(b => b.addEventListener("click", () => { segMove(b); dietKind = b.dataset.dietk; setTimeout(refresh, 260); }));
   $$("[data-ckind]").forEach(b => b.addEventListener("click", () => { segMove(b); S.cardioKind = b.dataset.ckind; save(); setTimeout(refresh, 260); }));
   $$("[data-ctimer]").forEach(b => b.addEventListener("click", () => { startRest(+b.dataset.ctimer, "Cardio"); vibrate(10); }));
   $$("[data-cdone]").forEach(b => b.addEventListener("click", () => {
@@ -2482,6 +2545,7 @@ function act(a, el) {
       try { if (navigator.share) { await navigator.share({ title: "Mi dieta", text }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
       try { await navigator.clipboard.writeText(text); toast("Dieta copiada: pégala donde quieras"); } catch (e) { toast("No se pudo compartir"); }
     })();
+  } else if (a === "dietpdf") { downloadDietPdf();
   } else if (a === "print") {
     try { window.print(); } catch { toast("No se pudo abrir la impresión"); }
   } else if (a === "csv") {
@@ -2503,7 +2567,7 @@ if (window.Store && Store.available()) {
   if (!LS.getItem(KEY)) Store.getKV("backup").then(b => { if (b) { try { const n = normalizeState(JSON.parse(b)); if (!n.profile || !n.start) return; S = n; LS.setItem(KEY, JSON.stringify(n)); _plan = { k: "", v: null }; toast("Recuperamos tus datos"); go("#/hoy"); if (parseHash()[0] === "hoy") render(); } catch {} } }).catch(() => {});
   if (S.start) Store.persist();
 }
-if (location.hostname === "localhost" && LS.getItem("reto90.debug")) window.__reto = { exAvail, okLevel, MUSC_PREF, nextAction, suggestions, drive, get S() { return S; }, set S(v) { S = v; }, MEALS, weekMenu, shopData, avoidSet, ALG, cons, SESSIONS, planCalc, D, C, blocksOf, altsFor, suggest, equip, render, calSuggestion, weightTrend, optItems, weekNum, estMin, effortTag, incFor, liftCap, famOf, swapKey, navyBf, bodyFat, expressBlocks, shortDays, reviewCount, exProgress, migrateSwaps, routineAdvice, applyAdapt, exTrend, phaseOf, weekLabel, blockOf, observedTdee, adherence, autoReview, strengthUp, avgSteps, deloadWeek, reviewAdvice, suggestions, sessMin, MUSC_MIN, volOf };
+if (location.hostname === "localhost" && LS.getItem("reto90.debug")) window.__reto = { exAvail, okLevel, MUSC_PREF, nextAction, suggestions, drive, get S() { return S; }, set S(v) { S = v; }, MEALS, weekMenu, shopData, avoidSet, ALG, cons, SESSIONS, planCalc, D, C, blocksOf, altsFor, suggest, equip, render, calSuggestion, weightTrend, optItems, dietPlan, dietPdf, dietText, weekNum, estMin, effortTag, incFor, liftCap, famOf, swapKey, navyBf, bodyFat, expressBlocks, shortDays, reviewCount, exProgress, migrateSwaps, routineAdvice, applyAdapt, exTrend, phaseOf, weekLabel, blockOf, observedTdee, adherence, autoReview, strengthUp, avgSteps, deloadWeek, reviewAdvice, suggestions, sessMin, MUSC_MIN, volOf };
 const applyTheme = () => {
   const t = S.theme === "light" || S.theme === "dark" ? S.theme : null, root = document.documentElement;
   if (t) root.dataset.theme = t; else delete root.dataset.theme;
