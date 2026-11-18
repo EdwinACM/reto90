@@ -15,23 +15,7 @@
 
   /* ---------- ilustración de marca (se tiñe con el color de acento) ---------- */
   function hero(kind) {
-    const cx = 262, cy = 108, ticks = Array.from({ length: 90 }, (_, i) => { const a = (i / 90) * Math.PI * 2 - Math.PI / 2, r1 = 62, r2 = i % 10 === 0 ? 80 : 74; return `<line x1="${(cx + Math.cos(a) * r1).toFixed(1)}" y1="${(cy + Math.sin(a) * r1).toFixed(1)}" x2="${(cx + Math.cos(a) * r2).toFixed(1)}" y2="${(cy + Math.sin(a) * r2).toFixed(1)}" stroke="#fff" stroke-width="${i % 10 === 0 ? 3 : 2}" stroke-linecap="round" opacity="${i < 62 ? (i % 10 === 0 ? 1 : .92) : .28}"/>`; }).join("");
-    return `<svg class="hero ${kind || ""}" viewBox="0 0 360 216" role="img" aria-label="Ilustración: una barra con discos y un anillo de progreso" preserveAspectRatio="xMidYMid slice">
-      <defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:color-mix(in srgb, var(--accent) 82%, #fff)"/><stop offset=".55" style="stop-color:var(--accent)"/><stop offset="1" style="stop-color:color-mix(in srgb, var(--accent) 42%, #000)"/></linearGradient>
-      <radialGradient id="hl" cx=".2" cy=".1" r=".9"><stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
-      <linearGradient id="hp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity=".72"/></linearGradient></defs>
-      <rect width="360" height="216" fill="url(#hg)"/><rect width="360" height="216" fill="url(#hl)"/>
-      <circle cx="${cx}" cy="${cy}" r="96" fill="#000" opacity=".12"/>
-      ${ticks}
-      <text x="${cx}" y="${cy + 15}" text-anchor="middle" font-size="42" font-weight="800" fill="#fff" font-family="-apple-system, Roboto, Helvetica, Arial, sans-serif" letter-spacing="-1.5">R90</text>
-      <g transform="rotate(-14 96 150)">
-        <rect x="10" y="146" width="176" height="9" rx="4.5" fill="url(#hp)"/>
-        <rect x="52" y="104" width="16" height="93" rx="6" fill="url(#hp)"/><rect x="34" y="118" width="14" height="65" rx="5" fill="url(#hp)" opacity=".85"/>
-        <rect x="128" y="104" width="16" height="93" rx="6" fill="url(#hp)"/><rect x="148" y="118" width="14" height="65" rx="5" fill="url(#hp)" opacity=".85"/>
-        <rect x="14" y="140" width="12" height="21" rx="4" fill="#000" opacity=".22"/><rect x="170" y="140" width="12" height="21" rx="4" fill="#000" opacity=".22"/>
-      </g>
-      <path d="M0 196 C 60 178, 110 206, 170 190 S 290 176, 360 196 L360 216 L0 216Z" fill="#000" opacity=".16"/>
-    </svg>`;
+    return `<div class="hero ${kind || ""}"><${kind === "big" ? "h1 id=\"lt\"" : "div"} class="brand" aria-label="1Repe+">1REPE<em>+</em></${kind === "big" ? "h1" : "div"}><div class="hero-lights" aria-hidden="true"><i></i><i></i><i></i></div></div>`;
   }
 
   /* ---------- indicador de nube ---------- */
@@ -135,7 +119,7 @@
   const hintLine = t => `<p class="hint" style="margin:0">${t}</p>`;
   function flow(sub) {
     const nav = (t, s) => R().nav(t, { sub: s, back: sub === "entrar" || sub === "crear" ? "Inicio" : undefined, to: "#/acceso/bienvenida" }), st = C.state.status;
-    if (sub === "cargando") { if (st !== "boot") { setTimeout(() => R().go("#/hoy")); return ""; } return `<div class="welcome"><div class="brand">R90</div><p class="tag-l">Conectando…</p></div>`; }
+    if (sub === "cargando") { if (st !== "boot") { setTimeout(() => R().go("#/hoy")); return ""; } return `<div class="welcome"><h1 class="brand" id="lt">1REPE<em>+</em></h1><p class="tag-l">Conectando…</p></div>`; }
     if (sub === "error") return `${nav("No pudimos conectar", esc(C.state.error || "Revisa tu internet."))}<div class="btn-wrap"><button class="btn" data-act="acct-retry">Reintentar</button></div>`;
     if (sub === "bloqueado") return `${nav("Cuenta bloqueada", "Habla con el administrador para recuperar el acceso.")}<div class="btn-wrap"><button class="btn quiet" data-act="acct-out">Cerrar sesión</button></div>`;
     if (sub === "bienvenida") {
@@ -326,7 +310,7 @@
       const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(JSON.stringify({ at: new Date().toISOString(), users: data }))));
       const b64 = u => btoa(String.fromCharCode(...u));
       const out = JSON.stringify({ v: 1, kdf: "PBKDF2-SHA256", iter: 310000, salt: b64(salt), iv: b64(iv), data: b64(ct) });
-      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([out], { type: "application/json" })); a.download = `r90-respaldo-${new Date().toISOString().slice(0, 10)}.enc.json`; a.click(); ls.set("reto90.bk", String(Date.now())); try { await C.rpc("admin_mark_backup"); } catch (e) {} toast("Respaldo cifrado descargado"); R().refresh();
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([out], { type: "application/json" })); a.download = `1repe-respaldo-${new Date().toISOString().slice(0, 10)}.enc.json`; a.click(); ls.set("reto90.bk", String(Date.now())); try { await C.rpc("admin_mark_backup"); } catch (e) {} toast("Respaldo cifrado descargado"); R().refresh();
     } catch (e) { toast(C.human(e)); }
   }
 
@@ -337,7 +321,7 @@
   };
   async function lockEnable() {
     try {
-      const cred = await navigator.credentials.create({ publicKey: { rp: { name: "R90" }, user: { id: crypto.getRandomValues(new Uint8Array(16)), name: (C.state.me && C.state.me.username) || "reto90", displayName: "R90" }, challenge: crypto.getRandomValues(new Uint8Array(32)), pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }], authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required", residentKey: "discouraged" }, timeout: 60000 } });
+      const cred = await navigator.credentials.create({ publicKey: { rp: { name: "1Repe+" }, user: { id: crypto.getRandomValues(new Uint8Array(16)), name: (C.state.me && C.state.me.username) || "1repe", displayName: "1Repe+" }, challenge: crypto.getRandomValues(new Uint8Array(32)), pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }], authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required", residentKey: "discouraged" }, timeout: 60000 } });
       ls.set("reto90.lock", b64u.to(cred.rawId)); toast("Bloqueo activado"); return true;
     } catch (e) { toast("No se pudo activar el bloqueo"); return false; }
   }
@@ -349,11 +333,12 @@
   function showLock() {
     if (!ls.get("reto90.lock") || $("#lockscr")) return;
     const d = document.createElement("div"); d.id = "lockscr"; d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true"); d.setAttribute("aria-label", "App bloqueada");
-    d.innerHTML = `<div class="lk-in"><h1>R90</h1><p>App bloqueada</p><button class="btn" data-lk="1">Desbloquear</button><button class="btn quiet" data-lk="2">Cerrar sesión</button></div>`;
+    const inert = on => ["#app", "#tabs"].forEach(q => { const el = $(q); if (el) el.inert = on; }); inert(true);   // la app de fondo no se puede recorrer con teclado ni lector
+    d.innerHTML = `<div class="lk-in"><h1 class="brand">1REPE<em>+</em></h1><p>App bloqueada</p><button class="btn" data-lk="1">Desbloquear</button><button class="btn quiet" data-lk="2">Cerrar sesión</button></div>`;
     document.body.appendChild(d);
-    const open = async () => { if (await lockAsk()) d.remove(); };
+    const open = async () => { if (await lockAsk()) { inert(false); d.remove(); } };
     $("[data-lk='1']", d).addEventListener("click", open);
-    $("[data-lk='2']", d).addEventListener("click", async () => { if (confirm("Se borrarán los datos de este dispositivo (siguen en la nube). ¿Cerrar sesión?")) { await signOut(); d.remove(); } });
+    $("[data-lk='2']", d).addEventListener("click", async () => { if (confirm("Se borrarán los datos de este dispositivo (siguen en la nube). ¿Cerrar sesión?")) { await signOut(); inert(false); d.remove(); } });
     open();
   }
   document.addEventListener("visibilitychange", () => {
@@ -397,7 +382,7 @@
       }
       else if (a === "acct-copy") { try { await navigator.clipboard.writeText(AD.code); toast("Código copiado"); } catch (e) { toast("Selecciona y copia el código"); } }
       else if (a === "acct-share") {
-        const msg = `Hola, ya puedes crear tu cuenta en R90: ${location.origin}${location.pathname.replace(/index\.html$/, "")}\nToca “Crear mi cuenta”, elige el usuario ${nm(AD.codeUser)} y escribe este código: ${AD.code}`;
+        const msg = `Hola, ya puedes crear tu cuenta en 1Repe+: ${location.origin}${location.pathname.replace(/index\.html$/, "")}\nToca “Crear mi cuenta”, elige el usuario ${nm(AD.codeUser)} y escribe este código: ${AD.code}`;
         try { if (navigator.share) await navigator.share({ text: msg }); else { await navigator.clipboard.writeText(msg); toast("Mensaje copiado"); } } catch (e) { if (e && e.name !== "AbortError") toast("No se pudo enviar. Copia el código."); }
       }
       else if (a === "acct-revinv") { if (confirm("¿Quitar este usuario pendiente? Su código dejará de funcionar.")) { await C.rpc("admin_revoke_invite", { p_id: el.dataset.id }); adminRefresh(); } }
@@ -424,7 +409,7 @@
       if (!window.PublicKeyCredential || !navigator.credentials || !(await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())) return true;   // sin biometría: queda la confirmación normal
       const id = ls.get("reto90.lock") || ls.get("reto90.bio");
       if (!id) {
-        const c = await navigator.credentials.create({ publicKey: { rp: { name: "R90" }, user: { id: crypto.getRandomValues(new Uint8Array(16)), name: (C.state.me && C.state.me.username) || "r90", displayName: "R90" }, challenge: crypto.getRandomValues(new Uint8Array(32)), pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }], authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required", residentKey: "discouraged" }, timeout: 60000 } });
+        const c = await navigator.credentials.create({ publicKey: { rp: { name: "1Repe+" }, user: { id: crypto.getRandomValues(new Uint8Array(16)), name: (C.state.me && C.state.me.username) || "1repe", displayName: "1Repe+" }, challenge: crypto.getRandomValues(new Uint8Array(32)), pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }], authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required", residentKey: "discouraged" }, timeout: 60000 } });
         ls.set("reto90.bio", b64u.to(c.rawId)); return true;
       }
       await navigator.credentials.get({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)), allowCredentials: [{ type: "public-key", id: b64u.from(id) }], userVerification: "required", timeout: 60000 } });
@@ -468,7 +453,7 @@
   function notif() {
     const R_ = R(), head = R_.nav("Notificaciones", { back: "Ajustes", to: "#/plan", sub: "Avisos en este dispositivo, aunque la app esté cerrada." });
     if (!PS.sup || !window.isSecureContext) return `${head}<div class="group"><div class="empty">Este navegador no admite notificaciones. Prueba con Chrome o Safari actualizado.</div></div>`;
-    if (isIOS && !standalone) return `${head}<div class="group"><div class="prose"><p>En iPhone y iPad las notificaciones solo funcionan con la app instalada.</p><p>Toca Compartir y elige “Añadir a pantalla de inicio”. Abre R90 desde ese icono y vuelve aquí.</p></div></div>`;
+    if (isIOS && !standalone) return `${head}<div class="group"><div class="prose"><p>En iPhone y iPad las notificaciones solo funcionan con la app instalada.</p><p>Toca Compartir y elige “Añadir a pantalla de inicio”. Abre 1Repe+ desde ese icono y vuelve aquí.</p></div></div>`;
     if (!PS.ready || Date.now() - (PS.at || 0) > 30000) { PS.at = Date.now(); pushLoad(); }
     if (!PS.ready) return `${head}<div class="group"><div class="empty">Un momento…</div></div>`;
     const p = PS.prefs, me = C.state.me || {};

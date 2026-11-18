@@ -2,26 +2,28 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; style-src-elem 'self'; img-src 'self' blob: data:; connect-src 'self' https://lplmjqfkajxnapnaslsd.supabase.co https://api.pwnedpasswords.com; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' https://lplmjqfkajxnapnaslsd.supabase.co https://api.pwnedpasswords.com; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; font-src 'self'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f2f2f7">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f3f2ee">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0e0f10">
 <meta name="color-scheme" content="light dark">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="R90">
-<meta name="description" content="Rutina, comida y seguimiento para perder grasa y ganar músculo.">
+<meta name="apple-mobile-web-app-title" content="1Repe+">
+<meta name="description" content="Tu rutina diaria, tu comida y tu progreso, ajustados cada semana con tus datos.">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=11">
-<link rel="icon" type="image/png" href="icons/icon-192.png?v=11">
-<title>R90</title>
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=13">
+<link rel="icon" type="image/png" href="icons/icon-192.png?v=13">
+<title>1Repe+</title>
+<link rel="preload" href="fonts/barlow-condensed-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/barlow-condensed-600.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div id="app"></div>
-<noscript><p style="padding:24px;font-family:sans-serif">Activa las funciones de tu navegador para abrir esta app.</p></noscript>
+<noscript><p style="padding:24px">Activa las funciones de tu navegador para abrir esta app.</p></noscript>
 <nav id="tabs" aria-label="Navegación principal"></nav>
 <div id="toast" role="status"></div>
 <script src="boot.js"></script>
@@ -30,6 +32,7 @@
 <script src="content.js"></script>
 <script src="cloud.js"></script>
 <script src="account.js"></script>
+<script src="clock.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

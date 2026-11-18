@@ -5,7 +5,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; style-src-elem 'self'; img-src 'self' blob: data:; connect-src 'self' https://lplmjqfkajxnapnaslsd.supabase.co https://api.pwnedpasswords.com; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'"
+          "value": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' https://lplmjqfkajxnapnaslsd.supabase.co https://api.pwnedpasswords.com; manifest-src 'self'; worker-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'"
         },
         {
           "key": "X-Content-Type-Options",
@@ -21,7 +21,7 @@
         },
         {
           "key": "Permissions-Policy",
-          "value": "geolocation=(), microphone=(), payment=(), usb=(), interest-cohort=()"
+          "value": "geolocation=(), microphone=(), camera=(), payment=(), usb=(), bluetooth=(), serial=(), display-capture=(), interest-cohort=()"
         },
         {
           "key": "Cross-Origin-Opener-Policy",

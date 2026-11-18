@@ -1,9 +1,9 @@
 /*
-  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; style-src-elem 'self'; img-src 'self' blob: data:; connect-src 'self' https://lplmjqfkajxnapnaslsd.supabase.co https://api.pwnedpasswords.com; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' https://lplmjqfkajxnapnaslsd.supabase.co https://api.pwnedpasswords.com; manifest-src 'self'; worker-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: no-referrer
-  Permissions-Policy: geolocation=(), microphone=(), payment=(), usb=(), interest-cohort=()
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), bluetooth=(), serial=(), display-capture=(), interest-cohort=()
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
